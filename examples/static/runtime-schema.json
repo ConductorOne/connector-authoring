@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "name": "static",
+  "description": "Static test connector that returns hardcoded resource types, resources, entitlements, and grants. Requires no configuration.",
+  "runtime": {
+    "connector": "connector.js",
+    "config_schema": {
+      "fields": []
+    }
+  }
+}
