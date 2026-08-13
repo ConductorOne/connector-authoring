@@ -1,12 +1,46 @@
 # connector-authoring
 
-TypeScript type definitions for the ConductorOne connector-authoring SDK.
+Public TypeScript declarations and examples for ConductorOne connector
+authoring.
 
-This repository publishes the `.d.ts` declaration files for the three modules
-a connector author can import — `@baton/runtime`, `@baton/helpers`, and
-`@baton/types`. ConductorOne fetches these definitions and feeds them to the
-in-app authoring editor, so authors get real diagnostics and IntelliSense for
-the SDK surface instead of unresolved-module errors.
+## Type declarations
 
-These are **declarations only**. The implementations are provided by the
-connector runtime at execution time; connector bundles never include them.
+The [`baton`](./baton) directory declares the modules available to authored
+connectors:
+
+- [`@baton/runtime`](./baton/runtime.d.ts) defines the connector runtime,
+  resource-type, traversal, and transport APIs.
+- [`@baton/helpers`](./baton/helpers.d.ts) defines helpers for constructing
+  identifiers, annotations, and common connector values.
+- [`@baton/types`](./baton/types.d.ts) defines connector resources,
+  entitlements, grants, traits, and related data types.
+
+These files contain declarations only. Runtime implementations are provided by
+the hosted ConductorOne product; connector source imports the modules but does
+not bundle their implementations. This repository does not by itself establish
+compatibility with a particular hosted runtime.
+
+## Examples
+
+[`examples/static`](./examples/static) is a neutral, configuration-free sync
+example backed by hardcoded data. It demonstrates:
+
+- user, group, and role resource types;
+- resource traversal with `walk`;
+- entitlements and grants from groups and roles to users; and
+- the capabilities, configuration, and runtime schema files used by an
+  authored connector.
+
+The example does not call an external API or demonstrate configured
+transports. Its purpose is to show the declaration surface and data model
+without depending on an external system.
+
+## Typechecking
+
+Install the pinned development dependency and typecheck the static example
+against the declarations:
+
+```sh
+npm ci
+npm run typecheck
+```
