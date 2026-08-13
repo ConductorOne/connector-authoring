@@ -41,6 +41,6 @@ Install the pinned development dependency and typecheck the static example
 against the declarations:
 
 ```sh
-npm ci
+npm ci --ignore-scripts --audit=false --fund=false
 npm run typecheck
 ```
