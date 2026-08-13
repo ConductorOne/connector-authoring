@@ -20,5 +20,5 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run typecheck
+      - run: npm ci --ignore-scripts --audit=false --fund=false
+      - run: npm run --ignore-scripts typecheck
