@@ -20,25 +20,40 @@ the hosted ConductorOne product; connector source imports the modules but does
 not bundle their implementations. This repository does not by itself establish
 compatibility with a particular hosted runtime.
 
+## Declarative execution model
+
+```text
+config + auth -> registered transport -> node outputs/slots -> walk mappings
+              -> resource types (resources, entitlements, grants)
+```
+
+Authored TypeScript declares a graph. `http.v1(...)` declares a transport,
+`node.run` returns an execution descriptor, slots carry returned rows, and
+`walk` maps those rows into ConductorOne values. The hosted runtime owns
+execution and pagination.
+
+Config and authentication values remain opaque references that the hosted
+runtime resolves. Connector code must not inspect or log secret values. Do not
+use direct `fetch` calls or hand-written pagination loops in authored code.
+
 ## Examples
 
-[`examples/static`](./examples/static) is a neutral, configuration-free sync
-example backed by hardcoded data. It demonstrates:
+- [`examples/static`](./examples/static) is a neutral, configuration-free sync
+  example backed by hardcoded data. It demonstrates local resource,
+  entitlement, and grant mappings without transport, authentication, or
+  pagination.
+- [`examples/http`](./examples/http) is a compile-only fictional Directory API
+  example. It demonstrates public and secret config, basic authentication,
+  transport registration, offset pagination, nodes, slots, users, groups, a
+  membership entitlement, and grants. See its
+  [documented response contract](./examples/http/README.md).
 
-- user, group, and role resource types;
-- resource traversal with `walk`;
-- entitlements and grants from groups and roles to users; and
-- the capabilities, configuration, and runtime schema files used by an
-  authored connector.
-
-The example does not call an external API or demonstrate configured
-transports. Its purpose is to show the declaration surface and data model
-without depending on an external system.
+Neither example calls a live service as part of this repository's checks.
 
 ## Typechecking
 
-Install the pinned development dependency and typecheck the static example
-against the declarations:
+Install the pinned development dependency and typecheck the examples against
+the declarations:
 
 ```sh
 npm ci --ignore-scripts --audit=false --fund=false

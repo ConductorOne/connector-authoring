@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "name": "http-directory",
+  "description": "Fictional declarative HTTP directory example.",
+  "runtime": {
+    "connector": "connector.js",
+    "config_schema": {
+      "display_name": "Directory API",
+      "fields": [
+        {
+          "name": "base-url",
+          "type": "string",
+          "required": true,
+          "display_name": "Base URL",
+          "description": "Full Directory API base URL without a trailing slash.",
+          "placeholder": "https://directory.example"
+        },
+        {
+          "name": "account-email",
+          "type": "string",
+          "required": true,
+          "display_name": "Account email",
+          "description": "Account email used as the basic-auth username.",
+          "placeholder": "connector@example.com"
+        },
+        {
+          "name": "api-token",
+          "type": "string",
+          "required": true,
+          "is_secret": true,
+          "display_name": "API token",
+          "description": "API token used as the basic-auth password.",
+          "placeholder": "Enter API token"
+        }
+      ]
+    }
+  }
+}
