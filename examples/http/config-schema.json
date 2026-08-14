@@ -1,0 +1,41 @@
+{
+  "fields": [
+    {
+      "name": "base-url",
+      "displayName": "Base URL",
+      "description": "Full Directory API base URL without a trailing slash.",
+      "placeholder": "https://directory.example",
+      "isRequired": true,
+      "stringField": {
+        "rules": {
+          "isRequired": true
+        }
+      }
+    },
+    {
+      "name": "account-email",
+      "displayName": "Account email",
+      "description": "Account email used as the basic-auth username.",
+      "placeholder": "connector@example.com",
+      "isRequired": true,
+      "stringField": {
+        "rules": {
+          "isRequired": true
+        }
+      }
+    },
+    {
+      "name": "api-token",
+      "displayName": "API token",
+      "description": "API token used as the basic-auth password.",
+      "placeholder": "Enter API token",
+      "isRequired": true,
+      "isSecret": true,
+      "stringField": {
+        "rules": {
+          "isRequired": true
+        }
+      }
+    }
+  ]
+}
