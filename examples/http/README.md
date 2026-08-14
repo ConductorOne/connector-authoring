@@ -36,5 +36,12 @@ The connector declares a graph:
 5. `connector({ transports: {directory} })` registers the same transport
    object referenced by every node.
 
+The companion files describe how the graph is hosted:
+
+- `capabilities.json` declares connector and resource-type capabilities.
+- `config-schema.json` declares the tenant configuration form.
+- `runtime-schema.json` declares the hosted bundle entrypoint and runtime
+  configuration contract.
+
 This example is read-only. It declares sync surfaces and emits membership
 entitlements and grants, but it does not implement grant or revoke operations.
