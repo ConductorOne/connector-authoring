@@ -414,8 +414,9 @@ export declare function collect<S extends Slot<object, any>>(
 export declare const scope: Scope;
 
 /**
- * Low-level config reference primitive used by generated code and advanced internals.
- * Prefer generated connector config accessors from `config.generated.ts` in authored connectors.
+ * Create an opaque reference to a connector configuration field. The hosted
+ * runtime resolves its value. In authored connectors, cast the reference to
+ * PublicConfigField or SecretConfigField to match the field's schema declaration.
  */
 export declare function config<Name extends string = string>(
   name: Name,

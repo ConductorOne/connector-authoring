@@ -31,9 +31,9 @@ type DirectoryUser = {id: string; name: string; email: string; active: boolean}
 type DirectoryGroup = {id: string; name: string}
 type DirectoryMember = {userId: string}
 
-// These casts classify low-level config references as public or secret;
-// generated accessors normally carry this typing. The values remain opaque
-// references and are resolved only by the hosted runtime.
+// These casts give opaque config references the public or secret types required
+// by the transport. Keep them aligned with the corresponding fields in both
+// configuration schemas; values are resolved only by the hosted runtime.
 const baseUrl = config("base-url") as PublicConfigField<string, "base-url">
 const accountEmail = config("account-email") as PublicConfigField<string, "account-email">
 const apiToken = config("api-token") as SecretConfigField<string, "api-token">
