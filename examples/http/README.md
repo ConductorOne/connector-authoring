@@ -24,6 +24,11 @@ The fictional endpoints are:
 - Pagination uses the `offset` and `limit` query parameters; responses carry
   `offset`, `limit`, and `total`.
 
+`config-schema.json` and `runtime-schema.json`'s `runtime.config_schema`
+declare the same tenant inputs using different JSON shapes. Keep their field
+names and UI/security metadata aligned; do not copy the camelCase
+configuration-proto shape into the snake_case runtime schema.
+
 The connector declares a graph:
 
 1. `config(...)` creates opaque public and secret references.
