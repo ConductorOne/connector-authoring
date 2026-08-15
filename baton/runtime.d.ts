@@ -233,10 +233,6 @@ export interface SecretConfigField<T = unknown, Name extends string = string>
   readonly [secretConfigFieldBrand]: true;
 }
 
-/**
- * A runtime-owned transport declaration. Config and authentication members
- * remain unresolved references in authored code.
- */
 export interface Transport {
   readonly kind?: "transport";
   readonly name?: string;
@@ -414,9 +410,8 @@ export declare function collect<S extends Slot<object, any>>(
 export declare const scope: Scope;
 
 /**
- * Create an opaque reference to a connector configuration field. The hosted
- * runtime resolves its value. In authored connectors, cast the reference to
- * PublicConfigField or SecretConfigField to match the field's schema declaration.
+ * Low-level config reference primitive used by generated code and advanced internals.
+ * Prefer generated connector config accessors from `config.generated.ts` in authored connectors.
  */
 export declare function config<Name extends string = string>(
   name: Name,
@@ -559,10 +554,11 @@ export interface WalkPagination {
 export type PaginationPath = readonly [string, ...string[]];
 
 /**
- * Node-level pagination contract. Authors declare the policy and response
- * paths; the hosted runtime advances pages. The discriminant is `kind`; each
- * kind requires the fields the runtime reads, so a typo or missing parameter
- * is a compile error instead of a silently wrong request.
+ * Node-level pagination contract, shared verbatim by the JS engine
+ * (runtime/engine/bootstrap.ts) and the Go shaping host
+ * (pkg/jsruntime/response_runtime.go). The discriminant is `kind`; each kind
+ * requires the fields the engines actually read, so a typo or a missing
+ * param is a compile error instead of a silently wrong request.
  */
 interface PaginationSpecBase {
   /**
@@ -1953,11 +1949,6 @@ export type AuthoredResourceTypeSpec = ResourceTypeBaseSpec & {
 
 export interface ConnectorSpec {
   readonly metadata?: Record<string, unknown>;
-  /**
-   * Registers every transport referenced by a node, using the same object
-   * identity. Omitting a referenced transport can typecheck but fails when the
-   * connector is invoked.
-   */
   readonly transports?: Record<string, unknown>;
   readonly actions?: Record<string, unknown>;
   readonly resourceTypes?: readonly AuthoredResourceTypeSpec[];
@@ -1970,11 +1961,6 @@ export interface ConnectorSpec {
   readonly lint?: ValidationDirective;
 }
 
-/**
- * Declares an operation in the connector graph. `run` returns one or more
- * execution descriptors; the hosted runtime performs I/O; `result` maps the
- * returned data to output slots. Do not call `fetch` or manually page here.
- */
 export declare function node<
   const O extends Record<string, OutputRef>,
   const R extends ActionRunShape<Record<never, never>>,
@@ -2017,9 +2003,7 @@ export declare function node<
 }): ActionSpec<I, O, R>;
 
 /**
- * walk() declares a terminal mapping from supplied or runtime values to
- * resources, entitlements, or grants. The hosted runtime evaluates its
- * declared nodes and transport descriptors.
+ * walk() builds a terminal graph walker.
  *
  * Both input and output types are inferred from the spec:
  * `I` comes from `from`, and `TOut` comes from the `to` function's return
@@ -2122,11 +2106,6 @@ export declare const auth: {
   bearer(value: AuthResolvedValue): RuntimeValueExpression;
 };
 
-/**
- * Declarative HTTP authentication. Public and secret config values are opaque
- * runtime references; authored code must not inspect, transform, or log secret
- * values.
- */
 export type HttpAuthSpec =
   | {
       name?: string;
@@ -2245,10 +2224,6 @@ export type HttpAuthSpec =
     };
 
 export declare const http: {
-  /**
-   * Declares an HTTP transport. Verb calls build execution expressions; they
-   * do not send requests immediately.
-   */
   v1(spec: {
     baseUrl?: PublicConfigString;
     base_url?: PublicConfigString;
