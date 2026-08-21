@@ -140,54 +140,11 @@ export interface TransportCallResult {
 // directly rather than regexing the message string;
 // the prefix is stable but subject to future evolution.
 //
-// sync capabilities throw a native Go error whose
-// message is the same "<capability>: <message>"
-// string; the structured fields are not yet
-// surfaced to JS on the sync path.
-
-export interface CapabilityArgs {
-  "cache.getMany": CacheGetManyArgs;
-  "cache.setMany": CacheSetManyArgs;
-  "config.get": ConfigGetArgs;
-  "loadFusedSiblingResponses": LoadFusedSiblingResponsesArgs;
-  "loadShapedResponse": LoadShapedResponseArgs;
-  "log.debug": LogArgs;
-  "log.error": LogArgs;
-  "log.info": LogArgs;
-  "log.warn": LogArgs;
-  "phase.observe": PhaseObserveArgs;
-  "phase.wants": PhaseWantsArgs;
-  "policy.globalConcurrency": PolicyGlobalConcurrencyArgs;
-  "policy.nodeConcurrency": PolicyNodeConcurrencyArgs;
-  "project": ProjectArgs;
-  "shapeResponse": ShapeResponseArgs;
-  "sleep": SleepArgs;
-  "transport.query": TransportCallArgs;
-  "transport.request": TransportCallArgs;
-  "transport.search": TransportCallArgs;
-}
-
-export interface CapabilityResults {
-  "cache.getMany": CacheGetManyResult;
-  "cache.setMany": CacheSetManyResult;
-  "config.get": unknown;
-  "loadFusedSiblingResponses": LoadFusedSiblingResponsesResult;
-  "loadShapedResponse": LoadShapedResponseResult;
-  "log.debug": LogResult;
-  "log.error": LogResult;
-  "log.info": LogResult;
-  "log.warn": LogResult;
-  "phase.observe": PhaseObserveResult;
-  "phase.wants": boolean;
-  "policy.globalConcurrency": PolicyGlobalConcurrencyResult;
-  "policy.nodeConcurrency": PolicyNodeConcurrencyResult;
-  "project": unknown;
-  "shapeResponse": unknown;
-  "sleep": SleepResult;
-  "transport.query": TransportCallResult;
-  "transport.request": TransportCallResult;
-  "transport.search": TransportCallResult;
-}
+// sync capabilities throw the same plain object shape
+// (no native Error): `e instanceof Error` is false, `e.stack`
+// is undefined, and `String(e)` renders the object. Read
+// `e.name` / `e.message` / `e.code` / `e.capability`
+// directly.
 
 export interface HostCapabilities {
   cache: {
@@ -221,5 +178,4 @@ export interface HostCapabilities {
     request(args: TransportCallArgs): Promise<TransportCallResult>;
     search(args: TransportCallArgs): Promise<TransportCallResult>;
   };
-  call<A extends keyof CapabilityArgs>(id: A, args: CapabilityArgs[A]): Promise<CapabilityResults[A]>;
 }
