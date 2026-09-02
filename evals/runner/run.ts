@@ -14,7 +14,7 @@ import {buildPrompt, createAgentTask, waitForAgentTask} from "./agent.ts"
 import {parseStream, pollStreamIncrementally} from "./stream.ts"
 import {collect} from "./collect.ts"
 import {SKIPPED_STAGES, STAGES, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
-import {scoreRun, type StageRow} from "./score.ts"
+import {scoreRun} from "./score.ts"
 import {writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
 
 const HANDOFF_FIELDS: (keyof Handoff)[] = [
@@ -77,7 +77,7 @@ function parseArgs(args: string[]): CliArgs {
       case "--help":
       case "-h":
         usage()
-        exit(1)
+        exit(0)
       default:
         stderr.write(`unknown argument: ${a}\n`)
         usage()
@@ -88,39 +88,71 @@ function parseArgs(args: string[]): CliArgs {
     usage()
     exit(1)
   }
+  // --ref is interpolated into the eval-env setup script; restrict to a safe
+  // charset (branch/SHA/tag) to prevent shell injection (locked L26).
+  if (!/^[A-Za-z0-9._/-]+$/.test(out.ref)) {
+    stderr.write(`ERROR: invalid --ref: ${out.ref} (must match [A-Za-z0-9._/-]+)\n`)
+    exit(1)
+  }
   return out
 }
 
 function runIdFor(scenario: Scenario, now: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0")
   const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`
-  return `evals-${scenario.id}-${stamp}`
+  // Millisecond suffix keeps same-second runs distinct (locked L19).
+  return `evals-${scenario.id}-${stamp}-${String(now.getUTCMilliseconds()).padStart(3, "0")}`
 }
 
 function handoffComplete(h: Handoff): boolean {
   return HANDOFF_FIELDS.every((f) => typeof h[f] === "string" && (h[f] as string).length > 0)
 }
 
-async function readHandoff(handoffPath: string, opts: CallOpts): Promise<Handoff | null> {
-  try {
-    const res = (await fsRead(handoffPath, opts)) as Record<string, unknown>
-    const content = res.content as string | undefined
-    if (typeof content !== "string" || content.length === 0) return null
-    const parsed = JSON.parse(content) as unknown
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
-    return parsed as Handoff
-  } catch {
-    return null
-  }
+// Reject template placeholders like <catalog_id> — an unsubstituted handoff
+// must not false-pass S1/S4/S6/S7/S9 (locked L23).
+function isPlaceholder(v: string): boolean {
+  return v.length >= 3 && v.startsWith("<") && v.endsWith(">")
 }
 
-// L18 stalled-agent path: S1..S10 fail with the locked evidence; S0 and S11
-// are scored from the transcript/handoff as available.
-function applyStalledAgentEvidence(rows: StageRow[]): StageRow[] {
-  return rows.map((r) => {
-    if (r.stage === "S0" || r.stage === "S11") return r
-    return {...r, pass: false, first_pass: false, evidence: "handoff incomplete - agent stalled"}
-  })
+async function readHandoff(handoffPath: string, opts: CallOpts): Promise<Handoff | null> {
+  // Bounded retry: a transient read failure must not be misread as a stalled
+  // agent (locked L18). A clean absent/empty result is a genuine stall.
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = (await fsRead(handoffPath, opts)) as Record<string, unknown>
+      const content = res.content as string | undefined
+      if (typeof content !== "string" || content.length === 0) return null
+      const parsed = JSON.parse(content) as unknown
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
+      const handoff = parsed as Handoff
+      for (const f of HANDOFF_FIELDS) {
+        const v = handoff[f]
+        if (typeof v === "string" && isPlaceholder(v)) handoff[f] = ""
+      }
+      return handoff
+    } catch (err) {
+      lastErr = err
+      if (attempt < 3) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 2000))
+      }
+    }
+  }
+  stderr.write(`WARNING: handoff read failed after 3 attempts: ${(lastErr as Error).message} — scoring as stalled\n`)
+  return null
+}
+
+// L18 stalled-agent path is applied inside scoreRun (a completely absent
+// handoff fails S1..S10 with the locked evidence; a partial handoff is
+// scored from each stage's own evidence).
+
+// --env mode targets an existing env; verify the caller owns it before
+// creating tasks / writing arena files there (IDOR hardening).
+async function assertEnvOwned(envId: string, opts: CallOpts): Promise<void> {
+  const env = (await call("get_env", {env_id: envId}, opts)) as Record<string, unknown>
+  if (env.is_mine === false) {
+    throw new Error(`refusing --env ${envId}: env is not owned by the caller (owner_id=${String(env.owner_id ?? "?")})`)
+  }
 }
 
 async function main(): Promise<number> {
@@ -133,7 +165,8 @@ async function main(): Promise<number> {
   const handoffPath = scenario.handoffPath.replace("<run-id>", runId)
   const provisioned = !cli.env
 
-  let envId: string
+let envId: string
+  let baseUrl = ""
   let funnelToolsPresent = false
   if (provisioned) {
     const {envId: e} = await retryProvision(
@@ -142,6 +175,8 @@ async function main(): Promise<number> {
       async (eid) => {
         const r = await waitForReady(eid, scenario, runId, opts)
         funnelToolsPresent = r.funnelToolsPresent
+        const installed = await installFixture(eid, scenario, runId, cli.ref, opts)
+        baseUrl = installed.baseUrl
       },
       3,
       opts,
@@ -149,106 +184,132 @@ async function main(): Promise<number> {
     envId = e
   } else {
     envId = cli.env
+    await assertEnvOwned(envId, opts)
     // --env mode: single readiness attempt, no retries, no teardown.
     const r = await waitForReady(envId, scenario, runId, opts)
     funnelToolsPresent = r.funnelToolsPresent
+    const installed = await installFixture(envId, scenario, runId, cli.ref, opts)
+    baseUrl = installed.baseUrl
   }
 
-  const {baseUrl} = await installFixture(envId, scenario, runId, cli.ref, opts)
-
-  const prompt = buildPrompt(scenario, runId, baseUrl, cli.ref)
-  const {taskId: agentTaskId} = await createAgentTask(envId, scenario, runId, prompt, opts)
-
-  // Wait with the --max-agent-minutes bound while the firehose accumulates.
-  let stopPolling = false
-  const streamEvents: unknown[] = []
-  const poller = pollStreamIncrementally(
-    envId,
-    agentTaskId,
-    (ev) => streamEvents.push(...ev),
-    30_000,
-    () => stopPolling,
-    opts,
-  )
-  const {terminal, wallTimeMs, timedOut} = await waitForAgentTask(
-    envId,
-    agentTaskId,
-    cli.maxAgentMinutes * 60 * 1000,
-    opts,
-  )
-  stopPolling = true
-  const {lastSeq} = await poller
-  // final drain: catch anything appended after the last cursor
-  const tail = (await taskStream(envId, agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
-  const tailEvents = (tail.events ?? []) as unknown[]
-  if (tailEvents.length > 0) streamEvents.push(...tailEvents)
-  if (timedOut) {
-    stderr.write(`WARNING: agent task ${agentTaskId} did not reach terminal within ${cli.maxAgentMinutes} min — scoring the partial stream\n`)
-  }
-
-  const transcript = parseStream(streamEvents)
-
-  // Handoff: missing/incomplete -> L18 stalled-agent path.
-  const handoff = (await readHandoff(handoffPath, opts)) ?? {}
-  const handoffOk = handoffComplete(handoff)
-  if (!handoffOk) {
-    stderr.write(`WARNING: handoff.json missing or incomplete at ${handoffPath} — stalled-agent path\n`)
-  }
-
-  // Collect (runs even on the stalled-agent path, with nulls substituted).
-  const {scoreInput, notes} = await collect(envId, scenario, runId, handoff, opts)
-
-  const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath}
-  const scored = scoreRun(ctx)
-  const stageRows = handoffOk ? scored.stageRows : applyStalledAgentEvidence(scored.stageRows)
-
-  // Run meta: harness/reasoning_effort are inherited (no override).
-  let harness = "inherit"
   try {
-    const identity = (await call("squire.identity", {}, opts)) as Record<string, unknown>
-    if (typeof identity.harness === "string" && identity.harness.length > 0) harness = identity.harness
-  } catch {
-    // non-fatal: keep "inherit"
-  }
-  const meta: RunMeta = {
-    run_id: runId,
-    scenario: scenario.id,
-    skill_bundle_version: scenario.skillBundle.version,
-    skill_bundle_mode: scenario.skillBundle.mode,
-    model_version: scenario.model,
-    harness,
-    reasoning_effort: "inherit",
-    started_at: startedAt,
-    wall_time_ms: wallTimeMs,
-    funnel_tools_present: funnelToolsPresent,
-  }
+    const prompt = buildPrompt(scenario, runId, baseUrl, cli.ref)
+    const {taskId: agentTaskId} = await createAgentTask(envId, scenario, runId, prompt, opts)
 
-  const summary: SummaryLine = {
-    summary: true,
-    funnel: stageRows.filter((r) => r.pass).map((r) => r.stage),
-    first_pass_rate: stageRows.filter((r) => r.first_pass).length / STAGES.length,
-    recovery_cycles: scored.recovery_cycles,
-    parity_verdict: scored.parity_verdict,
-    parity_tenant: scored.parity_tenant,
-    hygiene_verdict: scored.hygiene_verdict,
-    handoff_discipline_verdict: scored.handoff_discipline_verdict,
-    tool_calls: transcript.toolCalls.length,
-    turns: transcript.turns,
-    tokens_in: transcript.tokensIn,
-    tokens_out: transcript.tokensOut,
+    // Wait with the --max-agent-minutes bound while the firehose accumulates.
+    let stopPolling = false
+    const streamEvents: unknown[] = []
+    const poller = pollStreamIncrementally(
+      envId,
+      agentTaskId,
+      (ev) => streamEvents.push(...ev),
+      30_000,
+      () => stopPolling,
+      opts,
+    )
+    const {terminal, wallTimeMs, timedOut} = await waitForAgentTask(
+      envId,
+      agentTaskId,
+      cli.maxAgentMinutes * 60 * 1000,
+      opts,
+    )
+    stopPolling = true
+    const {lastSeq} = await poller
+    // final drain: catch anything appended after the last cursor
+    const tail = (await taskStream(envId, agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
+    const tailEvents = (tail.events ?? []) as unknown[]
+    if (tailEvents.length > 0) streamEvents.push(...tailEvents)
+    if (timedOut) {
+      stderr.write(`WARNING: agent task ${agentTaskId} did not reach terminal within ${cli.maxAgentMinutes} min — scoring the partial stream\n`)
+    }
+
+    const transcript = parseStream(streamEvents)
+
+    // Handoff: missing/incomplete -> L18 stalled-agent path.
+    const handoff = (await readHandoff(handoffPath, opts)) ?? {}
+    const handoffOk = handoffComplete(handoff)
+    if (!handoffOk) {
+      stderr.write(`WARNING: handoff.json missing or incomplete at ${handoffPath} — stalled-agent path\n`)
+    }
+
+    // Collect. On the stalled path (no handoff at all), a collector failure
+    // must still produce a scored record (exit 0) — the plan's exit-0
+    // contract for stalled agents; on a real run, collector failure is an
+    // infrastructure error (exit 1, documented).
+    let scoreInput: ScoreInput
+    let collectNotes: string[] = []
+    try {
+      const collected = await collect(envId, scenario, runId, handoff, opts)
+      scoreInput = collected.scoreInput
+      collectNotes = collected.notes
+    } catch (err) {
+      if (handoffOk) throw err
+      stderr.write(`WARNING: collector failed on the stalled path (${(err as Error).message}) — writing a null score-input record\n`)
+      scoreInput = {
+        run_id: runId,
+        draft: {required_source_files: {}, source_files: [], config_schema: {fields: []}, runtime_schema: {fields: []}},
+        connector_config: {},
+        evidence: {},
+        build_run: {},
+        tenant_counts: {users: null, groups: null, memberships: null},
+        resource_ids: {users: [], groups: []},
+      }
+    }
+
+const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath}
+    const scored = scoreRun(ctx)
+    const stageRows = scored.stageRows
+
+    // Run meta: harness/reasoning_effort are inherited (no override).
+    let harness = "inherit"
+    try {
+      const identity = (await call("squire.identity", {}, opts)) as Record<string, unknown>
+      if (typeof identity.harness === "string" && identity.harness.length > 0) harness = identity.harness
+    } catch {
+      // non-fatal: keep "inherit"
+    }
+    const meta: RunMeta = {
+      run_id: runId,
+      scenario: scenario.id,
+      skill_bundle_version: scenario.skillBundle.version,
+      skill_bundle_mode: scenario.skillBundle.mode,
+      model_version: scenario.model,
+      harness,
+      reasoning_effort: "inherit",
+      started_at: startedAt,
+      wall_time_ms: wallTimeMs,
+      funnel_tools_present: funnelToolsPresent,
+    }
+
+    const summary: SummaryLine = {
+      summary: true,
+      funnel: stageRows.filter((r) => r.pass).map((r) => r.stage),
+      first_pass_rate: stageRows.filter((r) => r.first_pass).length / STAGES.length,
+      recovery_cycles: scored.recovery_cycles,
+      parity_verdict: scored.parity_verdict,
+      parity_tenant: scored.parity_tenant,
+      hygiene_verdict: scored.hygiene_verdict,
+      handoff_discipline_verdict: scored.handoff_discipline_verdict,
+      tool_calls: transcript.toolCalls.length,
+      turns: transcript.turns,
+      tokens_in: transcript.tokensIn,
+      tokens_out: transcript.tokensOut,
+    }
+
+    const recordPath = writeRecord(runId, scenario, meta, stageRows, SKIPPED_STAGES, summary, cli.out)
+    for (const note of collectNotes) stderr.write(`WARNING: ${note}\n`)
+
+    const passList = stageRows.filter((r) => r.pass).map((r) => r.stage).join(",")
+    stdout.write(`record: ${recordPath}\n`)
+    stdout.write(`summary: funnel=[${passList}] first_pass_rate=${summary.first_pass_rate.toFixed(2)} parity=${summary.parity_verdict} hygiene=${summary.hygiene_verdict} handoff=${summary.handoff_discipline_verdict} tool_calls=${summary.tool_calls} turns=${summary.turns} tokens_in=${summary.tokens_in} tokens_out=${summary.tokens_out}\n`)
+    return 0
+  } finally {
+    // Teardown on EVERY exit path (success or error) for provisioned envs,
+    // unless --keep-env. --env mode never tears down an env it did not create.
+    if (provisioned && !cli.keepEnv) {
+      await teardownEnv(envId, opts)
+    }
   }
-
-  const recordPath = writeRecord(runId, scenario, meta, stageRows, SKIPPED_STAGES, summary, cli.out)
-  for (const note of notes) stderr.write(`WARNING: ${note}\n`)
-
-  if (provisioned && !cli.keepEnv) {
-    await teardownEnv(envId, opts)
-  }
-
-  const passList = stageRows.filter((r) => r.pass).map((r) => r.stage).join(",")
-  stdout.write(`record: ${recordPath}\n`)
-  stdout.write(`summary: funnel=[${passList}] first_pass_rate=${summary.first_pass_rate.toFixed(2)} parity=${summary.parity_verdict} hygiene=${summary.hygiene_verdict} handoff=${summary.handoff_discipline_verdict} tool_calls=${summary.tool_calls} turns=${summary.turns} tokens_in=${summary.tokens_in} tokens_out=${summary.tokens_out}\n`)
-  return 0
 }
 
 main()

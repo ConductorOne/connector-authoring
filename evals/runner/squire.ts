@@ -8,11 +8,20 @@ export interface CallOpts {
   taskId?: string
 }
 
+// Per-call bound: a hung gateway call must not defeat the runner's bounded
+// waits ("never a hung runner", locked L18).
+const CALL_TIMEOUT_MS = 60_000
+
 function runSquireTool(argv: string[]): Promise<{stdout: string; stderr: string}> {
   const {promise, resolve, reject} = Promise.withResolvers<{stdout: string; stderr: string}>()
-  execFile("squire-tool", argv, {maxBuffer: 64 * 1024 * 1024}, (err, stdout, stderr) => {
+  execFile("squire-tool", argv, {maxBuffer: 64 * 1024 * 1024, timeout: CALL_TIMEOUT_MS}, (err, stdout, stderr) => {
     if (err) {
-      reject(new Error(`squire-tool ${argv.join(" ")} failed: ${stderr || err.message}`))
+      // Redact the args: they can carry the agent prompt, fixture credentials,
+      // or stored api-token values — never cross the process boundary into
+      // logs. Only the tool name + stderr are reported.
+      const e = err as {killed?: boolean; message?: string}
+      const suffix = e.killed === true ? " (timed out after 60s)" : ""
+      reject(new Error(`squire-tool call ${argv[1] ?? "?"} failed: ${stderr || e.message || String(err)}${suffix}`))
       return
     }
     resolve({stdout, stderr})
@@ -28,7 +37,13 @@ export async function call(
   const argv = ["call", tool, JSON.stringify(args)]
   if (opts.taskId) argv.push("--task-id", opts.taskId)
   const {stdout} = await runSquireTool(argv)
-  return JSON.parse(stdout) as unknown
+  const trimmed = stdout.trim()
+  if (trimmed === "") return null
+  try {
+    return JSON.parse(trimmed) as unknown
+  } catch (err) {
+    throw new Error(`squire-tool call ${tool} returned non-JSON stdout: ${(err as Error).message}`)
+  }
 }
 
 export async function list(filter?: string, opts: CallOpts = {}): Promise<string[]> {

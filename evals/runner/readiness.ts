@@ -86,15 +86,18 @@ async function readProbeToolList(
   } catch {
     // fall through to stream scan
   }
-  // Stream fallback: concatenate every tool result and text delta.
+// Stream fallback: concatenate every tool result and text delta. The real
+  // stream puts tool_result text in the TOP-LEVEL `message` (data carries
+  // only tool_name/is_error) — read both.
   let sinceSeq = 0
   const parts: string[] = []
   for (;;) {
     const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
     const events = (page.events ?? []) as Record<string, unknown>[]
     for (const ev of events) {
+      if (typeof ev.message === "string" && ev.message.length > 0) parts.push(ev.message)
       const data = (ev.data ?? {}) as Record<string, unknown>
-      for (const key of ["result", "output", "message"]) {
+      for (const key of ["result", "output"]) {
         const v = data[key]
         if (typeof v === "string") parts.push(v)
       }
@@ -103,7 +106,7 @@ async function readProbeToolList(
     if (nextSeq === undefined || nextSeq <= sinceSeq) break
     sinceSeq = nextSeq
   }
-  const text = parts.join("\n")
+const text = parts.join("\n")
   return text.length > 0 ? text : null
 }
 

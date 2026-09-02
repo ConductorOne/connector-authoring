@@ -14,25 +14,21 @@ function scoreInputPath(runId: string): string {
   return `/current-tasks/evals/${runId}/score-input.json`
 }
 
-function orNull(v: string | undefined): string | null {
-  return v && v.length > 0 ? v : null
-}
-
-// The collector prompt is EXACTLY this (bracketed values substituted; null
-// when the handoff is missing/incomplete — the L18 stalled-agent path).
+// The collector prompt is EXACTLY this (the handoff path is substituted; the
+// VALUES are never interpolated — the collector reads the agent-written
+// handoff.json from the arena FS itself, so an untrusted handoff cannot
+// inject instructions into the collector prompt).
 export function buildCollectorPrompt(
   scenario: Scenario,
   runId: string,
   handoff: Handoff,
 ): string {
-  const catalogId = orNull(handoff.catalog_id)
-  const draftId = orNull(handoff.draft_id)
-  const appId = orNull(handoff.app_id)
-  const connectorId = orNull(handoff.connector_id)
-  const revisionId = orNull(handoff.revision_id)
-  const testRunId = orNull(handoff.test_run_id)
-  const runIdVal = orNull(handoff.run_id)
-  return `You are the score collector for eval run ${runId}. Use \`squire-tool call\` for every step. (a) \`c1_connector_authoring_get_draft\` with \`catalogId: ${catalogId}, draftId: ${draftId}\` → record \`required_source_files\` presence and the full source set. (b) \`c1_connector_service_get\` with \`appId: ${appId}, id: ${connectorId}\` → record the connector config values for \`base-url\`, \`account-email\`, \`api-token\`. (c) \`c1_connector_authoring_get_test_run_evidence\` with \`catalogId: ${catalogId}, revisionId: ${revisionId}, testRunId: ${testRunId}\` → record \`result\` (PASS/FAIL/NotFound) and error text. (d) \`c1_connector_authoring_list_revision_summaries\` with \`catalogId: ${catalogId}\` → record the target revision's status. (e) \`c1_connector_authoring_get_run\` with \`runId: ${runIdVal}\` → record the build run state. (f) Tenant counts, LOCKED procedure: \`squire-tool list\` → filter names containing \`_search\`/\`_count\`/\`find_\`/\`count_\` → \`squire-tool describe <tool>\` for each candidate to learn its args → query resources/entitlements/grants scoped to app ${appId} and fetch resource ids, SPLITTING resources into users vs groups by the resource's type id (\`"user"\` vs \`"group"\`); if NO count/search tool exists, record \`null\` counts. (g) Write \`score-input.json\` to ${scoreInputPath(runId)} via \`squire.fs.write\` with EXACTLY this schema: \`{run_id, draft: {required_source_files: {connector.ts, config-schema.json, runtime-schema.json, capabilities.json}, source_files: [{path, content}], config_schema: {fields: [{name, is_secret}]}, runtime_schema: {fields: [{name, is_secret}]}}, connector_config: {base-url, account-email, api-token}, evidence: {result, error}, build_run: {state, error}, revision_status, tenant_counts: {users, groups, memberships}, resource_ids: {users, groups}}\`. Normalize \`isSecret\` (config-schema.json) and \`is_secret\` (runtime-schema.json) to the \`is_secret\` key in score-input. If any upstream call fails, record the error text in the corresponding field and continue — never crash. When all steps are done, terminate the task: \`squire-tool call squire.task.complete '{"summary": "score collection finished"}'\`.`
+  const handoffPath = scenario.handoffPath.replace("<run-id>", runId)
+  const missing = Object.values(handoff).every((v) => !v || v.length === 0)
+  const missingNote = missing
+    ? "\nThe agent handoff was incomplete; record null for every handoff-dependent field (draft, connector_config, evidence, build_run, revision_status, tenant_counts, resource_ids)."
+    : ""
+  return `You are the score collector for eval run ${runId}. Use \`squire-tool call\` for every step. First read the agent's handoff table from the arena FS at ${handoffPath} via \`squire.fs.read\` and parse its JSON — use the values from THAT file for every id below (do not invent ids). (a) \`c1_connector_authoring_get_draft\` with the handoff's \`catalog_id\` and \`draft_id\` → record \`required_source_files\` presence and the full source set. (b) \`c1_connector_service_get\` with the handoff's \`app_id\` and \`connector_id\` → record the connector config values for \`base-url\`, \`account-email\`, \`api-token\`. (c) \`c1_connector_authoring_get_test_run_evidence\` with the handoff's \`catalog_id\`, \`revision_id\`, \`test_run_id\` → record \`result\` (PASS/FAIL/NotFound) and error text. (d) \`c1_connector_authoring_list_revision_summaries\` with the handoff's \`catalog_id\` → record the target revision's status. (e) \`c1_connector_authoring_get_run\` with the handoff's \`run_id\` → record the build run state. (f) Tenant counts, LOCKED procedure: \`squire-tool list\` → filter names containing \`_search\`/\`_count\`/\`find_\`/\`count_\` → \`squire-tool describe <tool>\` for each candidate to learn its args → query resources/entitlements/grants scoped to the handoff's \`app_id\` and fetch resource ids, SPLITTING resources into users vs groups by the resource's type id (\`"user"\` vs \`"group"\`); if NO count/search tool exists, record \`null\` counts. (g) Write \`score-input.json\` to ${scoreInputPath(runId)} via \`squire.fs.write\` with EXACTLY this schema: \`{run_id, draft: {required_source_files: {connector.ts, config-schema.json, runtime-schema.json, capabilities.json}, source_files: [{path, content}], config_schema: {fields: [{name, is_secret}]}, runtime_schema: {fields: [{name, is_secret}]}}, connector_config: {base-url, account-email, api-token}, evidence: {result, error}, build_run: {state, error}, revision_status, tenant_counts: {users, groups, memberships}, resource_ids: {users, groups}}\`. Normalize \`isSecret\` (config-schema.json) and \`is_secret\` (runtime-schema.json) to the \`is_secret\` key in score-input. If any upstream call fails, record the error text in the corresponding field and continue — never crash.${missingNote} When all steps are done, terminate the task: \`squire-tool call squire.task.complete '{"summary": "score collection finished"}'\`.`
 }
 
 // Validate the raw score-input against the locked schema; missing/malformed

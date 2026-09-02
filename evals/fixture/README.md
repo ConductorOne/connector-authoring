@@ -80,7 +80,7 @@ bash evals/fixture/verify.sh
 npm run eval:verify
 ```
 
-`verify.sh` runs the server on port 18081 (never 18080) and asserts all 13
+`verify.sh` runs the server on port 18081 (never 18080) and asserts all 16
 checks: every endpoint, both auth variants, both pagination variants, and all
 three traps.
 

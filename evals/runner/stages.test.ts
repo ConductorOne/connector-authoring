@@ -1,0 +1,187 @@
+// stages.test.ts — unit smoke for the S0..S11 stage gates (locked D2/L23).
+import {test} from "node:test"
+import assert from "node:assert/strict"
+import {STAGES, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
+import {parseStream, type ParsedStream} from "./stream.ts"
+
+const HANDOFF_PATH = "/current-tasks/evals/evals-tier1-directory-20260902-120000-000/handoff.json"
+
+function fullHandoff(): Handoff {
+  return {
+    catalog_id: "cat-1",
+    draft_id: "draft-1",
+    upload_id: "up-1",
+    run_id: "run-1",
+    revision_id: "rev-1",
+    app_id: "app-1",
+    connector_id: "conn-1",
+    test_run_id: "test-1",
+    deployment_instance_id: "dep-1",
+    activation_url: "https://activate/1",
+  }
+}
+
+function toolCall(name: string, input?: Record<string, unknown>): Record<string, unknown> {
+  return {type: "tool_call", message: name, data: {input: input ?? {}}}
+}
+
+function toolResult(name: string, message: string, isError = false): Record<string, unknown> {
+  return {type: "tool_result", message, data: {tool_name: name, is_error: isError}}
+}
+
+/** A clean funnel event stream: every stage entered once, all confirmed. */
+function cleanEvents(): Record<string, unknown>[] {
+  return [
+    toolCall("c1_connector_authoring_get_authoring_guide"),
+    toolResult("c1_connector_authoring_get_authoring_guide", "guide"),
+    toolCall("c1_connector_authoring_create_draft", {connectorName: "x"}),
+    toolResult("c1_connector_authoring_create_draft", "draft"),
+    toolCall("c1_connector_authoring_create_draft_source_upload"),
+    toolResult("c1_connector_authoring_create_draft_source_upload", "upload"),
+    toolCall("bash", {i: "put", command: 'curl -sS -o /tmp/put.out -w "%{http_code}" -X PUT "http://x" -H "h" --data-binary @"f"'}),
+    toolResult("bash", "200"),
+    toolCall("c1_connector_authoring_finalize_draft_source_upload"),
+    toolResult("c1_connector_authoring_finalize_draft_source_upload", "finalized"),
+    toolCall("c1_connector_authoring_get_draft"),
+    toolResult("c1_connector_authoring_get_draft", "draft"),
+    toolCall("c1_connector_authoring_build_bundle"),
+    toolResult("c1_connector_authoring_build_bundle", "run"),
+    toolCall("c1_connector_authoring_get_run"),
+    toolResult("c1_connector_authoring_get_run", "RUN_STATE_RUNNING"),
+    toolCall("c1_connector_authoring_get_run"),
+    toolResult("c1_connector_authoring_get_run", "RUN_STATE_SUCCEEDED"),
+    toolCall("c1_apps_create"),
+    toolResult("c1_apps_create", "app"),
+    toolCall("c1_connector_authoring_provision_connector"),
+    toolResult("c1_connector_authoring_provision_connector", "conn"),
+    toolCall("c1_connector_service_update"),
+    toolResult("c1_connector_service_update", "updated"),
+    toolCall("c1_connector_authoring_run_draft_test_sync"),
+    toolResult("c1_connector_authoring_run_draft_test_sync", "test"),
+    toolCall("c1_connector_authoring_get_test_run_evidence"),
+    toolResult("c1_connector_authoring_get_test_run_evidence", "PENDING"),
+    toolCall("c1_connector_authoring_get_test_run_evidence"),
+    toolResult("c1_connector_authoring_get_test_run_evidence", "PASS"),
+    toolCall("c1_connector_authoring_deploy_connector_instance"),
+    toolResult("c1_connector_authoring_deploy_connector_instance", "dep"),
+    toolCall("c1_connector_authoring_mint_approval_token"),
+    toolResult("c1_connector_authoring_mint_approval_token", "token"),
+    toolCall("squire.fs.write", {path: HANDOFF_PATH, content: "{}"}),
+    toolResult("squire.fs.write", "written"),
+    toolCall("squire.task.complete"),
+    toolResult("squire.task.complete", "done"),
+  ]
+}
+
+function cleanTranscript(): ParsedStream {
+  return parseStream(cleanEvents())
+}
+
+function goodScoreInput(): ScoreInput {
+  return {
+    run_id: "run-1",
+    draft: {
+      required_source_files: {
+        "connector.ts": true,
+        "config-schema.json": true,
+        "runtime-schema.json": true,
+        "capabilities.json": true,
+      },
+      source_files: [{path: "connector.ts", content: "x"}],
+      config_schema: {fields: [{name: "api-token", is_secret: true}]},
+      runtime_schema: {fields: [{name: "api-token", is_secret: true}]},
+    },
+    connector_config: {"base-url": "http://127.0.0.1:18080", "account-email": "connector@example.com", "api-token": "fixture-token"},
+    evidence: {result: "PASS"},
+    build_run: {state: "RUN_STATE_SUCCEEDED"},
+    tenant_counts: {users: 0, groups: 0, memberships: 0},
+    resource_ids: {users: [], groups: []},
+  }
+}
+
+function ctx(overrides: Partial<StageCtx>): StageCtx {
+  return {
+    transcript: cleanTranscript(),
+    handoff: fullHandoff(),
+    scoreInput: goodScoreInput(),
+    handoffPath: HANDOFF_PATH,
+    ...overrides,
+  }
+}
+
+function check(stage: string, c: StageCtx): boolean {
+  const s = STAGES.find((x) => x.stage === stage)
+  assert.ok(s, `stage ${stage} exists`)
+  return s.check(c)
+}
+
+test("a clean run passes every stage", () => {
+  const c = ctx({})
+  for (const s of STAGES) {
+    assert.equal(s.check(c), true, `${s.stage} (${s.gate}) should pass on a clean run`)
+  }
+})
+
+test("S0 fails when the guide read errored", () => {
+  const events = [
+    toolCall("c1_connector_authoring_get_authoring_guide"),
+    toolResult("c1_connector_authoring_get_authoring_guide", "boom", true),
+  ]
+  assert.equal(check("S0", ctx({transcript: parseStream(events)})), false)
+})
+
+test("S2 requires an observed successful PUT (no vacuous pass)", () => {
+  // upload_id + upload call present, but NO -X PUT bash call observed.
+  const noPut = cleanEvents().filter((e) => !(e.type === "tool_call" && e.message === "bash"))
+  assert.equal(check("S2", ctx({transcript: parseStream(noPut)})), false)
+  // A failed PUT (result lacks 200) fails S2.
+  const failedPut = cleanEvents().map((e) =>
+    e.type === "tool_result" && e.message === "200" ? toolResult("bash", "403") : e,
+  )
+  assert.equal(check("S2", ctx({transcript: parseStream(failedPut)})), false)
+})
+
+test("S11 accepts the bash handoff write with object args + task.complete", () => {
+  const c = ctx({})
+  assert.equal(check("S11", c), true)
+})
+
+test("S11 fails on a redemption call after the mint", () => {
+  const events = [
+    ...cleanEvents(),
+    toolCall("c1_connector_service_force_sync"),
+    toolResult("c1_connector_service_force_sync", "synced"),
+  ]
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
+})
+
+test("S11 allows a pre-mint list_revision_summaries status check", () => {
+  const events = [
+    toolCall("c1_connector_authoring_get_authoring_guide"),
+    toolResult("c1_connector_authoring_get_authoring_guide", "guide"),
+    toolCall("c1_connector_authoring_list_revision_summaries"),
+    toolResult("c1_connector_authoring_list_revision_summaries", "PENDING"),
+    ...cleanEvents().slice(2),
+  ]
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), true)
+})
+
+test("S11 fails when a non-handoff call follows the mint", () => {
+  const events = [
+    ...cleanEvents(),
+    toolCall("bash", {i: "extra", command: "echo hi"}),
+    toolResult("bash", "hi"),
+  ]
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
+})
+
+test("S1/S4/S6/S7/S9 fail on empty handoff fields", () => {
+  const h = fullHandoff()
+  h.catalog_id = ""
+  const c = ctx({handoff: h})
+  assert.equal(check("S1", c), false)
+  assert.equal(check("S4", c), true) // run_id still set
+  assert.equal(check("S6", c), true)
+  assert.equal(check("S7", c), true)
+  assert.equal(check("S9", c), true)
+})

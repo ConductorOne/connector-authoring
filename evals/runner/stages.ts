@@ -62,19 +62,61 @@ function nonEmpty(h: Handoff, field: keyof Handoff): boolean {
   return typeof h[field] === "string" && (h[field] as string).length > 0
 }
 
+// A handoff is "empty" when NO field carries a value — the agent never wrote
+// it (the L18 stalled-agent case). A PARTIAL handoff is scored from each
+// stage's own evidence.
+export function handoffEmpty(h: Handoff): boolean {
+  return HANDOFF_FIELDS.every((f) => !nonEmpty(h, f))
+}
+
+// bash tool_call args are objects {i, command} in the real stream; fs.write
+// args are objects {path, content}. Extract the command/path strings.
+function bashCommand(call: ToolCallRecord): string | null {
+  if (call.name !== "bash") return null
+  if (typeof call.args === "string") return call.args
+  if (typeof call.args === "object" && call.args !== null) {
+    const command = (call.args as Record<string, unknown>).command
+    return typeof command === "string" ? command : null
+  }
+  return null
+}
+
+function fsWritePath(call: ToolCallRecord): string | null {
+  if (!call.name.endsWith("fs.write")) return null
+  if (typeof call.args === "object" && call.args !== null) {
+    const path = (call.args as Record<string, unknown>).path
+    return typeof path === "string" ? path : null
+  }
+  return null
+}
+
 function successfulCalls(transcript: ParsedStream, nameSuffix: string) {
   return transcript.toolCalls.filter(
     (c) => c.name.endsWith(nameSuffix) && (c.error === undefined || c.error === null || c.error === false),
   )
 }
 
+// A PUT is observed-successful when a bash call carries -X PUT and its result
+// is exactly the http_code 200 (the prompt's curl form prints only the code).
+function isHttp200(result: unknown): boolean {
+  if (typeof result !== "string") return false
+  const trimmed = result.trim()
+  return trimmed === "200" || trimmed.endsWith("\n200")
+}
+
+function successfulPutCalls(transcript: ParsedStream): ToolCallRecord[] {
+  return transcript.toolCalls.filter((c) => {
+    const command = bashCommand(c)
+    if (command === null || !command.includes("-X PUT")) return false
+    return isHttp200(c.result)
+  })
+}
+
 function failedPutCalls(transcript: ParsedStream): ToolCallRecord[] {
   return transcript.toolCalls.filter((c) => {
-    if (c.name !== "bash") return false
-    const args = typeof c.args === "string" ? c.args : JSON.stringify(c.args ?? "")
-    if (!args.includes("-X PUT")) return false
-    const result = typeof c.result === "string" ? c.result : JSON.stringify(c.result ?? "")
-    return !result.includes("200")
+    const command = bashCommand(c)
+    if (command === null || !command.includes("-X PUT")) return false
+    return !isHttp200(c.result)
   })
 }
 
@@ -86,12 +128,24 @@ function mintIndex(transcript: ParsedStream): number {
   return idx
 }
 
-function isRedemptionCall(name: string): boolean {
-  return (
-    name.includes("force_sync") ||
-    name.includes("list_revision_summaries") ||
-    name.includes("redeem")
-  )
+function isRedemptionCall(call: ToolCallRecord): boolean {
+  if (call.name.includes("force_sync") || call.name.includes("redeem")) return true
+  const command = bashCommand(call)
+  return command !== null && (command.includes("force_sync") || command.includes("redeem"))
+}
+
+function isTerminalComplete(call: ToolCallRecord): boolean {
+  return call.name === "squire.task.complete" || call.name.endsWith("task.complete")
+}
+
+// The handoff write is the ONLY permitted non-terminal call after the mint:
+// squire.fs.write to the exact handoff path (object args {path} or a bash
+// squire-tool call whose command names the path).
+function isHandoffWrite(call: ToolCallRecord, handoffPath: string): boolean {
+  const path = fsWritePath(call)
+  if (path !== null) return path.includes(handoffPath)
+  const command = bashCommand(call)
+  return command !== null && command.includes("squire.fs.write") && command.includes(handoffPath)
 }
 
 export const STAGES: Stage[] = [
@@ -115,11 +169,13 @@ export const STAGES: Stage[] = [
     check: (ctx) =>
       nonEmpty(ctx.handoff, "upload_id") &&
       successfulCalls(ctx.transcript, "create_draft_source_upload").length >= 1 &&
+      successfulPutCalls(ctx.transcript).length >= 1 &&
       failedPutCalls(ctx.transcript).length === 0,
     evidence: (ctx) => {
       const uploads = successfulCalls(ctx.transcript, "create_draft_source_upload").length
+      const goodPuts = successfulPutCalls(ctx.transcript).length
       const badPuts = failedPutCalls(ctx.transcript).length
-      return `upload_id=${ctx.handoff.upload_id ? "set" : "EMPTY"}, successful upload calls=${uploads}, PUTs lacking 200=${badPuts}`
+      return `upload_id=${ctx.handoff.upload_id ? "set" : "EMPTY"}, successful upload calls=${uploads}, PUTs with 200=${goodPuts}, PUTs lacking 200=${badPuts}`
     },
   },
   {
@@ -195,30 +251,30 @@ export const STAGES: Stage[] = [
       const mintIdx = mintIndex(ctx.transcript)
       if (mintIdx < 0) return false
       const after = ctx.transcript.toolCalls.slice(mintIdx + 1)
-      for (const call of after) {
-        const isHandoffWrite =
-          call.name === "squire.fs.write" ||
-          call.name.endsWith("fs.write") ||
-          (call.name === "bash" &&
-            typeof call.args === "string" &&
-            call.args.includes("squire.fs.write") &&
-            call.args.includes(ctx.handoffPath))
-        if (!isHandoffWrite) return false
+      // Allowed after the mint: the handoff write, then the terminal
+      // squire.task.complete (the task must terminate for the runner to
+      // score; harness bookkeeping, not funnel activity).
+      const last = after.length > 0 ? after[after.length - 1] : undefined
+      const body = last !== undefined && isTerminalComplete(last) ? after.slice(0, -1) : after
+      for (const call of body) {
+        if (!isHandoffWrite(call, ctx.handoffPath)) return false
       }
-      if (ctx.transcript.toolCalls.some((c) => isRedemptionCall(c.name))) return false
+      // Redemption scan is scoped to calls AFTER the mint (a pre-mint
+      // list_revision_summaries status check is legitimate funnel activity).
+      for (const call of after) {
+        if (isRedemptionCall(call)) return false
+      }
       return true
     },
     evidence: (ctx) => {
       const h = ctx.handoff
       const mintIdx = mintIndex(ctx.transcript)
       const after = mintIdx >= 0 ? ctx.transcript.toolCalls.slice(mintIdx + 1) : ctx.transcript.toolCalls
-      const nonWriteAfter = after.filter(
-        (c) =>
-          !(c.name === "squire.fs.write" || c.name.endsWith("fs.write")) &&
-          !(c.name === "bash" && typeof c.args === "string" && c.args.includes("squire.fs.write")),
-      )
-      const redemption = ctx.transcript.toolCalls.filter((c) => isRedemptionCall(c.name))
-      return `deployment_instance_id=${h.deployment_instance_id ? "set" : "EMPTY"}, activation_url=${h.activation_url ? "set" : "EMPTY"}, all10=${HANDOFF_FIELDS.every((f) => nonEmpty(h, f)) ? "yes" : "no"}, calls after mint=${after.length}, non-handoff after mint=${nonWriteAfter.length}, redemption calls=${redemption.length}`
+      const last = after.length > 0 ? after[after.length - 1] : undefined
+      const body = last !== undefined && isTerminalComplete(last) ? after.slice(0, -1) : after
+      const nonWriteAfter = body.filter((c) => !isHandoffWrite(c, ctx.handoffPath))
+      const redemption = after.filter((c) => isRedemptionCall(c))
+      return `deployment_instance_id=${h.deployment_instance_id ? "set" : "EMPTY"}, activation_url=${h.activation_url ? "set" : "EMPTY"}, all10=${HANDOFF_FIELDS.every((f) => nonEmpty(h, f)) ? "yes" : "no"}, calls after mint=${after.length}, non-handoff after mint=${nonWriteAfter.length}, redemption calls after mint=${redemption.length}`
     },
   },
 ]

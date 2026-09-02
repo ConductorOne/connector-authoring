@@ -79,10 +79,12 @@ echo "ok: offset pagination pages 10/10/3, total 23"
 jq -e '.items[] | select(.id == "user-003") | .title == null' <<<"$USERS_SCOPED" >/dev/null || fail "user-003 title != null (trap b)"
 echo "ok: user-003 title is null (trap b)"
 
-# (8) /v1/users?account_id=acct-1 without basic auth -> 401
+# (8) /v1/users?account_id=acct-1 without basic auth -> 401 + WWW-Authenticate: Basic
 CODE="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/v1/users?account_id=acct-1")"
 [ "$CODE" = "401" ] || fail "/v1/users without auth != 401 (got $CODE)"
-echo "ok: /v1/users without basic auth -> 401"
+WWW="$(curl -sS -D - -o /dev/null "$BASE/v1/users?account_id=acct-1" | grep -i '^WWW-Authenticate:' | tr -d '\r' | sed 's/^[Ww][Ww][Ww]-[Aa]uthenticate: //')"
+grep -q 'Basic realm="fixture"' <<<"$WWW" || fail "/v1/users 401 missing WWW-Authenticate: Basic realm=\"fixture\" (got: $WWW)"
+echo "ok: /v1/users without basic auth -> 401 with Basic challenge"
 
 # (9) GET /v2/users (bearer) -> 200, array length 23
 V2_USERS="$(curl -sS -H "Authorization: Bearer fixture-token" "$BASE/v2/users")"
@@ -113,10 +115,12 @@ done
 [ "$TOTAL" = "23" ] || fail "/v2/users link-follow total != 23 (got $TOTAL)"
 echo "ok: /v2/users link-follow reaches 23, final page has no rel=\"next\""
 
-# (11) GET /v2/users without bearer -> 401
+# (11) GET /v2/users without bearer -> 401 + WWW-Authenticate: Bearer
 CODE="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/v2/users")"
 [ "$CODE" = "401" ] || fail "/v2/users without bearer != 401 (got $CODE)"
-echo "ok: /v2/users without bearer -> 401"
+WWW2="$(curl -sS -D - -o /dev/null "$BASE/v2/users" | grep -i '^WWW-Authenticate:' | tr -d '\r' | sed 's/^[Ww][Ww][Ww]-[Aa]uthenticate: //')"
+grep -q '^Bearer$' <<<"$WWW2" || fail "/v2/users 401 missing WWW-Authenticate: Bearer (got: $WWW2)"
+echo "ok: /v2/users without bearer -> 401 with Bearer challenge"
 
 # (12) POST /v1/groups/group-001/members {"userId":"user-023"} -> 201 first (no replay header);
 #      replay -> 200 with X-Idempotency-Replay: true (trap c); DELETE -> 204
@@ -141,4 +145,19 @@ CODE="$(curl -sS -o /dev/null -w '%{http_code}' $BASIC_AUTH "$BASE/v1/nope")"
 [ "$CODE" = "404" ] || fail "/v1/nope != 404 (got $CODE)"
 echo "ok: unknown path -> 404"
 
-echo "== all 13 fixture assertions passed =="
+# (14) GET /v2/groups (bearer) -> 200, array length 5
+V2_GROUPS="$(curl -sS -H "Authorization: Bearer fixture-token" "$BASE/v2/groups")"
+jq -e 'length == 5' <<<"$V2_GROUPS" >/dev/null || fail "/v2/groups length != 5"
+echo "ok: /v2/groups returns 5"
+
+# (15) GET /v2/groups/group-001/members (bearer) -> 200, array length 5
+V2_MEMBERS="$(curl -sS -H "Authorization: Bearer fixture-token" "$BASE/v2/groups/group-001/members")"
+jq -e 'length == 5' <<<"$V2_MEMBERS" >/dev/null || fail "/v2/groups/group-001/members length != 5"
+echo "ok: /v2/groups/group-001/members returns 5"
+
+# (16) wrong method on /v1/users (POST) -> 405
+CODE="$(curl -sS -o /dev/null -w '%{http_code}' $BASIC_AUTH -X POST "$BASE/v1/users?account_id=acct-1")"
+[ "$CODE" = "405" ] || fail "POST /v1/users != 405 (got $CODE)"
+echo "ok: wrong method -> 405"
+
+echo "== all 16 fixture assertions passed =="

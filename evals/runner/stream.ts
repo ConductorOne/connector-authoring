@@ -1,11 +1,12 @@
 // stream.ts — firehose parser + incremental poller (CXF-216 PR 1, L33).
-// Event envelope: {id, type, message, timestamp, data} with a stable per-call
-// `seq`. Field-name candidates are LOCKED (data.name/data.toolName,
-// data.args/data.input, data.result/data.output, data.error/data.isError) plus
-// OBSERVED additions from a real task stream (sanity-checked 2026-09-02):
-//   tool_call:  name lives in `message` (e.g. "bash"); args in data.input
-//   tool_result: name lives in data.tool_name; result text lives in `message`
+// Event envelope (verified against a live task stream 2026-09-02):
+//   {id, type, message, timestamp, data, seq}
+//   tool_call:   name lives in `message` (e.g. "bash"); args in data.input
+//                (an object, e.g. {i, command} for bash); data.call_id present
+//   tool_result: name lives in data.tool_name; result text lives in the
+//                top-level `message`; failure signal is data.is_error (bool)
 import {taskStream, type CallOpts} from "./squire.ts"
+import {isRecord} from "./scenario.ts"
 
 export interface ToolCallRecord {
   name: string
@@ -25,7 +26,10 @@ export interface ParsedStream {
   recoveryCycles: number
 }
 
-// Stage attribution by tool-name suffix (L23 table).
+// Stage attribution by tool-name suffix (L23 table). S11 covers both
+// deploy_connector_instance and mint_approval_token — a compliant agent
+// performs them back-to-back, so they count as ONE stage entry (attempts
+// are stage-entry cycles, not raw tool calls; see parseStream).
 const STAGE_BY_SUFFIX: Record<string, string> = {
   get_authoring_guide: "S0",
   create_draft: "S1",
@@ -49,10 +53,6 @@ export function stageForTool(name: string): string | null {
   return null
 }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v)
-}
-
 function firstString(...candidates: unknown[]): string | null {
   for (const c of candidates) {
     if (typeof c === "string" && c.length > 0) return c
@@ -74,16 +74,27 @@ function firstNumber(...candidates: unknown[]): number | null {
   return null
 }
 
+// Failure signal: the real stream carries data.is_error (boolean); the
+// data.error/data.isError candidates are defensive; the "error:"-prefixed
+// message fallback is case-insensitive so "Error:" is not missed.
+function toolError(data: Record<string, unknown>, message: string): unknown {
+  const structured = firstValue(data.is_error, data.error, data.isError)
+  if (structured !== undefined) return structured
+  return message.toLowerCase().startsWith("error:") ? message : undefined
+}
+
 export function parseStream(events: unknown[]): ParsedStream {
   const toolCalls: ToolCallRecord[] = []
+  // FIFO pairing: tool_result attaches to the OLDEST unmatched tool_call of
+  // the same name (the stream emits results in call order; a LIFO reverse
+  // scan mis-pairs repeated same-name calls such as get_run polls or PUTs).
+  const pendingByName = new Map<string, number[]>()
   const errors: string[] = []
   const stageAttempts: Record<string, number> = {}
   const stageFailures: Record<string, number> = {}
   let turns = 0
   let tokensIn: number | null = null
   let tokensOut: number | null = null
-  let lastFailedStage: string | null = null
-  let recoveryCycles = 0
 
   for (const raw of events) {
     if (!isRecord(raw)) continue
@@ -95,32 +106,27 @@ export function parseStream(events: unknown[]): ParsedStream {
       const name = firstString(message, data.name, data.toolName) ?? "unknown"
       const args = firstValue(data.input, data.args)
       toolCalls.push({name, args})
-      const stage = stageForTool(name)
-      if (stage) {
-        stageAttempts[stage] = (stageAttempts[stage] ?? 0) + 1
-        if (lastFailedStage === stage) recoveryCycles++
-        lastFailedStage = null
-      }
-} else if (type === "tool_result") {
+      const queue = pendingByName.get(name) ?? []
+      queue.push(toolCalls.length - 1)
+      pendingByName.set(name, queue)
+    } else if (type === "tool_result") {
       const name = firstString(data.tool_name, data.name, data.toolName) ?? "unknown"
       const result = firstValue(message, data.result, data.output)
-      // Observed failure signal: the harness prefixes failed-command results
-      // with "error: " (no data.error/isError field exists in this stream).
-      const error = firstValue(data.error, data.isError) ?? (message.startsWith("error:") ? message : undefined)
-      const call = [...toolCalls].reverse().find((c) => c.name === name)
-      if (call) {
-        if (result !== undefined) call.result = result
-        if (error !== undefined) call.error = error
+      const error = toolError(data, message)
+      const queue = pendingByName.get(name)
+      const idx = queue && queue.length > 0 ? queue.shift() : undefined
+      if (idx !== undefined && toolCalls[idx]) {
+        if (result !== undefined) toolCalls[idx].result = result
+        if (error !== undefined) toolCalls[idx].error = error
+      } else {
+        // Orphan result (e.g. stream cap dropped the call): record it so a
+        // failure is never silently lost.
+        toolCalls.push({name, result: result ?? undefined, error: error ?? undefined})
       }
       if (error !== undefined && error !== null && error !== false) {
         errors.push(typeof error === "string" ? error : JSON.stringify(error))
-        const stage = stageForTool(name)
-        if (stage) {
-          stageFailures[stage] = (stageFailures[stage] ?? 0) + 1
-          lastFailedStage = stage
-        }
       }
-    } else if (type === "user" || type === "user_message" || type === "human") {
+    } else if (type === "text" || type === "text_delta" || type === "user" || type === "user_message" || type === "human") {
       turns++
     } else if (type === "usage") {
       const inTok = firstNumber(data.tokens_in, data.input_tokens, data.prompt_tokens)
@@ -131,9 +137,35 @@ export function parseStream(events: unknown[]): ParsedStream {
     // unknown event shapes are skipped, never thrown
   }
 
+// Stage attribution: attempts count STAGE-ENTRY CYCLES (consecutive calls
+  // of the same stage — get_run polls, S11 deploy+mint — are one attempt),
+  // so a clean run scores first_pass on every stage. A FAILURE of the stage
+  // ends the current entry: the next call of that stage is a NEW attempt
+  // (first_pass must be false for a stage that needed a retry). Recovery
+  // cycles count a successful re-entry of a stage after a failure.
+  let lastStage: string | null = null
+  let lastFailedStage: string | null = null
+  let recoveryCycles = 0
+  for (const call of toolCalls) {
+    const stage = stageForTool(call.name)
+    if (stage === null) continue
+    const failed = call.error !== undefined && call.error !== null && call.error !== false
+    if (stage !== lastStage || lastFailedStage === stage) {
+      stageAttempts[stage] = (stageAttempts[stage] ?? 0) + 1
+      lastStage = stage
+    }
+    if (failed) {
+      stageFailures[stage] = (stageFailures[stage] ?? 0) + 1
+      lastFailedStage = stage
+    } else if (lastFailedStage === stage) {
+      recoveryCycles++
+      lastFailedStage = null
+    }
+  }
+
   return {
     toolCalls,
-    turns: Math.max(turns + 1, 1),
+    turns: Math.max(turns, 1),
     tokensIn,
     tokensOut,
     errors,
@@ -143,13 +175,18 @@ export function parseStream(events: unknown[]): ParsedStream {
   }
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number) => {
+  const {promise, resolve} = Promise.withResolvers<void>()
+  setTimeout(resolve, ms)
+  return promise
+}
 
 // Poll squire.task.stream with a since_seq cursor every `intervalMs` during
 // the agent run, accumulating pages so the ~1000-event cap cannot drop
 // early-stage evidence (S0/S2). Keeps polling until `shouldStop()` returns
-// true (the caller sets it when the agent task is terminal); returns the
-// accumulated events plus the last cursor for a final drain.
+// true (the caller sets it when the agent task is terminal). The caller owns
+// accumulation via `onEvents`; this returns only the last cursor for the
+// final drain (no duplicate in-memory copy of the transcript).
 export async function pollStreamIncrementally(
   envId: string,
   taskId: string,
@@ -157,14 +194,12 @@ export async function pollStreamIncrementally(
   intervalMs = 30_000,
   shouldStop: () => boolean = () => false,
   opts: CallOpts = {},
-): Promise<{events: unknown[]; lastSeq: number}> {
-  const all: unknown[] = []
+): Promise<{lastSeq: number}> {
   let sinceSeq = 0
   for (;;) {
     const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
     const events = (page.events ?? []) as unknown[]
     if (events.length > 0) {
-      all.push(...events)
       onEvents(events)
     }
     const nextSeq = page.next_seq as number | undefined
@@ -172,5 +207,5 @@ export async function pollStreamIncrementally(
     if (shouldStop()) break
     await sleep(intervalMs)
   }
-  return {events: all, lastSeq: sinceSeq}
+  return {lastSeq: sinceSeq}
 }

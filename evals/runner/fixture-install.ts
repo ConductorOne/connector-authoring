@@ -55,8 +55,11 @@ async function readSetupStream(
     const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
     const events = (page.events ?? []) as Record<string, unknown>[]
     for (const ev of events) {
+      // The real stream puts tool_result text in the TOP-LEVEL `message`
+      // (data carries only tool_name/is_error) — read it first.
+      if (typeof ev.message === "string" && ev.message.length > 0) parts.push(ev.message)
       const data = (ev.data ?? {}) as Record<string, unknown>
-      for (const key of ["result", "output", "message"]) {
+      for (const key of ["result", "output"]) {
         const v = data[key]
         if (typeof v === "string") parts.push(v)
       }

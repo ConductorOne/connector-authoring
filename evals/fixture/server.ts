@@ -83,11 +83,23 @@ function checkBearer(req: IncomingMessage): boolean {
   return req.headers.authorization === `Bearer ${FIXTURE_BEARER_TOKEN}`
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
-  const {promise, resolve, reject} = Promise.withResolvers<string>()
+const MAX_BODY_BYTES = 1024 * 1024
+
+function readBody(req: IncomingMessage): Promise<{body: string; tooLarge: boolean}> {
+  const {promise, resolve, reject} = Promise.withResolvers<{body: string; tooLarge: boolean}>()
   const chunks: Buffer[] = []
-  req.on("data", (c: Buffer) => chunks.push(c))
-  req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")))
+  let total = 0
+  let tooLarge = false
+  req.on("data", (c: Buffer) => {
+    total += c.length
+    if (total > MAX_BODY_BYTES) {
+      tooLarge = true
+      req.destroy()
+      return
+    }
+    chunks.push(c)
+  })
+  req.on("end", () => resolve({body: tooLarge ? "" : Buffer.concat(chunks).toString("utf8"), tooLarge}))
   req.on("error", reject)
   return promise
 }
@@ -199,10 +211,16 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           sendJson(res, 200, page(items, offset, limit, memberIds.length))
           return
         }
-        if (method === "POST") {
+if (method === "POST") {
+          const read = await readBody(req)
+          if (read.tooLarge) {
+            log(413)
+            sendJson(res, 413, {error: "request body too large"})
+            return
+          }
           let body: {userId?: unknown}
           try {
-            body = JSON.parse(await readBody(req)) as {userId?: unknown}
+            body = JSON.parse(read.body) as {userId?: unknown}
           } catch {
             log(400)
             sendJson(res, 400, {error: "invalid JSON body"})

@@ -1,5 +1,5 @@
 // score.ts — deterministic scorer (CXF-216 PR 1, L24/L25/L35).
-import {SKIPPED_STAGES, STAGES, type StageCtx} from "./stages.ts"
+import {SKIPPED_STAGES, STAGES, handoffEmpty, type StageCtx} from "./stages.ts"
 
 export interface StageRow {
   stage: string
@@ -26,11 +26,25 @@ const MAX_TOTAL_BYTES = 16 * 1024 * 1024
 const MAX_FILES = 256
 
 // L35: five literal-substring source checks over connector.ts (no AST, no
-// regex beyond plain substring).
+// regex beyond plain substring). The account_id check is STRUCTURAL: the
+// literal must appear inside a `query:` object of a GET/walk call (the
+// under-sync trap (a) is only avoided when account_id is actually passed as
+// the query param — a comment or config string must not satisfy it).
+function accountIdInQuery(source: string): boolean {
+  const idx = source.indexOf("account_id")
+  if (idx < 0) return false
+  const before = source.slice(Math.max(0, idx - 100), idx)
+  const queryIdx = before.lastIndexOf("query:")
+  if (queryIdx < 0) return false
+  // No object close between `query:` and `account_id` — the literal sits
+  // inside the query object, not in a sibling field or comment.
+  return !before.slice(queryIdx).includes("}")
+}
+
 function parityChecks(source: string): {name: string; ok: boolean}[] {
   const configLiterals = ['config("base-url")', 'config("account-email")', 'config("api-token")']
   return [
-    {name: "account_id", ok: source.includes("account_id")},
+    {name: "account_id", ok: accountIdInQuery(source)},
     {name: "user.title", ok: source.includes("user.title")},
     {name: "totalPath", ok: source.includes("totalPath")},
     {
@@ -124,16 +138,26 @@ function computeHygiene(ctx: StageCtx): {verdict: "PASS" | "FAIL"; evidence: str
 }
 
 export function scoreRun(ctx: StageCtx): ScoreResult {
+  // L18 stalled-agent path: when the handoff is COMPLETELY absent, S1..S10
+  // are force-failed with the locked evidence (the agent never reached them —
+  // the handoff is the funnel's ledger). A PARTIAL handoff is scored from
+  // each stage's own evidence; genuinely-reached stages must not be forced
+  // to fail by a single missing field.
+  const stalled = handoffEmpty(ctx.handoff)
   const stageRows: StageRow[] = STAGES.map((s) => {
-    const pass = s.check(ctx)
+    const pass = stalled && s.stage !== "S0" && s.stage !== "S11" ? false : s.check(ctx)
     const attempts = ctx.transcript.stageAttempts[s.stage] ?? 0
+    let evidence = s.evidence(ctx)
+    if (stalled && !pass && s.stage !== "S0" && s.stage !== "S11") {
+      evidence = "handoff incomplete - agent stalled"
+    }
     return {
       stage: s.stage,
       gate: s.gate,
       pass,
       first_pass: pass && attempts === 1,
       attempts,
-      evidence: s.evidence(ctx),
+      evidence,
     }
   })
 

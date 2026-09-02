@@ -67,7 +67,9 @@ ${skillBundleSection(scenario)}
 (6) HARD STOP RULE + HANDOFF CONTRACT
 After c1_connector_authoring_deploy_connector_instance (record deployment_instance_id) and c1_connector_authoring_mint_approval_token (record activation_url), write the handoff table to the arena FS at ${handoffPath} via squire.fs.write and STOP. The handoff table is a JSON object with ALL 10 fields: catalog_id, draft_id, upload_id, run_id, revision_id, app_id, connector_id, test_run_id, deployment_instance_id, activation_url. Write it with:
 squire-tool call squire.fs.write '{"path": "${handoffPath}", "content": "<the full handoff JSON>"}'
-Then STOP. Never redeem the approval token, never poll REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.`
+Then terminate the task (the runner scores the run when the task reaches terminal):
+squire-tool call squire.task.complete '{"summary": "handoff written; funnel complete to human-activation boundary"}'
+Never redeem the approval token, never poll REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.`
 }
 
 export async function createAgentTask(

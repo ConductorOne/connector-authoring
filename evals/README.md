@@ -23,8 +23,11 @@ funnel.
 # start the fixture locally (port 18080)
 npm run eval:fixture
 
-# verify the fixture (all 13 assertions, port 18081; requires curl + jq)
+# verify the fixture (all 16 assertions, port 18081; requires curl + jq)
 npm run eval:verify
+
+# run the committed unit smokes (scorer/parser/stages/record/scenario)
+npm run eval:test
 
 # run a scenario end-to-end (provisions a fresh c1-image env per run)
 npm run eval:run -- --scenario evals/scenarios/tier1-directory.json --ref <branch>
@@ -158,3 +161,24 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 - Baseline matrix runs and CI regression gating.
 - The `/v2` fixture surface (bearer + link pagination) is fixture capability
   asserted by `verify.sh` only; the Tier-1 agent uses `/v1` (basic + offset).
+
+## Implementation notes
+
+- **Evals-scoped tsconfig.** `evals/tsconfig.json` extends the root
+  `tsconfig.json` and adds the evals-only compiler options (`lib: ES2024` for
+  `Promise.withResolvers`, `allowImportingTsExtensions` for the `.ts`-extension
+  imports). The root tsconfig is unchanged for the pre-existing
+  `examples/**/*.ts` and `baton/**/*.d.ts` surface — the evals options do not
+  leak into the repo-wide type environment. `npm run typecheck` runs both
+  configs; the CI workflow is unmodified.
+- **E2E status.** The Tier-1 end-to-end run (done-definition 4) was BLOCKED
+  at the time of writing: fresh c1-image eval envs in this region expose no
+  `c1_connector_authoring_*` tools (verified in multiple fresh envs), so the
+  readiness gate aborts exit 2 per L20 and an unready run is never scored. The
+  runner, scorer, and stage gates are covered by the committed unit smokes
+  (`npm run eval:test`); the E2E must run once the tool surface is available.
+- **Score-input boundary.** `score-input.json` is written by an LLM collector
+  task that transcribes tenant tool responses; the scorer type-validates but
+  cannot verify truthfulness. The collector reads the agent-written handoff
+  from the arena FS itself (values are never interpolated into its prompt), so
+  an untrusted handoff cannot inject instructions into the collector.
