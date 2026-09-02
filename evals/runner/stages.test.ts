@@ -62,14 +62,16 @@ function cleanEvents(): Record<string, unknown>[] {
     toolResult("c1_connector_authoring_get_test_run_evidence", "PENDING"),
     toolCall("c1_connector_authoring_get_test_run_evidence"),
     toolResult("c1_connector_authoring_get_test_run_evidence", "PASS"),
-    toolCall("c1_connector_authoring_deploy_connector_instance"),
+toolCall("c1_connector_authoring_deploy_connector_instance"),
     toolResult("c1_connector_authoring_deploy_connector_instance", "dep"),
     toolCall("c1_connector_authoring_mint_approval_token"),
     toolResult("c1_connector_authoring_mint_approval_token", "token"),
-    toolCall("squire.fs.write", {path: HANDOFF_PATH, content: "{}"}),
-    toolResult("squire.fs.write", "written"),
-    toolCall("squire.task.complete"),
-    toolResult("squire.task.complete", "done"),
+    // The prompt instructs the handoff write + termination via bash
+    // `squire-tool call ...` — the real stream shows bash tool calls.
+    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}", "content": "{}"}'`}),
+    toolResult("bash", "written"),
+    toolCall("bash", {i: "complete", command: `squire-tool call squire.task.complete '{"summary": "handoff written"}'`}),
+    toolResult("bash", "done"),
   ]
 }
 
@@ -144,6 +146,37 @@ test("S2 requires an observed successful PUT (no vacuous pass)", () => {
 test("S11 accepts the bash handoff write with object args + task.complete", () => {
   const c = ctx({})
   assert.equal(check("S11", c), true)
+})
+
+test("S11 also accepts the direct squire.fs.write / squire.task.complete form", () => {
+  const events = [
+    ...cleanEvents().slice(0, -4),
+    toolCall("squire.fs.write", {path: HANDOFF_PATH, content: "{}"}),
+    toolResult("squire.fs.write", "written"),
+    toolCall("squire.task.complete"),
+    toolResult("squire.task.complete", "done"),
+  ]
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), true)
+})
+
+test("S11 fails when the handoff write happened BEFORE the mint", () => {
+  const events = [
+    ...cleanEvents().slice(0, -6), // up to and including the mint
+    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
+    toolResult("bash", "written"),
+  ]
+  // handoff write is the LAST call; the mint happened before it — no
+  // handoff write AFTER the mint exists.
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
+})
+
+test("S11 fails on a pre-mint force_sync (never legitimate)", () => {
+  const events = [
+    toolCall("c1_connector_service_force_sync"),
+    toolResult("c1_connector_service_force_sync", "synced"),
+    ...cleanEvents(),
+  ]
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 
 test("S11 fails on a redemption call after the mint", () => {

@@ -18,10 +18,12 @@ function runSquireTool(argv: string[]): Promise<{stdout: string; stderr: string}
     if (err) {
       // Redact the args: they can carry the agent prompt, fixture credentials,
       // or stored api-token values — never cross the process boundary into
-      // logs. Only the tool name + stderr are reported.
-      const e = err as {killed?: boolean; message?: string}
+      // logs. Only the tool name + stderr are reported. NEVER fall back to
+      // err.message: Node's execFile error embeds the FULL argv.
+      const e = err as {killed?: boolean}
       const suffix = e.killed === true ? " (timed out after 60s)" : ""
-      reject(new Error(`squire-tool call ${argv[1] ?? "?"} failed: ${stderr || e.message || String(err)}${suffix}`))
+      const detail = stderr.trim().length > 0 ? stderr.trim() : "(no stderr)"
+      reject(new Error(`squire-tool call ${argv[1] ?? "?"} failed: ${detail}${suffix}`))
       return
     }
     resolve({stdout, stderr})
@@ -46,24 +48,8 @@ export async function call(
   }
 }
 
-export async function list(filter?: string, opts: CallOpts = {}): Promise<string[]> {
-  const argv = ["list"]
-  if (filter) argv.push("--filter", filter)
-  if (opts.taskId) argv.push("--task-id", opts.taskId)
-  const {stdout} = await runSquireTool(argv)
-  return stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && line !== "(no matching tools)")
-    .map((line) => line.split("\t")[0])
-}
-
 export async function fsRead(path: string, opts: CallOpts = {}): Promise<unknown> {
   return call("squire.fs.read", {path}, opts)
-}
-
-export async function fsWrite(path: string, content: string, opts: CallOpts = {}): Promise<unknown> {
-  return call("squire.fs.write", {path, content}, opts)
 }
 
 export async function getEnv(envId: string, opts: CallOpts = {}): Promise<Record<string, unknown>> {

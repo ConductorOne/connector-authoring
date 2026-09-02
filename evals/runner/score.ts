@@ -31,14 +31,16 @@ const MAX_FILES = 256
 // under-sync trap (a) is only avoided when account_id is actually passed as
 // the query param — a comment or config string must not satisfy it).
 function accountIdInQuery(source: string): boolean {
-  const idx = source.indexOf("account_id")
-  if (idx < 0) return false
-  const before = source.slice(Math.max(0, idx - 100), idx)
-  const queryIdx = before.lastIndexOf("query:")
-  if (queryIdx < 0) return false
-  // No object close between `query:` and `account_id` — the literal sits
-  // inside the query object, not in a sibling field or comment.
-  return !before.slice(queryIdx).includes("}")
+  // Check EVERY occurrence: a leading comment mentioning account_id must not
+  // mask the real query usage (or vice versa).
+  let idx = source.indexOf("account_id")
+  while (idx >= 0) {
+    const before = source.slice(Math.max(0, idx - 100), idx)
+    const queryIdx = before.lastIndexOf("query:")
+    if (queryIdx >= 0 && !before.slice(queryIdx).includes("}")) return true
+    idx = source.indexOf("account_id", idx + 1)
+  }
+  return false
 }
 
 function parityChecks(source: string): {name: string; ok: boolean}[] {

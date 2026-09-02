@@ -90,9 +90,15 @@ function fsWritePath(call: ToolCallRecord): string | null {
   return null
 }
 
+// A call is successful only when a tool_result was captured AND it carried no
+// error — a call with no observed result (dropped stream event) must not
+// count as success (silent false-green on S0/S2).
 function successfulCalls(transcript: ParsedStream, nameSuffix: string) {
   return transcript.toolCalls.filter(
-    (c) => c.name.endsWith(nameSuffix) && (c.error === undefined || c.error === null || c.error === false),
+    (c) =>
+      c.name.endsWith(nameSuffix) &&
+      c.result !== undefined &&
+      (c.error === undefined || c.error === null || c.error === false),
   )
 }
 
@@ -135,7 +141,12 @@ function isRedemptionCall(call: ToolCallRecord): boolean {
 }
 
 function isTerminalComplete(call: ToolCallRecord): boolean {
-  return call.name === "squire.task.complete" || call.name.endsWith("task.complete")
+  if (call.name === "squire.task.complete" || call.name.endsWith("task.complete")) return true
+  // The agent prompt instructs termination via the bash form
+  // `squire-tool call squire.task.complete ...` — a bash-wrapped complete
+  // has name="bash" and must be recognized as the terminal call.
+  const command = bashCommand(call)
+  return command !== null && command.includes("task.complete")
 }
 
 // The handoff write is the ONLY permitted non-terminal call after the mint:
@@ -244,13 +255,16 @@ export const STAGES: Stage[] = [
   {
     stage: "S11",
     gate: "handoff discipline",
-    check: (ctx) => {
+check: (ctx) => {
       const h = ctx.handoff
       if (!nonEmpty(h, "deployment_instance_id") || !nonEmpty(h, "activation_url")) return false
       if (!HANDOFF_FIELDS.every((f) => nonEmpty(h, f))) return false
       const mintIdx = mintIndex(ctx.transcript)
       if (mintIdx < 0) return false
       const after = ctx.transcript.toolCalls.slice(mintIdx + 1)
+      // The handoff write must actually occur AFTER the mint (a handoff
+      // written before deploy+mint violates the stop rule).
+      if (!after.some((c) => isHandoffWrite(c, ctx.handoffPath))) return false
       // Allowed after the mint: the handoff write, then the terminal
       // squire.task.complete (the task must terminate for the runner to
       // score; harness bookkeeping, not funnel activity).
@@ -259,11 +273,9 @@ export const STAGES: Stage[] = [
       for (const call of body) {
         if (!isHandoffWrite(call, ctx.handoffPath)) return false
       }
-      // Redemption scan is scoped to calls AFTER the mint (a pre-mint
-      // list_revision_summaries status check is legitimate funnel activity).
-      for (const call of after) {
-        if (isRedemptionCall(call)) return false
-      }
+      // force_sync/redeem are NEVER legitimate (the stop rule forbids them
+      // outright) — flag them anywhere in the transcript, pre- or post-mint.
+      if (ctx.transcript.toolCalls.some((c) => isRedemptionCall(c))) return false
       return true
     },
     evidence: (ctx) => {

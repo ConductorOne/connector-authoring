@@ -127,11 +127,36 @@ export async function collect(
   handoff: Handoff,
   opts: CallOpts = {},
 ): Promise<{scoreInput: ScoreInput; notes: string[]}> {
+  // Bounded retry: a transient collector failure (task-create hiccup, stream
+  // gap, arena-FS write race) must not discard a full run.
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await collectOnce(envId, scenario, runId, handoff, opts)
+    } catch (err) {
+      lastErr = err
+      if (attempt < 2) {
+        console.warn(`WARNING: collector attempt ${attempt}/2 failed (${(err as Error).message}) — retrying`)
+        await sleep(5_000)
+      }
+    }
+  }
+  throw lastErr
+}
+
+async function collectOnce(
+  envId: string,
+  scenario: Scenario,
+  runId: string,
+  handoff: Handoff,
+  opts: CallOpts = {},
+): Promise<{scoreInput: ScoreInput; notes: string[]}> {
   const collector = (await taskCreate(
     {
       env_id: envId,
       prompt: buildCollectorPrompt(scenario, runId, handoff),
       title: `score-collector-${runId}`,
+      model: scenario.model,
     },
     opts,
   )) as Record<string, unknown>

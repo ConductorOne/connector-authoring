@@ -70,10 +70,10 @@ function cleanEvents(): Record<string, unknown>[] {
     toolResult("c1_connector_authoring_deploy_connector_instance", "dep"),
     toolCall("c1_connector_authoring_mint_approval_token"),
     toolResult("c1_connector_authoring_mint_approval_token", "token"),
-    toolCall("squire.fs.write", {path: HANDOFF_PATH}),
-    toolResult("squire.fs.write", "written"),
-    toolCall("squire.task.complete"),
-    toolResult("squire.task.complete", "done"),
+    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
+    toolResult("bash", "written"),
+    toolCall("bash", {i: "complete", command: `squire-tool call squire.task.complete '{"summary": "handoff written"}'`}),
+    toolResult("bash", "done"),
   ]
 }
 

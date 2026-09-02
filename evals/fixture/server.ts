@@ -92,9 +92,12 @@ function readBody(req: IncomingMessage): Promise<{body: string; tooLarge: boolea
   let tooLarge = false
   req.on("data", (c: Buffer) => {
     total += c.length
+    if (tooLarge) return
     if (total > MAX_BODY_BYTES) {
+      // Stop buffering; do NOT destroy the request (destroy never fires
+      // 'end', so the promise would hang and the 413 never flush).
       tooLarge = true
-      req.destroy()
+      chunks.length = 0
       return
     }
     chunks.push(c)

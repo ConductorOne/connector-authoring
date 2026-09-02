@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # verify.sh — self-check for the Directory API fixture (evals/fixture).
-# Runs the server on port 18081 (never 18080) and asserts all 13 checks:
+# Runs the server on port 18081 (never 18080) and asserts all 16 checks:
 # every endpoint, both auth variants, both pagination variants, and all three
 # traps. Requires curl + jq. Kills the server on exit (trap).
 set -euo pipefail

@@ -13,7 +13,7 @@ import {installFixture} from "./fixture-install.ts"
 import {buildPrompt, createAgentTask, waitForAgentTask} from "./agent.ts"
 import {parseStream, pollStreamIncrementally} from "./stream.ts"
 import {collect} from "./collect.ts"
-import {SKIPPED_STAGES, STAGES, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
+import {SKIPPED_STAGES, STAGES, handoffEmpty, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
 import {scoreRun} from "./score.ts"
 import {writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
 
@@ -147,11 +147,12 @@ async function readHandoff(handoffPath: string, opts: CallOpts): Promise<Handoff
 // scored from each stage's own evidence).
 
 // --env mode targets an existing env; verify the caller owns it before
-// creating tasks / writing arena files there (IDOR hardening).
+// creating tasks / writing arena files there (IDOR hardening). Fail-closed:
+// an absent/undefined is_mine must NOT pass.
 async function assertEnvOwned(envId: string, opts: CallOpts): Promise<void> {
-  const env = (await call("get_env", {env_id: envId}, opts)) as Record<string, unknown>
-  if (env.is_mine === false) {
-    throw new Error(`refusing --env ${envId}: env is not owned by the caller (owner_id=${String(env.owner_id ?? "?")})`)
+  const env = (await call("get_env", {env_id: envId}, opts)) as Record<string, unknown> | null
+  if (env === null || env.is_mine !== true) {
+    throw new Error(`refusing --env ${envId}: env ownership not verified (is_mine=${String(env?.is_mine ?? "unavailable")})`)
   }
 }
 
@@ -242,8 +243,11 @@ let envId: string
       const collected = await collect(envId, scenario, runId, handoff, opts)
       scoreInput = collected.scoreInput
       collectNotes = collected.notes
-    } catch (err) {
-      if (handoffOk) throw err
+} catch (err) {
+      // The exit-0 contract for stalled agents applies only when the handoff
+      // is COMPLETELY absent; a partial handoff + collector failure is a real
+      // infrastructure failure and must not be masked by a null record.
+      if (handoffOk || !handoffEmpty(handoff)) throw err
       stderr.write(`WARNING: collector failed on the stalled path (${(err as Error).message}) — writing a null score-input record\n`)
       scoreInput = {
         run_id: runId,
