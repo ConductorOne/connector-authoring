@@ -1,0 +1,104 @@
+// fixture-install.ts — fixture delivery + reachability in the eval env (CXF-216 PR 1, L26).
+import {getTask, taskCreate, taskStream, type CallOpts} from "./squire.ts"
+import type {Scenario} from "./scenario.ts"
+import {ReadinessError} from "./readiness.ts"
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+function isTerminal(state: unknown): boolean {
+  return state === "completed" || state === "failed" || state === "canceled"
+}
+
+function buildSetupPrompt(scenario: Scenario, runId: string, ref: string): string {
+  return `You are the fixture setup task for eval run ${runId}. Run this exact sequence and report the result:
+
+1. git clone https://github.com/ConductorOne/connector-authoring /tmp/connector-authoring
+2. cd /tmp/connector-authoring && git checkout ${ref}
+   If the checkout fails, print "SETUP FAIL: checkout failed for ref ${ref}" and stop.
+3. node --version — assert the version is >= 22.18. If lower, print "SETUP FAIL: node version below 22.18" and stop.
+4. Launch the fixture: nohup node --experimental-strip-types evals/fixture/server.ts --port 18080 > /tmp/fixture.log 2>&1 &
+5. Reachability assert (real authenticated GET):
+   curl -sS -u connector@example.com:fixture-token "http://127.0.0.1:18080/v1/users?account_id=acct-1"
+   If the response contains "total":23, print "FIXTURE_BASE_URL=http://127.0.0.1:18080" and go to step 7.
+   Otherwise try the pod IP: HOST=$(hostname -i | awk '{print $1}') and
+   curl -sS -u connector@example.com:fixture-token "http://$HOST:18080/v1/users?account_id=acct-1"
+   If that response contains "total":23, print "FIXTURE_BASE_URL=http://$HOST:18080" and go to step 7.
+   Otherwise print "SETUP FAIL: fixture unreachable on 127.0.0.1 and pod IP" and stop.
+6. (unreachable — see step 5)
+7. Print "SETUP DONE" as your final line, then terminate the task: squire-tool call squire.task.complete '{"summary": "fixture setup finished"}'`
+}
+
+async function waitForSetupTerminal(
+  envId: string,
+  taskId: string,
+  timeoutMs: number,
+  opts: CallOpts,
+): Promise<{state: string; timedOut: boolean}> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const res = await getTask(envId, taskId, opts)
+    const state = (res.task as Record<string, unknown> | undefined)?.state as string | undefined
+    if (state && isTerminal(state)) return {state, timedOut: false}
+    await sleep(10_000)
+  }
+  return {state: "running", timedOut: true}
+}
+
+async function readSetupStream(
+  envId: string,
+  taskId: string,
+  opts: CallOpts,
+): Promise<string> {
+  let sinceSeq = 0
+  const parts: string[] = []
+  for (;;) {
+    const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+    const events = (page.events ?? []) as Record<string, unknown>[]
+    for (const ev of events) {
+      const data = (ev.data ?? {}) as Record<string, unknown>
+      for (const key of ["result", "output", "message"]) {
+        const v = data[key]
+        if (typeof v === "string") parts.push(v)
+      }
+    }
+    const nextSeq = page.next_seq as number | undefined
+    if (nextSeq === undefined || nextSeq <= sinceSeq) break
+    sinceSeq = nextSeq
+  }
+  return parts.join("\n")
+}
+
+export async function installFixture(
+  envId: string,
+  scenario: Scenario,
+  runId: string,
+  ref: string,
+  opts: CallOpts = {},
+): Promise<{baseUrl: string}> {
+  const setup = (await taskCreate(
+    {
+      env_id: envId,
+      prompt: buildSetupPrompt(scenario, runId, ref),
+      title: `fixture-setup-${runId}`,
+    },
+    opts,
+  )) as Record<string, unknown>
+  const setupTaskId = setup.id as string
+  if (!setupTaskId) throw new ReadinessError(`setup task create returned no id: ${JSON.stringify(setup)}`)
+
+  const {state, timedOut} = await waitForSetupTerminal(envId, setupTaskId, 10 * 60 * 1000, opts)
+  if (timedOut) {
+    throw new ReadinessError(`fixture setup for ${envId} timed out after 10 min`)
+  }
+
+  const stream = await readSetupStream(envId, setupTaskId, opts)
+  if (stream.includes("SETUP FAIL")) {
+    const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? "SETUP FAIL"
+    throw new ReadinessError(`fixture setup failed in ${envId}: ${failLine} (probe state ${state})`)
+  }
+  const baseUrlMatch = stream.match(/FIXTURE_BASE_URL=(\S+)/)
+  if (!baseUrlMatch) {
+    throw new ReadinessError(`fixture setup in ${envId} produced no FIXTURE_BASE_URL (probe state ${state})`)
+  }
+  return {baseUrl: baseUrlMatch[1]}
+}

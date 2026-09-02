@@ -2,9 +2,13 @@
   "name": "connector-authoring",
   "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval:fixture": "node --experimental-strip-types evals/fixture/server.ts --port 18080",
+    "eval:verify": "bash evals/fixture/verify.sh",
+    "eval:run": "node evals/runner/run.ts"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@types/node": "^22.0.0"
   }
 }
