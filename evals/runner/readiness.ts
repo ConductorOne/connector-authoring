@@ -87,14 +87,21 @@ async function readProbeToolList(
   // Bounded retry: a transient gateway blip must not abort an otherwise
   // healthy env (every other gateway read in the runner retries). A
   // genuinely absent file still fails closed after the retries.
+  let lastErr: unknown
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const res = (await fsRead(probeToolsPath(runId), opts)) as Record<string, unknown>
       const content = res.content as string | undefined
       if (typeof content === "string" && content.length > 0) return content
-    } catch {
-      if (attempt < 3) await sleep(2_000)
+    } catch (err) {
+      lastErr = err
     }
+    // Backoff on every non-successful attempt (error OR empty content), so
+    // a transient blip does not burn all three attempts in milliseconds.
+    if (attempt < 3) await sleep(2_000)
+  }
+  if (lastErr !== undefined) {
+    console.error(`WARNING: probe tool-list read failed after 3 attempts: ${(lastErr as Error).message} — treating as readiness failure`)
   }
   return null
 }
