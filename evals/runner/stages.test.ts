@@ -143,6 +143,28 @@ test("S2 requires an observed successful PUT (no vacuous pass)", () => {
   assert.equal(check("S2", ctx({transcript: parseStream(failedPut)})), false)
 })
 
+test("S2 accepts concatenated and mixed-line 200 PUT results", () => {
+  // The prompt's curl form prints codes with no trailing newline, so a
+  // batched bash call can emit "200200200200" or a mix like "200200\n200200".
+  for (const out of ["200200200200", "200200\n200200", "200\n200\n200\n200"]) {
+    const events = [
+      toolCall("c1_connector_authoring_create_draft_source_upload"),
+      toolResult("c1_connector_authoring_create_draft_source_upload", "upload"),
+      toolCall("bash", {i: "put", command: 'curl -sS -o /tmp/put.out -w "%{http_code}" -X PUT "http://x" -H "h" --data-binary @"f"'}),
+      toolResult("bash", out),
+    ]
+    assert.equal(check("S2", ctx({transcript: parseStream(events)})), true, `output ${JSON.stringify(out)} should pass S2`)
+  }
+  // A mixed 200403 result must fail.
+  const bad = [
+    toolCall("c1_connector_authoring_create_draft_source_upload"),
+    toolResult("c1_connector_authoring_create_draft_source_upload", "upload"),
+    toolCall("bash", {i: "put", command: 'curl -sS -o /tmp/put.out -w "%{http_code}" -X PUT "http://x" -H "h" --data-binary @"f"'}),
+    toolResult("bash", "200403"),
+  ]
+  assert.equal(check("S2", ctx({transcript: parseStream(bad)})), false)
+})
+
 test("S11 accepts the bash handoff write with object args + task.complete", () => {
   const c = ctx({})
   assert.equal(check("S11", c), true)

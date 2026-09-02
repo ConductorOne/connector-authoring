@@ -123,14 +123,12 @@ function successfulCalls(transcript: ParsedStream, nameSuffix: string) {
 // is exactly the http_code 200 (the prompt's curl form prints only the code).
 function isHttp200(result: unknown): boolean {
   if (typeof result !== "string") return false
-  const trimmed = result.trim()
-  // The prompt's curl form (-w "%{http_code}") prints the code with no
-  // trailing newline, so an agent that PUTs all four files in one bash call
-  // produces "200200200200". Accept any result whose non-empty lines/codes
-  // are all 200.
-  if (/^(200)+$/.test(trimmed)) return true
-  const lines = trimmed.split("\n").map((l) => l.trim()).filter((l) => l.length > 0)
-  return lines.length > 0 && lines.every((l) => l === "200")
+  // The prompt's curl form (-w "%{http_code}") prints codes with no trailing
+  // newline, so a batched bash call can emit "200200200200" or a mix like
+  // "200200\n200200". One rule covers all: every non-empty line must be one
+  // or more 200 codes.
+  const lines = result.trim().split("\n").map((l) => l.trim()).filter((l) => l.length > 0)
+  return lines.length > 0 && lines.every((l) => /^(200)+$/.test(l))
 }
 
 function successfulPutCalls(transcript: ParsedStream): ToolCallRecord[] {

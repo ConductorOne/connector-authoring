@@ -1,5 +1,5 @@
 // readiness.ts — hard readiness gate for eval envs (CXF-216 PR 1, L20).
-import {getEnv, getTask, fsRead, taskCreate, taskStream, type CallOpts} from "./squire.ts"
+import {getEnv, getTask, fsRead, taskCreate, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
 
 export class ReadinessError extends Error {
@@ -84,12 +84,17 @@ async function readProbeToolList(
   runId: string,
   opts: CallOpts,
 ): Promise<string | null> {
-  try {
-    const res = (await fsRead(probeToolsPath(runId), opts)) as Record<string, unknown>
-    const content = res.content as string | undefined
-    if (typeof content === "string" && content.length > 0) return content
-  } catch {
-    // fall through to null — the caller treats it as a readiness failure
+  // Bounded retry: a transient gateway blip must not abort an otherwise
+  // healthy env (every other gateway read in the runner retries). A
+  // genuinely absent file still fails closed after the retries.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = (await fsRead(probeToolsPath(runId), opts)) as Record<string, unknown>
+      const content = res.content as string | undefined
+      if (typeof content === "string" && content.length > 0) return content
+    } catch {
+      if (attempt < 3) await sleep(2_000)
+    }
   }
   return null
 }

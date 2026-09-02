@@ -16,7 +16,7 @@ function buildSetupPrompt(scenario: Scenario, runId: string, ref: string): strin
 2. cd /tmp/connector-authoring && git checkout ${ref}
    If the checkout fails, print "SETUP FAIL: checkout failed for ref ${ref}" and stop.
 3. node --version — assert the version is >= 22.18. If lower, print "SETUP FAIL: node version below 22.18" and stop.
-4. Launch the fixture: nohup node --experimental-strip-types evals/fixture/server.ts --port 18080 > /tmp/fixture.log 2>&1 &
+4. Launch the fixture: nohup node --experimental-strip-types evals/fixture/server.ts --port 18080 --host 0.0.0.0 > /tmp/fixture.log 2>&1 &
 5. Reachability assert (real authenticated GET):
    curl -sS -u connector@example.com:fixture-token "http://127.0.0.1:18080/v1/users?account_id=acct-1"
    If the response contains "total":23, print "FIXTURE_BASE_URL=http://127.0.0.1:18080" and go to step 7.
@@ -50,7 +50,6 @@ async function waitForSetupTerminal(
 }
 
 async function readSetupStream(
-  envId: string,
   taskId: string,
   opts: CallOpts,
 ): Promise<string> {
@@ -107,7 +106,7 @@ export async function installFixture(
     throw new ReadinessError(`fixture setup for ${envId} timed out after 10 min`)
   }
 
-const stream = await readSetupStream(envId, setupTaskId, opts)
+  const stream = await readSetupStream(setupTaskId, opts)
   if (stream.includes("SETUP FAIL")) {
     const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? "SETUP FAIL"
     throw new ReadinessError(`fixture setup failed in ${envId}: ${failLine} (probe state ${state})`)

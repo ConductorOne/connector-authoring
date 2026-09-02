@@ -60,9 +60,15 @@ function parseArgs(args: string[]): CliArgs {
       case "--task-id":
         out.taskId = args[++i] ?? ""
         break
-      case "--env":
-        out.env = args[++i] ?? ""
+      case "--env": {
+        const v = args[++i] ?? ""
+        if (v === "") {
+          stderr.write("ERROR: --env requires a non-empty value\n")
+          exit(1)
+        }
+        out.env = v
         break
+      }
       case "--keep-env":
         out.keepEnv = true
         break
@@ -184,7 +190,7 @@ let envId: string
       opts,
     )
     envId = e
-} else {
+  } else {
     const existingEnv = cli.env
     if (!existingEnv) throw new Error("--env requires a non-empty value")
     envId = existingEnv
@@ -204,7 +210,6 @@ let envId: string
     let stopPolling = false
     const streamEvents: unknown[] = []
     const poller = pollStreamIncrementally(
-      envId,
       agentTaskId,
       (ev) => streamEvents.push(...ev),
       30_000,
@@ -257,7 +262,7 @@ let envId: string
     // instructions into the collector's transcription (quotes, braces,
     // semicolons, control chars) and coerce non-string fields to empty, then
     // write a sanitized copy for it.
-const sanitizedHandoff = sanitizeHandoff(handoff)
+    const sanitizedHandoff = sanitizeHandoff(handoff)
     const sanitizedHandoffPath = handoffPath.replace("handoff.json", "handoff-sanitized.json")
     // Fatal, not a warning: if the sanitized copy cannot be written, the
     // collector would read a nonexistent file, record nulls, and the run

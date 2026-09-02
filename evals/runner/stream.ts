@@ -200,7 +200,6 @@ const sleep = (ms: number) => {
 // accumulation via `onEvents`; this returns only the last cursor for the
 // final drain (no duplicate in-memory copy of the transcript).
 export async function pollStreamIncrementally(
-  envId: string,
   taskId: string,
   onEvents: (events: unknown[]) => void,
   intervalMs = 30_000,
