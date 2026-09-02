@@ -42,14 +42,16 @@ export async function retryProvision(
 ): Promise<{envId: string}> {
   let lastErr: unknown
   for (let i = 0; i < attempts; i++) {
-    const {envId} = await provisionEnv(scenario, runId, opts)
+    let envId = ""
     try {
+      const provisioned = await provisionEnv(scenario, runId, opts)
+      envId = provisioned.envId
       await readiness(envId)
       return {envId}
     } catch (err) {
       lastErr = err
-      console.error(`attempt ${i + 1}/${attempts} readiness failed for ${envId}: ${(err as Error).message}`)
-      await teardownEnv(envId, opts)
+      console.error(`attempt ${i + 1}/${attempts} failed for ${envId || "(create_env)"}: ${(err as Error).message}`)
+      if (envId) await teardownEnv(envId, opts)
     }
   }
   throw lastErr

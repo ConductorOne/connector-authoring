@@ -36,9 +36,14 @@ async function waitForSetupTerminal(
 ): Promise<{state: string; timedOut: boolean}> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const res = await getTask(envId, taskId, opts)
-    const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
-    if (state && isTerminal(state)) return {state, timedOut: false}
+    try {
+      const res = await getTask(envId, taskId, opts)
+      const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
+      if (state && isTerminal(state)) return {state, timedOut: false}
+    } catch (err) {
+      // Transient gateway failure: log and keep polling.
+      console.error(`WARNING: get_task poll failed: ${(err as Error).message}`)
+    }
     await sleep(10_000)
   }
   return {state: "running", timedOut: true}

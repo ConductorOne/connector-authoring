@@ -209,13 +209,19 @@ export async function pollStreamIncrementally(
 ): Promise<{lastSeq: number}> {
   let sinceSeq = 0
   for (;;) {
-    const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-    const events = (page.events ?? []) as unknown[]
-    if (events.length > 0) {
-      onEvents(events)
+    try {
+      const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+      const events = (page.events ?? []) as unknown[]
+      if (events.length > 0) {
+        onEvents(events)
+      }
+      const nextSeq = page.next_seq as number | undefined
+      if (nextSeq !== undefined && nextSeq > sinceSeq) sinceSeq = nextSeq
+    } catch (err) {
+      // Transient stream failures must not kill the poller (a gateway hiccup
+      // mid-run would otherwise abort the whole eval).
+      console.error(`WARNING: task.stream poll failed: ${(err as Error).message}`)
     }
-    const nextSeq = page.next_seq as number | undefined
-    if (nextSeq !== undefined && nextSeq > sinceSeq) sinceSeq = nextSeq
     if (shouldStop()) break
     await sleep(intervalMs)
   }

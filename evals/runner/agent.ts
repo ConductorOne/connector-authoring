@@ -110,10 +110,16 @@ export async function waitForAgentTask(
   const startedAt = Date.now()
   const deadline = startedAt + timeoutMs
   while (Date.now() < deadline) {
-    const res = await getTask(envId, taskId, opts)
-    const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
-    if (state && isTerminal(state)) {
-      return {terminal: true, wallTimeMs: Date.now() - startedAt, timedOut: false}
+    try {
+      const res = await getTask(envId, taskId, opts)
+      const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
+      if (state && isTerminal(state)) {
+        return {terminal: true, wallTimeMs: Date.now() - startedAt, timedOut: false}
+      }
+    } catch (err) {
+      // Transient gateway failure: log and keep polling (never abort a run
+      // on a hiccup).
+      console.error(`WARNING: get_task poll failed: ${(err as Error).message}`)
     }
     await sleep(10_000)
   }

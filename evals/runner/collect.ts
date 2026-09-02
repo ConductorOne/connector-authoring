@@ -168,11 +168,16 @@ async function collectOnce(
   const deadline = Date.now() + 10 * 60 * 1000
   let terminal = false
   while (Date.now() < deadline) {
-    const res = await getTask(envId, collectorTaskId, opts)
-    const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
-    if (state && isTerminal(state)) {
-      terminal = true
-      break
+    try {
+      const res = await getTask(envId, collectorTaskId, opts)
+      const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
+      if (state && isTerminal(state)) {
+        terminal = true
+        break
+      }
+    } catch (err) {
+      // Transient gateway failure: log and keep polling.
+      console.error(`WARNING: collector get_task poll failed: ${(err as Error).message}`)
     }
     await sleep(10_000)
   }
