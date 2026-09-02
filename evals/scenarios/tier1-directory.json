@@ -1,0 +1,47 @@
+{
+  "id": "tier1-directory",
+  "name": "Tier 1: Directory API sync funnel",
+  "fixture": {
+    "port": 18080,
+    "baseUrl": "http://127.0.0.1:18080",
+    "auth": "basic",
+    "openapiPath": "/openapi.json",
+    "basicAuth": {
+      "username": "connector@example.com",
+      "password": "fixture-token"
+    },
+    "bearerToken": "fixture-token"
+  },
+  "seed": {
+    "users": 23,
+    "groups": 5,
+    "memberships": 23,
+    "nullTitleUsers": 3,
+    "unscopedSubset": 3,
+    "disabledUsers": 2
+  },
+  "expected": {
+    "users": 23,
+    "groups": 5,
+    "memberships": 23
+  },
+  "skillBundle": {
+    "mode": "none",
+    "version": "0.0.0"
+  },
+  "model": "together/deepseek-ai/DeepSeek-V4-Flash-0731",
+  "requiredSourceFiles": [
+    "connector.ts",
+    "config-schema.json",
+    "runtime-schema.json",
+    "capabilities.json"
+  ],
+  "readinessTools": [
+    "c1_connector_authoring_get_authoring_guide",
+    "c1_connector_authoring_create_draft",
+    "c1_connector_authoring_build_bundle",
+    "c1_connector_authoring_run_draft_test_sync",
+    "c1_connector_authoring_get_test_run_evidence"
+  ],
+  "handoffPath": "/current-tasks/evals/<run-id>/handoff.json"
+}
