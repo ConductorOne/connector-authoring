@@ -5,6 +5,7 @@ import {test} from "node:test"
 import assert from "node:assert/strict"
 import {buildPrompt} from "./agent.ts"
 import type {Scenario} from "./scenario.ts"
+import type {RunChannel} from "./driver.ts"
 
 const SCENARIO: Scenario = {
   id: "tier1-directory",
@@ -29,17 +30,25 @@ const SCENARIO: Scenario = {
     "c1_connector_authoring_run_draft_test_sync",
     "c1_connector_authoring_get_test_run_evidence",
   ],
-  handoffPath: "/current-tasks/evals/<run-id>/handoff.json",
+}
+
+const CHANNEL: RunChannel = {
+  runDir: "/tmp/evals-run",
+  handoffPath: "/tmp/evals-run/handoff.json",
+  scoreInputPath: "/tmp/evals-run/score-input.json",
+  transcriptPath: "/tmp/evals-run/transcript.json",
+  handoffInstructions: 'Write it with driver.write_file: args {path: "<path>", content: "<the full handoff JSON>"}.',
+  completionInstructions: 'Then terminate the run with driver.complete_run: args {summary: "handoff written; funnel complete to human-activation boundary"}.',
 }
 
 test("buildPrompt carries the stop rule, handoff path, and credentials", () => {
-  const prompt = buildPrompt(SCENARIO, "evals-tier1-directory-20260902-120000-000", "http://127.0.0.1:18080", "am/src-81ose/src-att4-impl")
+  const prompt = buildPrompt(SCENARIO, "evals-tier1-directory-20260902-120000-000", "http://127.0.0.1:18080", CHANNEL)
   assert.ok(prompt.includes("http://127.0.0.1:18080"))
   assert.ok(prompt.includes("connector@example.com"))
   assert.ok(prompt.includes("fixture-token"))
-  assert.ok(prompt.includes("/current-tasks/evals/evals-tier1-directory-20260902-120000-000/handoff.json"))
+  assert.ok(prompt.includes("/tmp/evals-run/handoff.json"))
   // The hard stop rule: write the handoff, terminate, never redeem.
-  assert.ok(prompt.includes("squire.task.complete"))
+  assert.ok(prompt.includes("driver.complete_run"))
   assert.ok(prompt.includes("Never redeem the approval token"))
   assert.ok(prompt.includes("never call c1_connector_service_force_sync"))
   // The under-sync trap is spelled out.
@@ -48,8 +57,8 @@ test("buildPrompt carries the stop rule, handoff path, and credentials", () => {
 })
 
 test("buildPrompt skill-bundle modes render", () => {
-  const none = buildPrompt({...SCENARIO, skillBundle: {mode: "none", version: "0.0.0"}}, "r", "http://x", "ref")
+  const none = buildPrompt({...SCENARIO, skillBundle: {mode: "none", version: "0.0.0"}}, "r", "http://x", CHANNEL)
   assert.ok(none.includes("No skill bundle"))
-  const full = buildPrompt({...SCENARIO, skillBundle: {mode: "full", version: "1.2.3"}}, "r", "http://x", "ref")
+  const full = buildPrompt({...SCENARIO, skillBundle: {mode: "full", version: "1.2.3"}}, "r", "http://x", CHANNEL)
   assert.ok(full.includes("Skill bundle (version 1.2.3)"))
 })

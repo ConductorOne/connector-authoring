@@ -1,4 +1,4 @@
-// Zero-dependency Directory API fixture server (CXF-216 PR 1).
+// Zero-dependency Directory API fixture server.
 // Implements the L16 route/auth/pagination matrix exactly:
 //   /v1/* = basic auth + offset pagination, page object {items, offset, limit, total}
 //   /v2/* = bearer auth + bare JSON array + Link rel="next" pagination

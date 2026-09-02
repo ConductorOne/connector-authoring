@@ -1,4 +1,4 @@
-// stages.ts — S0..S11 stage gate definitions (CXF-216 PR 1, L23).
+// stages.ts — S0..S11 stage gate definitions.
 // Every check is a pure function over the locked evidence contract.
 import type {ParsedStream, ToolCallRecord} from "./stream.ts"
 
@@ -70,7 +70,7 @@ export function handoffEmpty(h: Handoff): boolean {
 }
 
 // The agent-written handoff is UNTRUSTED. The collector reads it from the
-// arena FS as a tool result — strip characters that could inject
+// run channel as a tool result — strip characters that could inject
 // instructions into the collector's transcription (quotes, braces,
 // semicolons, control chars) and coerce non-string fields to empty.
 export function sanitizeHandoffValue(v: unknown): string {
@@ -86,8 +86,9 @@ export function sanitizeHandoff(h: Handoff): Handoff {
   return out
 }
 
-// bash tool_call args are objects {i, command} in the real stream; fs.write
-// args are objects {path, content}. Extract the command/path strings.
+// bash tool_call args are objects {i, command} in the real stream; the
+// driver.write_file args are objects {path, content}. Extract the
+// command/path strings.
 function bashCommand(call: ToolCallRecord): string | null {
   if (call.name !== "bash") return null
   if (typeof call.args === "string") return call.args
@@ -99,7 +100,7 @@ function bashCommand(call: ToolCallRecord): string | null {
 }
 
 function fsWritePath(call: ToolCallRecord): string | null {
-  if (!call.name.endsWith("fs.write")) return null
+  if (call.name !== "driver.write_file") return null
   if (typeof call.args === "object" && call.args !== null) {
     const path = (call.args as Record<string, unknown>).path
     return typeof path === "string" ? path : null
@@ -162,24 +163,13 @@ function isRedemptionCall(call: ToolCallRecord): boolean {
 }
 
 function isTerminalComplete(call: ToolCallRecord): boolean {
-  if (call.name === "squire.task.complete" || call.name.endsWith("task.complete")) return true
-  // The agent prompt instructs termination via the bash form
-  // `squire-tool call squire.task.complete ...` — a bash-wrapped complete
-  // has name="bash" and must be recognized as the terminal call. The match
-  // requires an actual squire-tool invocation (a bare mention of
-  // "task.complete" in a comment/echo must NOT strip the call).
-  const command = bashCommand(call)
-  return command !== null && command.includes("squire-tool") && command.includes("task.complete")
+  return call.name === "driver.complete_run"
 }
 
 // The handoff write is the ONLY permitted non-terminal call after the mint:
-// squire.fs.write to the exact handoff path (object args {path} or a bash
-// squire-tool call whose command names the path).
+// driver.write_file to the exact handoff path (object args {path}).
 function isHandoffWrite(call: ToolCallRecord, handoffPath: string): boolean {
-  const path = fsWritePath(call)
-  if (path !== null) return path.includes(handoffPath)
-  const command = bashCommand(call)
-  return command !== null && command.includes("squire.fs.write") && command.includes(handoffPath)
+  return call.name === "driver.write_file" && (call.args as Record<string, unknown> | null)?.path === handoffPath
 }
 
 export const STAGES: Stage[] = [
@@ -190,7 +180,7 @@ export const STAGES: Stage[] = [
     evidence: (ctx) =>
       `transcript has ${successfulCalls(ctx.transcript, "get_authoring_guide").length} successful get_authoring_guide call(s)`,
   },
-{
+  {
     stage: "S1",
     gate: "catalog_id + draft_id",
     // Transcript cross-check: a fabricated handoff must not pass — the
@@ -230,7 +220,7 @@ export const STAGES: Stage[] = [
       return missing.length === 0 ? "all 4 required source files present" : `missing: ${missing.join(", ")}`
     },
   },
-{
+  {
     stage: "S4",
     gate: "build run_id",
     check: (ctx) =>
@@ -246,7 +236,7 @@ export const STAGES: Stage[] = [
     evidence: (ctx) =>
       `build_run.state=${ctx.scoreInput.build_run.state ?? "null"}, revision_id=${ctx.handoff.revision_id ? "set" : "EMPTY"}`,
   },
-{
+  {
     stage: "S6",
     gate: "app_id",
     check: (ctx) =>
@@ -254,7 +244,7 @@ export const STAGES: Stage[] = [
     evidence: (ctx) =>
       `app_id=${ctx.handoff.app_id ? "set" : "EMPTY"}, apps_create calls=${successfulCalls(ctx.transcript, "apps_create").length}`,
   },
-{
+  {
     stage: "S7",
     gate: "connector_id",
     check: (ctx) =>
@@ -274,7 +264,7 @@ export const STAGES: Stage[] = [
       return `base-url=${cfg["base-url"] ? "set" : "EMPTY"}, account-email=${cfg["account-email"] ? "set" : "EMPTY"}, api-token=${cfg["api-token"] ? "set" : "EMPTY"}`
     },
   },
-{
+  {
     stage: "S9",
     gate: "test_run_id",
     check: (ctx) =>
@@ -291,23 +281,23 @@ export const STAGES: Stage[] = [
   {
     stage: "S11",
     gate: "handoff discipline",
-check: (ctx) => {
+    check: (ctx) => {
       const h = ctx.handoff
       if (!nonEmpty(h, "deployment_instance_id") || !nonEmpty(h, "activation_url")) return false
       if (!HANDOFF_FIELDS.every((f) => nonEmpty(h, f))) return false
-// Transcript cross-checks: fabricated deployment_instance_id or
+      // Transcript cross-checks: fabricated deployment_instance_id or
       // activation_url must not pass — the deploy AND mint calls must
       // actually appear and succeed in the transcript.
       if (successfulCalls(ctx.transcript, "deploy_connector_instance").length < 1) return false
       if (successfulCalls(ctx.transcript, "mint_approval_token").length < 1) return false
       const mintIdx = mintIndex(ctx.transcript)
       if (mintIdx < 0) return false
-const after = ctx.transcript.toolCalls.slice(mintIdx + 1)
+      const after = ctx.transcript.toolCalls.slice(mintIdx + 1)
       // The handoff write must actually occur AFTER the mint (a handoff
       // written before deploy+mint violates the stop rule).
       if (!after.some((c) => isHandoffWrite(c, ctx.handoffPath))) return false
       // Allowed after the mint: the handoff write, then the terminal
-      // squire.task.complete (the task must terminate for the runner to
+      // driver.complete_run (the run must terminate for the runner to
       // score; harness bookkeeping, not funnel activity). Strip ALL
       // trailing terminal calls (an agent may complete more than once).
       const body = [...after]
