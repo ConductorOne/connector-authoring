@@ -23,8 +23,10 @@ export interface SummaryLine {
   first_pass_rate: number
   recovery_cycles: number
   parity_verdict: string
+  parity_evidence: string
   parity_tenant: string | Record<string, unknown>
   hygiene_verdict: string
+  hygiene_evidence: string
   handoff_discipline_verdict: boolean
   tool_calls: number
   turns: number

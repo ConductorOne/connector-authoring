@@ -140,8 +140,20 @@ function v2List(
 
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const method = req.method ?? "GET"
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`)
-  const path = url.pathname
+  let url: URL
+  let path = "/"
+  try {
+    url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`)
+    path = url.pathname
+  } catch {
+    // Malformed URL/Host (an empty Host: header is legal HTTP and yields an
+    // invalid base URL). Respond 400 without depending on the parsed URL —
+    // an unhandled rejection here would kill the fixture mid-run and the
+    // eval would score that infrastructure death as an agent failure.
+    stdout.write(`${method} / 400 invalid-url\n`)
+    sendEmpty(res, 400)
+    return
+  }
   const log = (status: number) => stdout.write(`${method} ${path} ${status}\n`)
 
   try {

@@ -13,8 +13,10 @@ export interface StageRow {
 export interface ScoreResult {
   stageRows: StageRow[]
   parity_verdict: "PASS" | "FAIL"
+  parity_evidence: string
   parity_tenant: string | Record<string, unknown>
   hygiene_verdict: "PASS" | "FAIL"
+  hygiene_evidence: string
   handoff_discipline_verdict: boolean
   recovery_cycles: number
   first_pass_rate: number
@@ -189,11 +191,19 @@ export function scoreRun(ctx: StageCtx): ScoreResult {
   const firstPassCount = stageRows.filter((r) => r.first_pass).length
   const funnel = stageRows.filter((r) => r.pass).map((r) => r.stage)
 
+  // The evidence strings are carried on the record so a FAIL verdict is
+  // diagnosable from the JSONL alone (the README documents the
+  // not_applicable tenant evidence; it must exist in the code).
+  const parityEvidence = parityTenant === "not_applicable"
+    ? "draft test did not persist synced resources (tenant counts 0) — parity measured statically from source"
+    : parity.evidence
   return {
     stageRows,
     parity_verdict: parity.verdict,
+    parity_evidence: parityEvidence,
     parity_tenant: parityTenant,
     hygiene_verdict: hygiene.verdict,
+    hygiene_evidence: hygiene.evidence,
     handoff_discipline_verdict: handoffDiscipline,
     recovery_cycles: ctx.transcript.recoveryCycles,
     first_pass_rate: firstPassCount / STAGES.length,
