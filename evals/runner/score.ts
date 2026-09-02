@@ -36,6 +36,14 @@ function accountIdInQuery(source: string): boolean {
   // string mentioning account_id must not satisfy the under-sync trap.
   let idx = source.indexOf("account_id")
   while (idx >= 0) {
+    // Skip occurrences on comment lines (a fully commented-out GET example
+    // must not false-green).
+    const lineStart = source.lastIndexOf("\n", idx) + 1
+    const line = source.slice(lineStart, idx).trim()
+    if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) {
+      idx = source.indexOf("account_id", idx + 1)
+      continue
+    }
     const before = source.slice(Math.max(0, idx - 200), idx)
     const queryIdx = before.lastIndexOf("query:")
     if (queryIdx >= 0 && !before.slice(queryIdx).includes("}")) {

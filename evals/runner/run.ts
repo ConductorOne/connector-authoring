@@ -13,7 +13,7 @@ import {installFixture} from "./fixture-install.ts"
 import {buildPrompt, createAgentTask, waitForAgentTask} from "./agent.ts"
 import {parseStream, pollStreamIncrementally} from "./stream.ts"
 import {collect} from "./collect.ts"
-import {SKIPPED_STAGES, STAGES, handoffEmpty, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
+import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
 import {scoreRun} from "./score.ts"
 import {writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
 
@@ -146,6 +146,7 @@ async function readHandoff(handoffPath: string, opts: CallOpts): Promise<Handoff
 // handoff fails S1..S10 with the locked evidence; a partial handoff is
 // scored from each stage's own evidence).
 
+
 // --env mode targets an existing env; verify the caller owns it before
 // creating tasks / writing arena files there (IDOR hardening). Fail-closed:
 // an absent/undefined is_mine must NOT pass.
@@ -216,13 +217,15 @@ let envId: string
     )
     stopPolling = true
     const {lastSeq, pollErrors} = await poller
-    // final drain: catch anything appended after the last cursor (a
+// final drain: catch anything appended after the last cursor (a
     // transient hiccup here must not abort a completed run).
     let tailEvents: unknown[] = []
+    let drainFailed = false
     try {
       const tail = (await taskStream(envId, agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
       tailEvents = (tail.events ?? []) as unknown[]
     } catch (err) {
+      drainFailed = true
       stderr.write(`WARNING: final task.stream drain failed: ${(err as Error).message}\n`)
     }
     if (tailEvents.length > 0) streamEvents.push(...tailEvents)
@@ -231,11 +234,13 @@ let envId: string
     }
 
     const transcript = parseStream(streamEvents)
-    // A terminal agent with an EMPTY transcript and stream poll errors is an
-    // infrastructure outage, not a scored agent outcome — fail loudly with
-    // no record rather than scoring an all-fail funnel.
-    if (transcript.toolCalls.length === 0 && pollErrors > 0) {
-      throw new Error(`agent task ${agentTaskId} reached terminal but the firehose was unreadable (${pollErrors} stream poll failures) — no record written`)
+    // A terminal agent with an EMPTY transcript, stream poll errors, AND a
+    // failed final drain is an infrastructure outage, not a scored agent
+    // outcome — fail loudly with no record rather than scoring an all-fail
+    // funnel. A single transient poll error with a working drain still
+    // scores (a genuinely stalled agent is a legitimate all-fail outcome).
+    if (transcript.toolCalls.length === 0 && pollErrors > 0 && drainFailed) {
+      throw new Error(`agent task ${agentTaskId} reached terminal but the firehose was unreadable (${pollErrors} stream poll failures, final drain failed) — no record written`)
     }
 
 // Handoff: missing/incomplete -> L18 stalled-agent path.
@@ -245,15 +250,12 @@ let envId: string
       stderr.write(`WARNING: handoff.json missing or incomplete at ${handoffPath} — stalled-agent path\n`)
     }
 
-    // The agent-written handoff is UNTRUSTED. The collector reads it from
-    // the arena FS as a tool result — strip characters that could inject
+// The agent-written handoff is UNTRUSTED. The collector reads it from the
+    // arena FS as a tool result — strip characters that could inject
     // instructions into the collector's transcription (quotes, braces,
-    // semicolons, control chars) and write a sanitized copy for it.
-    const sanitizedHandoff: Handoff = {}
-    for (const f of HANDOFF_FIELDS) {
-      const v = handoff[f]
-      sanitizedHandoff[f] = typeof v === "string" ? v.replace(/[^\w.:/?#=&@%+-]/g, "") : v
-    }
+    // semicolons, control chars) and coerce non-string fields to empty, then
+    // write a sanitized copy for it.
+    const sanitizedHandoff = sanitizeHandoff(handoff)
     const sanitizedHandoffPath = handoffPath.replace("handoff.json", "handoff-sanitized.json")
     try {
       await fsWrite(sanitizedHandoffPath, JSON.stringify(sanitizedHandoff), opts)

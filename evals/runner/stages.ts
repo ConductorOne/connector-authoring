@@ -69,6 +69,23 @@ export function handoffEmpty(h: Handoff): boolean {
   return HANDOFF_FIELDS.every((f) => !nonEmpty(h, f))
 }
 
+// The agent-written handoff is UNTRUSTED. The collector reads it from the
+// arena FS as a tool result — strip characters that could inject
+// instructions into the collector's transcription (quotes, braces,
+// semicolons, control chars) and coerce non-string fields to empty.
+export function sanitizeHandoffValue(v: unknown): string {
+  if (typeof v !== "string") return ""
+  return v.replace(/[^\w.:/?#=&@%+-]/g, "")
+}
+
+export function sanitizeHandoff(h: Handoff): Handoff {
+  const out: Handoff = {}
+  for (const f of HANDOFF_FIELDS) {
+    out[f] = sanitizeHandoffValue(h[f])
+  }
+  return out
+}
+
 // bash tool_call args are objects {i, command} in the real stream; fs.write
 // args are objects {path, content}. Extract the command/path strings.
 function bashCommand(call: ToolCallRecord): string | null {

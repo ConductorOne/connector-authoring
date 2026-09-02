@@ -182,6 +182,15 @@ test("parity fails when account_id is not inside a query object", () => {
   assert.equal(result.parity_verdict, "FAIL")
 })
 
+test("parity fails when account_id appears only in a commented-out GET example", () => {
+  const leaky = goodScoreInput()
+  leaky.draft.source_files = [
+    {path: "connector.ts", content: '// directory.GET({path: "/v1/users", query: {account_id: "acct-1"}})\nuser.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
+  ]
+  const result = scoreRun(ctx({scoreInput: leaky}))
+  assert.equal(result.parity_verdict, "FAIL")
+})
+
 test("parity passes when account_id sits inside a query object", () => {
   const good = goodScoreInput()
   good.draft.source_files = [
