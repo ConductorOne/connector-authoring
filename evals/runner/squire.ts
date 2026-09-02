@@ -39,12 +39,15 @@ export async function call(
   const argv = ["call", tool, JSON.stringify(args)]
   if (opts.taskId) argv.push("--task-id", opts.taskId)
   const {stdout} = await runSquireTool(argv)
-  const trimmed = stdout.trim()
+const trimmed = stdout.trim()
   if (trimmed === "") return null
   try {
     return JSON.parse(trimmed) as unknown
-  } catch (err) {
-    throw new Error(`squire-tool call ${tool} returned non-JSON stdout: ${(err as Error).message}`)
+  } catch {
+    // Do NOT include the parse error message: JSON.parse errors embed a
+    // snippet of the offending text, which could carry file content or
+    // credentials (e.g. a non-JSON squire.fs.read response).
+    throw new Error(`squire-tool call ${tool} returned non-JSON stdout`)
   }
 }
 

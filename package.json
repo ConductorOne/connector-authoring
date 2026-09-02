@@ -5,7 +5,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p evals/tsconfig.json",
     "eval:fixture": "node --experimental-strip-types evals/fixture/server.ts --port 18080",
     "eval:verify": "bash evals/fixture/verify.sh",
-    "eval:test": "node --test evals/runner/*.test.ts",
+    "eval:test": "node --experimental-strip-types --test evals/runner/*.test.ts evals/fixture/data.test.ts",
     "eval:run": "node --experimental-strip-types evals/runner/run.ts"
   },
   "devDependencies": {

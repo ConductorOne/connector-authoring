@@ -125,8 +125,13 @@ export async function waitForReady(
   const envDeadline = Date.now() + 10 * 60 * 1000
   let envStatus: unknown = "pending"
   while (Date.now() < envDeadline) {
-    const env = (await getEnv(envId, opts)) as Record<string, unknown> | null
-    envStatus = env?.status ?? "unknown"
+    try {
+      const env = (await getEnv(envId, opts)) as Record<string, unknown> | null
+      envStatus = env?.status ?? "unknown"
+    } catch (err) {
+      // Transient gateway failure: log and keep polling.
+      console.error(`WARNING: get_env poll failed: ${(err as Error).message}`)
+    }
     if (envStatus === "running") break
     await sleep(10_000)
   }
