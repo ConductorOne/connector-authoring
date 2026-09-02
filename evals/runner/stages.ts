@@ -274,9 +274,11 @@ check: (ctx) => {
       const h = ctx.handoff
       if (!nonEmpty(h, "deployment_instance_id") || !nonEmpty(h, "activation_url")) return false
       if (!HANDOFF_FIELDS.every((f) => nonEmpty(h, f))) return false
-      // Transcript cross-check: a fabricated deployment_instance_id must
-      // not pass — the deploy call must actually appear in the transcript.
+// Transcript cross-checks: fabricated deployment_instance_id or
+      // activation_url must not pass — the deploy AND mint calls must
+      // actually appear and succeed in the transcript.
       if (successfulCalls(ctx.transcript, "deploy_connector_instance").length < 1) return false
+      if (successfulCalls(ctx.transcript, "mint_approval_token").length < 1) return false
       const mintIdx = mintIndex(ctx.transcript)
       if (mintIdx < 0) return false
 const after = ctx.transcript.toolCalls.slice(mintIdx + 1)

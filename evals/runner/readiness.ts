@@ -114,7 +114,7 @@ async function readProbeToolList(
         if (typeof v === "string") parts.push(v)
       }
     }
-    const nextSeq = page.next_seq as number | undefined
+    const nextSeq = page?.next_seq as number | undefined
     if (nextSeq === undefined || nextSeq <= sinceSeq) break
     sinceSeq = nextSeq
   }

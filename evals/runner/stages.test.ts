@@ -194,6 +194,27 @@ test("S11 fails when deployment_instance_id is fabricated (no deploy call)", () 
   assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 
+test("S11 fails when a post-mint bash call merely mentions task.complete (no squire-tool)", () => {
+  const events = [
+    ...cleanEvents().slice(0, -4), // up to and including the mint result
+    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
+    toolResult("bash", "written"),
+    toolCall("bash", {i: "note", command: "echo 'remember to run task.complete later'"}),
+    toolResult("bash", "remember to run task.complete later"),
+  ]
+  // The bare mention must NOT be stripped as terminal — S11 fails.
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
+})
+
+test("S11 fails when the mint call errored (fabricated activation_url)", () => {
+  const events = cleanEvents().map((e) =>
+    e.type === "tool_result" && (e as Record<string, unknown>).data && ((e as Record<string, unknown>).data as Record<string, unknown>).tool_name === "c1_connector_authoring_mint_approval_token"
+      ? toolResult("c1_connector_authoring_mint_approval_token", "boom", true)
+      : e,
+  )
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
+})
+
 test("S11 fails on a redemption call after the mint", () => {
   const events = [
     ...cleanEvents(),
