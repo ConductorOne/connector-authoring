@@ -5,7 +5,7 @@
 // stages, timed out, or never wrote the handoff); 2 = readiness failure
 // (distinct; NO record written); 1 = any other error.
 import {argv, exit, stderr, stdout} from "node:process"
-import {call, fsRead, resolveTaskId, taskStream, type CallOpts} from "./squire.ts"
+import {call, fsRead, fsWrite, resolveTaskId, taskStream, type CallOpts} from "./squire.ts"
 import {loadScenario, type Scenario} from "./scenario.ts"
 import {provisionEnv, retryProvision, teardownEnv} from "./provision.ts"
 import {ReadinessError, waitForReady} from "./readiness.ts"
@@ -215,7 +215,7 @@ let envId: string
       opts,
     )
     stopPolling = true
-    const {lastSeq} = await poller
+    const {lastSeq, pollErrors} = await poller
     // final drain: catch anything appended after the last cursor (a
     // transient hiccup here must not abort a completed run).
     let tailEvents: unknown[] = []
@@ -231,12 +231,34 @@ let envId: string
     }
 
     const transcript = parseStream(streamEvents)
+    // A terminal agent with an EMPTY transcript and stream poll errors is an
+    // infrastructure outage, not a scored agent outcome — fail loudly with
+    // no record rather than scoring an all-fail funnel.
+    if (transcript.toolCalls.length === 0 && pollErrors > 0) {
+      throw new Error(`agent task ${agentTaskId} reached terminal but the firehose was unreadable (${pollErrors} stream poll failures) — no record written`)
+    }
 
-    // Handoff: missing/incomplete -> L18 stalled-agent path.
+// Handoff: missing/incomplete -> L18 stalled-agent path.
     const handoff = (await readHandoff(handoffPath, opts)) ?? {}
     const handoffOk = handoffComplete(handoff)
     if (!handoffOk) {
       stderr.write(`WARNING: handoff.json missing or incomplete at ${handoffPath} — stalled-agent path\n`)
+    }
+
+    // The agent-written handoff is UNTRUSTED. The collector reads it from
+    // the arena FS as a tool result — strip characters that could inject
+    // instructions into the collector's transcription (quotes, braces,
+    // semicolons, control chars) and write a sanitized copy for it.
+    const sanitizedHandoff: Handoff = {}
+    for (const f of HANDOFF_FIELDS) {
+      const v = handoff[f]
+      sanitizedHandoff[f] = typeof v === "string" ? v.replace(/[^\w.:/?#=&@%+-]/g, "") : v
+    }
+    const sanitizedHandoffPath = handoffPath.replace("handoff.json", "handoff-sanitized.json")
+    try {
+      await fsWrite(sanitizedHandoffPath, JSON.stringify(sanitizedHandoff), opts)
+    } catch (err) {
+      stderr.write(`WARNING: could not write sanitized handoff for the collector: ${(err as Error).message}\n`)
     }
 
     // Collect. On the stalled path (no handoff at all), a collector failure
@@ -246,7 +268,7 @@ let envId: string
     let scoreInput: ScoreInput
     let collectNotes: string[] = []
     try {
-      const collected = await collect(envId, scenario, runId, handoff, opts)
+      const collected = await collect(envId, scenario, runId, sanitizedHandoffPath, handoff, opts)
       scoreInput = collected.scoreInput
       collectNotes = collected.notes
 } catch (err) {

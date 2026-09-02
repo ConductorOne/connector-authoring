@@ -206,24 +206,28 @@ export async function pollStreamIncrementally(
   intervalMs = 30_000,
   shouldStop: () => boolean = () => false,
   opts: CallOpts = {},
-): Promise<{lastSeq: number}> {
+): Promise<{lastSeq: number; pollErrors: number}> {
   let sinceSeq = 0
+  let pollErrors = 0
   for (;;) {
     try {
       const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-      const events = (page.events ?? []) as unknown[]
+      const events = (page?.events ?? []) as unknown[]
       if (events.length > 0) {
         onEvents(events)
       }
-      const nextSeq = page.next_seq as number | undefined
+      const nextSeq = page?.next_seq as number | undefined
       if (nextSeq !== undefined && nextSeq > sinceSeq) sinceSeq = nextSeq
     } catch (err) {
       // Transient stream failures must not kill the poller (a gateway hiccup
-      // mid-run would otherwise abort the whole eval).
+      // mid-run would otherwise abort the whole eval). A PERMANENT outage is
+      // surfaced by the caller: an empty transcript with poll errors is an
+      // infrastructure failure, not a scored agent outcome.
+      pollErrors++
       console.error(`WARNING: task.stream poll failed: ${(err as Error).message}`)
     }
     if (shouldStop()) break
     await sleep(intervalMs)
   }
-  return {lastSeq: sinceSeq}
+  return {lastSeq: sinceSeq, pollErrors}
 }

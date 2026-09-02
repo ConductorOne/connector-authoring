@@ -55,6 +55,10 @@ export async function fsRead(path: string, opts: CallOpts = {}): Promise<unknown
   return call("squire.fs.read", {path}, opts)
 }
 
+export async function fsWrite(path: string, content: string, opts: CallOpts = {}): Promise<unknown> {
+  return call("squire.fs.write", {path, content}, opts)
+}
+
 export async function getEnv(envId: string, opts: CallOpts = {}): Promise<Record<string, unknown>> {
   return call("get_env", {env_id: envId}, opts) as Promise<Record<string, unknown>>
 }

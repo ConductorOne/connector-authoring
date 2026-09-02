@@ -21,9 +21,9 @@ function scoreInputPath(runId: string): string {
 export function buildCollectorPrompt(
   scenario: Scenario,
   runId: string,
+  handoffPath: string,
   handoff: Handoff,
 ): string {
-  const handoffPath = scenario.handoffPath.replace("<run-id>", runId)
   const missing = Object.values(handoff).every((v) => !v || v.length === 0)
   const missingNote = missing
     ? "\nThe agent handoff was incomplete; record null for every handoff-dependent field (draft, connector_config, evidence, build_run, revision_status, tenant_counts, resource_ids)."
@@ -124,6 +124,7 @@ export async function collect(
   envId: string,
   scenario: Scenario,
   runId: string,
+  handoffPath: string,
   handoff: Handoff,
   opts: CallOpts = {},
 ): Promise<{scoreInput: ScoreInput; notes: string[]}> {
@@ -133,10 +134,10 @@ export async function collect(
   // task only — it cannot target the eval-env collector); the race is
   // benign: the retry only runs after the first attempt failed to produce a
   // valid score-input, and the record is written from the retry's read.
-let lastErr: unknown
+  let lastErr: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const {result, taskId} = await collectOnce(envId, scenario, runId, handoff, opts)
+      const {result, taskId} = await collectOnce(envId, scenario, runId, handoffPath, handoff, opts)
       if (result !== null) return result
       lastErr = new Error(`collector attempt ${attempt} produced no score-input (task ${taskId})`)
     } catch (err) {
@@ -154,13 +155,14 @@ async function collectOnce(
   envId: string,
   scenario: Scenario,
   runId: string,
+  handoffPath: string,
   handoff: Handoff,
   opts: CallOpts = {},
 ): Promise<{result: {scoreInput: ScoreInput; notes: string[]} | null; taskId: string}> {
   const collector = (await taskCreate(
     {
       env_id: envId,
-      prompt: buildCollectorPrompt(scenario, runId, handoff),
+      prompt: buildCollectorPrompt(scenario, runId, handoffPath, handoff),
       title: `score-collector-${runId}`,
       model: scenario.model,
     },
