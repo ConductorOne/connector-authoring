@@ -1,0 +1,8 @@
+{
+  "name": "connector-authoring-evals",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  }
+}

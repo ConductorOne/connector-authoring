@@ -1,0 +1,274 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Directory API (eval fixture)",
+    "version": "1.0.0",
+    "description": "Fictional directory service used as the Tier-1 eval fixture for connector authoring. Deterministic seeded data; two auth variants (basic on /v1, bearer on /v2); offset and link pagination variants."
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "basicAuth": [] }, { "bearerAuth": [] }],
+  "paths": {
+    "/v1/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "List users (offset pagination)",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 } },
+          {
+            "name": "domain",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["corp", "partners", "all"], "default": "corp" },
+            "description": "Organizational domain to list. IMPORTANT: when omitted, only the corp domain is returned (the response still reports 200 with a subset total). Pass domain=all for a complete directory sync."
+          }
+        ],
+        "responses": {
+          "200": { "description": "A page of users.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPage" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v1/groups": {
+      "get": {
+        "operationId": "listGroups",
+        "summary": "List groups (offset pagination)",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "A page of groups.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GroupPage" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members": {
+      "get": {
+        "operationId": "listGroupMembers",
+        "summary": "List group members (offset pagination)",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "name": "groupId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "A page of membership rows. Rows with state=pending are not yet members and must not be treated as grants.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MemberPage" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members/{userId}": {
+      "put": {
+        "operationId": "addGroupMember",
+        "summary": "Grant group membership (idempotent)",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "name": "groupId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": { "description": "Membership created.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GrantResult" } } } },
+          "200": { "description": "Membership already existed; the call was an idempotent replay and nothing changed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GrantResult" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "operationId": "removeGroupMember",
+        "summary": "Revoke group membership",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "name": "groupId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Membership revoked." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "The user is not a member of the group (error code not_member). Replaying a revoke surfaces this rather than succeeding silently.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/v1/roles": {
+      "get": {
+        "operationId": "listRoles",
+        "summary": "List roles (RFC 5988 link pagination)",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 5 } },
+          { "name": "after", "in": "query", "schema": { "type": "string" }, "description": "Cursor: the id of the last role from the previous page. Clients normally follow the Link response header (rel=next) instead of constructing this." }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of roles. When more pages exist, a Link header carries the next URL: Link: </v1/roles?limit=5&after=r05>; rel=\"next\".",
+            "headers": { "Link": { "schema": { "type": "string" }, "description": "RFC 5988 link to the next page, rel=next." } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RolePage" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v2/users": {
+      "get": {
+        "operationId": "listUsersV2",
+        "summary": "List users, bearer-auth variant (offset pagination)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 } },
+          {
+            "name": "domain",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["corp", "partners", "all"], "default": "corp" },
+            "description": "Organizational domain to list. IMPORTANT: when omitted, only the corp domain is returned. Pass domain=all for a complete directory sync."
+          }
+        ],
+        "responses": {
+          "200": { "description": "A page of users.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPage" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v2/groups": {
+      "get": {
+        "operationId": "listGroupsV2",
+        "summary": "List groups, bearer-auth variant (offset pagination)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "A page of groups.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GroupPage" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v2/groups/{groupId}/members": {
+      "get": {
+        "operationId": "listGroupMembersV2",
+        "summary": "List group members, bearer-auth variant (offset pagination)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "groupId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "A page of membership rows.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MemberPage" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v2/roles": {
+      "get": {
+        "operationId": "listRolesV2",
+        "summary": "List roles, bearer-auth variant (link pagination)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 5 } },
+          { "name": "after", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "A page of roles with an RFC 5988 Link header when more pages exist.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RolePage" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": { "type": "http", "scheme": "basic", "description": "Account email as username, API token as password." },
+      "bearerAuth": { "type": "http", "scheme": "bearer", "description": "API token as the bearer token." }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["id", "name", "email", "active", "domain"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": ["string", "null"], "description": "Nullable. A user without an email needs a login/display-name fallback decision." },
+          "active": { "type": "boolean" },
+          "title": { "type": ["string", "null"] },
+          "managerId": { "type": ["string", "null"] },
+          "domain": { "type": "string", "enum": ["corp", "partners"] }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "Member": {
+        "type": "object",
+        "required": ["userId", "state"],
+        "properties": {
+          "userId": { "type": "string" },
+          "state": { "type": "string", "enum": ["active", "pending"], "description": "pending rows are listed but are not yet members; they must not produce grants." }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "required": ["items", "offset", "limit", "total"],
+        "properties": {
+          "offset": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "UserPage": { "allOf": [{ "$ref": "#/components/schemas/Page" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } }] },
+      "GroupPage": { "allOf": [{ "$ref": "#/components/schemas/Page" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Group" } } } }] },
+      "MemberPage": { "allOf": [{ "$ref": "#/components/schemas/Page" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Member" } } } }] },
+      "RolePage": { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Role" } } } },
+      "GrantResult": {
+        "type": "object",
+        "required": ["changed"],
+        "properties": {
+          "changed": { "type": "boolean" },
+          "idempotentReplay": { "type": "boolean", "description": "Present and true when the call replayed an existing grant (HTTP 200)." },
+          "groupId": { "type": "string" },
+          "userId": { "type": "string" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": { "code": { "type": "string" }, "message": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": { "description": "Invalid parameter.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Unauthorized": { "description": "Missing or invalid credentials.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "Resource not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    }
+  }
+}

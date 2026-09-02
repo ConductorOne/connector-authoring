@@ -1,0 +1,8 @@
+{
+  "name": "c1-eval-directory-api",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  }
+}

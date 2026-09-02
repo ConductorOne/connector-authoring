@@ -1,0 +1,22 @@
+{
+  "id": "tier1-directory",
+  "tier": 1,
+  "description": "Full lifecycle against the Directory API fixture: sync users, groups, memberships, and roles; draft test PASS; activation handoff. The runner refreshes expectations from the fixture's /_fixture/expectations endpoint at run time.",
+  "provider": {
+    "name": "directory-fixture",
+    "displayName": "Directory API (eval fixture)",
+    "docsUrl": "<fixture-base-url>/openapi.json",
+    "auth": {
+      "scheme": "basic",
+      "fields": {
+        "base-url": "<fixture-base-url>",
+        "account-email": "connector@fixture.example",
+        "api-token": "fx_tok_7c1f3a9d5e2b48f0a6c1d3e5f7a9b2c4"
+      }
+    },
+    "credentialFields": ["api-token"]
+  },
+  "sourceDirName": "connector-src",
+  "terminalStage": "S11b",
+  "expectations": null
+}

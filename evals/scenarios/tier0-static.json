@@ -1,0 +1,18 @@
+{
+  "id": "tier0-static",
+  "tier": 0,
+  "description": "Smoke tier: file contract + build path with no credentials. The agent authors a static, transport-free connector (hardcoded users/groups/roles in the spirit of examples/static) and drives it to a built revision. Stages past S5 are not applicable: the draft test requires credentials this scenario deliberately does not provide.",
+  "provider": {
+    "name": "static-fixture",
+    "displayName": "Static Example Org",
+    "docsUrl": "(none — hardcoded fictional data; see the brief)",
+    "auth": {
+      "scheme": "none",
+      "fields": {}
+    },
+    "credentialFields": []
+  },
+  "sourceDirName": "connector-src",
+  "terminalStage": "S5",
+  "expectations": null
+}

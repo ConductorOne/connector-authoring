@@ -2,9 +2,12 @@
   "name": "connector-authoring",
   "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "evals:typecheck": "tsc -p evals/tsconfig.json",
+    "evals:test": "node --test 'evals/test/*.test.ts'"
   },
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "typescript": "5.9.3"
   }
 }

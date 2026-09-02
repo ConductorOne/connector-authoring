@@ -1,0 +1,5 @@
+{
+  "name": "guide-only",
+  "version": "0",
+  "description": "Control condition: the agent reads the tenant-served authoring guide (c1_connector_authoring_get_authoring_guide) and follows it; no repo skills."
+}

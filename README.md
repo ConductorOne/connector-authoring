@@ -50,6 +50,15 @@ use direct `fetch` calls or hand-written pagination loops in authored code.
 
 Neither example calls a live service as part of this repository's checks.
 
+## Evals
+
+[`evals`](./evals) contains the scenario-driven eval harness for agent-driven
+connector authoring: a runner that provisions fresh c1-image Squire
+environments, a deterministic scorer for the authoring lifecycle's stage
+funnel, JSONL run records, and the Tier-1 fixture provider (a deterministic
+"Directory API" container extended from `examples/http`). See the
+[evals README](./evals/README.md).
+
 ## Typechecking
 
 Install the pinned development dependency and typecheck the examples against

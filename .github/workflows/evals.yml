@@ -1,0 +1,27 @@
+name: Evals
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --audit=false --fund=false
+      # The eval harness and fixture run TypeScript directly via Node's type
+      # stripping (unflagged since Node 22.18); tsc only typechecks.
+      - run: npm run evals:typecheck
+      - run: npm run evals:test
