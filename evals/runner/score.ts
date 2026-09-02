@@ -1,4 +1,4 @@
-// score.ts — deterministic scorer (CXF-216 PR 1, L24/L25/L35).
+// score.ts — deterministic scorer.
 import {SKIPPED_STAGES, STAGES, handoffEmpty, type StageCtx} from "./stages.ts"
 
 export interface StageRow {

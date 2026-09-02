@@ -1,14 +1,8 @@
-// agent.ts — agent prompt builder + task lifecycle (CXF-216 PR 1, C1).
+// agent.ts — agent prompt builder.
 // The 12-step funnel section is the LOCKED CONTRACT (transcribed verbatim);
 // the c1 lifecycle doc is the reference for verifying its fidelity.
-import {getTask, listModels, taskCreate, type CallOpts} from "./squire.ts"
+import type {RunChannel} from "./driver.ts"
 import type {Scenario} from "./scenario.ts"
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-function isTerminal(state: unknown): boolean {
-  return state === "completed" || state === "failed" || state === "canceled"
-}
 
 function skillBundleSection(scenario: Scenario): string {
   if (scenario.skillBundle.mode === "none") {
@@ -21,8 +15,7 @@ function skillBundleSection(scenario: Scenario): string {
   return `Skill bundle (version ${scenario.skillBundle.version}) is mounted at evals/skills-bundle/ in the connector-authoring checkout. Read its README and follow any skill instructions there.`
 }
 
-export function buildPrompt(scenario: Scenario, runId: string, baseUrl: string, ref: string): string {
-  const handoffPath = scenario.handoffPath.replace("<run-id>", runId)
+export function buildPrompt(scenario: Scenario, runId: string, baseUrl: string, channel: RunChannel): string {
   const creds = scenario.fixture.basicAuth
   return `You are an eval agent implementing a read-only Directory API connector and completing the 12-step in-app authoring funnel. Your goal: implement the connector source files, walk the funnel to the human-activation boundary, and stop there.
 
@@ -37,7 +30,6 @@ Implement a read-only Directory API connector (users, groups, group memberships)
 - The account_id scoping param is REQUIRED on GET /v1/users: the runtime GET descriptor accepts a query field, e.g. directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination}). If you omit account_id, the API returns only a 3-user unscoped subset and the sync under-syncs to 3 users.
 - user.title is nullable (null for some users) — project it into the profile without assuming non-null.
 - Grant/revoke endpoints exist (POST/DELETE /v1/groups/{groupId}/members) but this eval scores sync only; no grant/revoke implementation is required.
-- The connector source is checked out at the git ref ${ref} in this environment.
 
 (3) CREDENTIALS TO SET IN STEP 8
 - base-url: ${baseUrl}
@@ -65,63 +57,5 @@ STEP-11 OVERRIDE (verbatim): The authoring guide's step 11 describes activation:
 ${skillBundleSection(scenario)}
 
 (6) HARD STOP RULE + HANDOFF CONTRACT
-After c1_connector_authoring_deploy_connector_instance (record deployment_instance_id) and c1_connector_authoring_mint_approval_token (record activation_url), write the handoff table to the arena FS at ${handoffPath} via squire.fs.write and STOP. The handoff table is a JSON object with ALL 10 fields: catalog_id, draft_id, upload_id, run_id, revision_id, app_id, connector_id, test_run_id, deployment_instance_id, activation_url. Write it with:
-squire-tool call squire.fs.write '{"path": "${handoffPath}", "content": "<the full handoff JSON>"}'
-Then terminate the task (the runner scores the run when the task reaches terminal):
-squire-tool call squire.task.complete '{"summary": "handoff written; funnel complete to human-activation boundary"}'
-Never redeem the approval token, never poll REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.`
-}
-
-export async function createAgentTask(
-  envId: string,
-  scenario: Scenario,
-  runId: string,
-  prompt: string,
-  opts: CallOpts = {},
-): Promise<{taskId: string}> {
-  const models = (await listModels(opts)) as Record<string, unknown> | null
-  const modelList = (models?.models ?? []) as Record<string, unknown>[]
-  const present = modelList.some((m) => m.id === scenario.model)
-  if (!present) {
-    throw new Error(
-      `model ${scenario.model} not present in squire.list_models — cannot run the eval (available: ${modelList.map((m) => String(m.id)).join(", ")})`,
-    )
-  }
-  const res = (await taskCreate(
-    {
-      env_id: envId,
-      prompt,
-      model: scenario.model,
-      title: `eval-agent-${runId}`,
-    },
-    opts,
-  )) as Record<string, unknown>
-  const taskId = res.id as string
-  if (!taskId) throw new Error(`agent task create returned no id: ${JSON.stringify(res)}`)
-  return {taskId}
-}
-
-export async function waitForAgentTask(
-  envId: string,
-  taskId: string,
-  timeoutMs: number,
-  opts: CallOpts = {},
-): Promise<{terminal: boolean; wallTimeMs: number; timedOut: boolean}> {
-  const startedAt = Date.now()
-  const deadline = startedAt + timeoutMs
-  while (Date.now() < deadline) {
-    try {
-      const res = await getTask(envId, taskId, opts)
-      const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
-      if (state && isTerminal(state)) {
-        return {terminal: true, wallTimeMs: Date.now() - startedAt, timedOut: false}
-      }
-    } catch (err) {
-      // Transient gateway failure: log and keep polling (never abort a run
-      // on a hiccup).
-      console.error(`WARNING: get_task poll failed: ${(err as Error).message}`)
-    }
-    await sleep(10_000)
-  }
-  return {terminal: false, wallTimeMs: Date.now() - startedAt, timedOut: true}
+After c1_connector_authoring_deploy_connector_instance (record deployment_instance_id) and c1_connector_authoring_mint_approval_token (record activation_url), write the handoff table to ${channel.handoffPath} and STOP. The handoff table is a JSON object with ALL 10 fields: catalog_id, draft_id, upload_id, run_id, revision_id, app_id, connector_id, test_run_id, deployment_instance_id, activation_url. ${channel.handoffInstructions} ${channel.completionInstructions} Never redeem the approval token, never poll REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.`
 }

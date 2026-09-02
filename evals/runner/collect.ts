@@ -1,34 +1,25 @@
-// collect.ts — score collector task + score-input validation (CXF-216 PR 1, D1).
-import {fsRead, getTask, taskCreate, type CallOpts} from "./squire.ts"
+// collect.ts — score collector prompt + score-input validation.
 import type {Scenario} from "./scenario.ts"
 import {isRecord} from "./scenario.ts"
 import type {Handoff, ScoreInput} from "./stages.ts"
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-function isTerminal(state: unknown): boolean {
-  return state === "completed" || state === "failed" || state === "canceled"
-}
-
-function scoreInputPath(runId: string): string {
-  return `/current-tasks/evals/${runId}/score-input.json`
-}
-
 // The collector prompt is EXACTLY this (the handoff path is substituted; the
 // VALUES are never interpolated — the collector reads the agent-written
-// handoff.json from the arena FS itself, so an untrusted handoff cannot
+// handoff.json from the run channel itself, so an untrusted handoff cannot
 // inject instructions into the collector prompt).
 export function buildCollectorPrompt(
   scenario: Scenario,
   runId: string,
   handoffPath: string,
+  scoreInputPath: string,
   handoff: Handoff,
+  toolSurface: string[],
 ): string {
   const missing = Object.values(handoff).every((v) => !v || v.length === 0)
   const missingNote = missing
     ? "\nThe agent handoff was incomplete; record null for every handoff-dependent field (draft, connector_config, evidence, build_run, revision_status, tenant_counts, resource_ids)."
     : ""
-  return `You are the score collector for eval run ${runId}. Use \`squire-tool call\` for every step. First read the agent's handoff table from the arena FS at ${handoffPath} via \`squire.fs.read\` and parse its JSON — use the values from THAT file for every id below (do not invent ids). (a) \`c1_connector_authoring_get_draft\` with the handoff's \`catalog_id\` and \`draft_id\` → record \`required_source_files\` presence and the full source set. (b) \`c1_connector_service_get\` with the handoff's \`app_id\` and \`connector_id\` → record the connector config values for \`base-url\`, \`account-email\`, \`api-token\`. (c) \`c1_connector_authoring_get_test_run_evidence\` with the handoff's \`catalog_id\`, \`revision_id\`, \`test_run_id\` → record \`result\` (PASS/FAIL/NotFound) and error text. (d) \`c1_connector_authoring_list_revision_summaries\` with the handoff's \`catalog_id\` → record the target revision's status. (e) \`c1_connector_authoring_get_run\` with the handoff's \`run_id\` → record the build run state. (f) Tenant counts, LOCKED procedure: \`squire-tool list\` → filter names containing \`_search\`/\`_count\`/\`find_\`/\`count_\` → \`squire-tool describe <tool>\` for each candidate to learn its args → query resources/entitlements/grants scoped to the handoff's \`app_id\` and fetch resource ids, SPLITTING resources into users vs groups by the resource's type id (\`"user"\` vs \`"group"\`); if NO count/search tool exists, record \`null\` counts. (g) Write \`score-input.json\` to ${scoreInputPath(runId)} via \`squire.fs.write\` with EXACTLY this schema: \`{run_id, draft: {required_source_files: {connector.ts, config-schema.json, runtime-schema.json, capabilities.json}, source_files: [{path, content}], config_schema: {fields: [{name, is_secret}]}, runtime_schema: {fields: [{name, is_secret}]}}, connector_config: {base-url, account-email, api-token}, evidence: {result, error}, build_run: {state, error}, revision_status, tenant_counts: {users, groups, memberships}, resource_ids: {users, groups}}\`. Normalize \`isSecret\` (config-schema.json) and \`is_secret\` (runtime-schema.json) to the \`is_secret\` key in score-input. If any upstream call fails, record the error text in the corresponding field and continue — never crash.${missingNote} When all steps are done, terminate the task: \`squire-tool call squire.task.complete '{"summary": "score collection finished"}'\`.`
+  return `You are the score collector for eval run ${runId}. Use the driver's tool transport for every step. First read the agent's handoff table from ${handoffPath} (the driver's file transport) and parse its JSON — use the values from THAT file for every id below (do not invent ids). (a) \`c1_connector_authoring_get_draft\` with the handoff's \`catalog_id\` and \`draft_id\` → record \`required_source_files\` presence and the full source set. (b) \`c1_connector_service_get\` with the handoff's \`app_id\` and \`connector_id\` → record the connector config values for \`base-url\`, \`account-email\`, \`api-token\`. (c) \`c1_connector_authoring_get_test_run_evidence\` with the handoff's \`catalog_id\`, \`revision_id\`, \`test_run_id\` → record \`result\` (PASS/FAIL/NotFound) and error text. (d) \`c1_connector_authoring_list_revision_summaries\` with the handoff's \`catalog_id\` → record the target revision's status. (e) \`c1_connector_authoring_get_run\` with the handoff's \`run_id\` → record the build run state. (f) Tenant counts, LOCKED procedure: list the available tool surface (${toolSurface.join(", ")}) → filter names containing \`_search\`/\`_count\`/\`find_\`/\`count_\` → describe each candidate to learn its args → query resources/entitlements/grants scoped to the handoff's \`app_id\` and fetch resource ids, SPLITTING resources into users vs groups by the resource's type id (\`"user"\` vs \`"group"\`); if NO count/search tool exists, record \`null\` counts. (g) Write \`score-input.json\` to ${scoreInputPath} (the driver's file transport) with EXACTLY this schema: \`{run_id, draft: {required_source_files: {connector.ts, config-schema.json, runtime-schema.json, capabilities.json}, source_files: [{path, content}], config_schema: {fields: [{name, is_secret}]}, runtime_schema: {fields: [{name, is_secret}]}}, connector_config: {base-url, account-email, api-token}, evidence: {result, error}, build_run: {state, error}, revision_status, tenant_counts: {users, groups, memberships}, resource_ids: {users, groups}}\`. Normalize \`isSecret\` (config-schema.json) and \`is_secret\` (runtime-schema.json) to the \`is_secret\` key in score-input. If any upstream call fails, record the error text in the corresponding field and continue — never crash.${missingNote} When all steps are done, call driver.complete_run with args {summary: "score collection finished"}.`
 }
 
 // Validate the raw score-input against the locked schema; missing/malformed
@@ -118,94 +109,4 @@ export function normalizeScoreInput(raw: unknown): {scoreInput: ScoreInput; note
     resource_ids: resourceIds,
   }
   return {scoreInput, notes}
-}
-
-export async function collect(
-  envId: string,
-  scenario: Scenario,
-  runId: string,
-  handoffPath: string,
-  handoff: Handoff,
-  opts: CallOpts = {},
-): Promise<{scoreInput: ScoreInput; notes: string[]}> {
-  // Bounded retry: a transient collector failure (task-create hiccup, stream
-  // gap, arena-FS write race) must not discard a full run. The orphaned
-  // first collector task is NOT canceled (squire.task.die ends the CURRENT
-  // task only — it cannot target the eval-env collector); the race is
-  // benign: the retry only runs after the first attempt failed to produce a
-  // valid score-input, and the record is written from the retry's read.
-  let lastErr: unknown
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const {result, taskId} = await collectOnce(envId, scenario, runId, handoffPath, handoff, opts)
-      if (result !== null) return result
-      lastErr = new Error(`collector attempt ${attempt} produced no score-input (task ${taskId})`)
-    } catch (err) {
-      lastErr = err
-    }
-    if (attempt < 2) {
-      console.warn(`WARNING: collector attempt ${attempt}/2 failed (${(lastErr as Error).message}) — retrying`)
-      await sleep(5_000)
-    }
-  }
-  throw lastErr
-}
-
-async function collectOnce(
-  envId: string,
-  scenario: Scenario,
-  runId: string,
-  handoffPath: string,
-  handoff: Handoff,
-  opts: CallOpts = {},
-): Promise<{result: {scoreInput: ScoreInput; notes: string[]} | null; taskId: string}> {
-  const collector = (await taskCreate(
-    {
-      env_id: envId,
-      prompt: buildCollectorPrompt(scenario, runId, handoffPath, handoff),
-      title: `score-collector-${runId}`,
-      model: scenario.model,
-    },
-    opts,
-  )) as Record<string, unknown>
-  const collectorTaskId = collector.id as string
-  if (!collectorTaskId) throw new Error(`collector task create returned no id: ${JSON.stringify(collector)}`)
-
-  const deadline = Date.now() + 10 * 60 * 1000
-  let terminal = false
-  while (Date.now() < deadline) {
-    try {
-      const res = await getTask(envId, collectorTaskId, opts)
-      const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
-      if (state && isTerminal(state)) {
-        terminal = true
-        break
-      }
-    } catch (err) {
-      // Transient gateway failure: log and keep polling.
-      console.error(`WARNING: collector get_task poll failed: ${(err as Error).message}`)
-    }
-    await sleep(10_000)
-  }
-if (!terminal) {
-    return {result: null, taskId: collectorTaskId}
-  }
-
-  let raw: unknown
-  try {
-    raw = await fsRead(scoreInputPath(runId), opts)
-  } catch {
-    return {result: null, taskId: collectorTaskId}
-  }
-  const content = isRecord(raw) ? raw.content : undefined
-  if (typeof content !== "string" || content.length === 0) {
-    return {result: null, taskId: collectorTaskId}
-  }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(content)
-  } catch {
-    return {result: null, taskId: collectorTaskId}
-  }
-  return {result: normalizeScoreInput(parsed), taskId: collectorTaskId}
 }

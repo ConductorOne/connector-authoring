@@ -1,4 +1,4 @@
-// record.ts — JSONL run record writer (CXF-216 PR 1, L25).
+// record.ts — JSONL run record writer.
 import {mkdirSync, writeFileSync} from "node:fs"
 import {join} from "node:path"
 import type {Scenario} from "./scenario.ts"

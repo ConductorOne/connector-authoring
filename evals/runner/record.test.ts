@@ -26,14 +26,13 @@ const SCENARIO: Scenario = {
   skillBundle: {mode: "none", version: "0.0.0"},
   model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
   requiredSourceFiles: ["connector.ts", "config-schema.json", "runtime-schema.json", "capabilities.json"],
-  readinessTools: [
+readinessTools: [
     "c1_connector_authoring_get_authoring_guide",
     "c1_connector_authoring_create_draft",
     "c1_connector_authoring_build_bundle",
     "c1_connector_authoring_run_draft_test_sync",
     "c1_connector_authoring_get_test_run_evidence",
   ],
-  handoffPath: "/current-tasks/evals/<run-id>/handoff.json",
 }
 
 const META: RunMeta = {
@@ -42,8 +41,8 @@ const META: RunMeta = {
   skill_bundle_version: "0.0.0",
   skill_bundle_mode: "none",
   model_version: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
-  harness: "inherit",
-  reasoning_effort: "inherit",
+harness: "tier0",
+  reasoning_effort: "n/a",
   started_at: "2026-09-02T12:00:00.000Z",
   wall_time_ms: 123456,
   funnel_tools_present: true,

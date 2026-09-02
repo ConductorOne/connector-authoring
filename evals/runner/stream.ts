@@ -1,11 +1,4 @@
-// stream.ts — firehose parser + incremental poller (CXF-216 PR 1, L33).
-// Event envelope (verified against a live task stream 2026-09-02):
-//   {id, type, message, timestamp, data, seq}
-//   tool_call:   name lives in `message` (e.g. "bash"); args in data.input
-//                (an object, e.g. {i, command} for bash); data.call_id present
-//   tool_result: name lives in data.tool_name; result text lives in the
-//                top-level `message`; failure signal is data.is_error (bool)
-import {taskStream, type CallOpts} from "./squire.ts"
+// stream.ts — normalized firehose parser + stage attribution.
 import {isRecord} from "./scenario.ts"
 
 export interface ToolCallRecord {
@@ -47,6 +40,8 @@ const STAGE_BY_SUFFIX: Record<string, string> = {
 }
 
 export function stageForTool(name: string): string | null {
+  // The reserved driver.* namespace is control-plane, never a funnel stage.
+  if (name.startsWith("driver.")) return null
   for (const [suffix, stage] of Object.entries(STAGE_BY_SUFFIX)) {
     if (name.endsWith(suffix)) return stage
   }
@@ -129,7 +124,7 @@ export function parseStream(events: unknown[]): ParsedStream {
       if (error !== undefined && error !== null && error !== false) {
         errors.push(typeof error === "string" ? error : JSON.stringify(error))
       }
-} else if (type === "text" || type === "text_delta") {
+    } else if (type === "text" || type === "text_delta") {
       // A burst of text_delta chunks is ONE assistant message — count
       // consecutive text events as a single turn (no inflation).
       if (!lastWasText) turns++
@@ -149,7 +144,7 @@ export function parseStream(events: unknown[]): ParsedStream {
     // unknown event shapes are skipped, never thrown
   }
 
-// Stage attribution: attempts count STAGE-ENTRY CYCLES (consecutive calls
+  // Stage attribution: attempts count STAGE-ENTRY CYCLES (consecutive calls
   // of the same stage — get_run polls, S11 deploy+mint — are one attempt),
   // so a clean run scores first_pass on every stage. A FAILURE of the stage
   // ends the current entry: the next call of that stage is a NEW attempt
@@ -185,48 +180,4 @@ export function parseStream(events: unknown[]): ParsedStream {
     stageFailures,
     recoveryCycles,
   }
-}
-
-const sleep = (ms: number) => {
-  const {promise, resolve} = Promise.withResolvers<void>()
-  setTimeout(resolve, ms)
-  return promise
-}
-
-// Poll squire.task.stream with a since_seq cursor every `intervalMs` during
-// the agent run, accumulating pages so the ~1000-event cap cannot drop
-// early-stage evidence (S0/S2). Keeps polling until `shouldStop()` returns
-// true (the caller sets it when the agent task is terminal). The caller owns
-// accumulation via `onEvents`; this returns only the last cursor for the
-// final drain (no duplicate in-memory copy of the transcript).
-export async function pollStreamIncrementally(
-  taskId: string,
-  onEvents: (events: unknown[]) => void,
-  intervalMs = 30_000,
-  shouldStop: () => boolean = () => false,
-  opts: CallOpts = {},
-): Promise<{lastSeq: number; pollErrors: number}> {
-  let sinceSeq = 0
-  let pollErrors = 0
-  for (;;) {
-    try {
-      const page = (await taskStream(taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-      const events = (page?.events ?? []) as unknown[]
-      if (events.length > 0) {
-        onEvents(events)
-      }
-      const nextSeq = page?.next_seq as number | undefined
-      if (nextSeq !== undefined && nextSeq > sinceSeq) sinceSeq = nextSeq
-    } catch (err) {
-      // Transient stream failures must not kill the poller (a gateway hiccup
-      // mid-run would otherwise abort the whole eval). A PERMANENT outage is
-      // surfaced by the caller: an empty transcript with poll errors is an
-      // infrastructure failure, not a scored agent outcome.
-      pollErrors++
-      console.error(`WARNING: task.stream poll failed: ${(err as Error).message}`)
-    }
-    if (shouldStop()) break
-    await sleep(intervalMs)
-  }
-  return {lastSeq: sinceSeq, pollErrors}
 }

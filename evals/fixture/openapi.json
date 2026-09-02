@@ -3,7 +3,7 @@
   "info": {
     "title": "Directory API Fixture",
     "version": "1.0.0",
-    "description": "Deterministic Directory API fixture for the connector-authoring eval harness (CXF-216). /v1/* uses basic auth + offset pagination; /v2/* uses bearer auth + Link-header pagination. Deliberate traps: (a) GET /v1/users without the required account_id scoping param returns only the 3-row unscoped subset; (b) user.title is nullable; (c) a replayed grant POST returns 200 with X-Idempotency-Replay: true."
+    "description": "Deterministic Directory API fixture for the connector-authoring eval harness. /v1/* uses basic auth + offset pagination; /v2/* uses bearer auth + Link-header pagination. Deliberate traps: (a) GET /v1/users without the required account_id scoping param returns only the 3-row unscoped subset; (b) user.title is nullable; (c) a replayed grant POST returns 200 with X-Idempotency-Replay: true."
   },
   "paths": {
     "/openapi.json": {

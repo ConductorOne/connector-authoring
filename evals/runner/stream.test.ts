@@ -27,8 +27,9 @@ test("stageForTool maps the full funnel surface", () => {
   assert.equal(stageForTool("c1_connector_authoring_run_draft_test_sync"), "S9")
   assert.equal(stageForTool("c1_connector_authoring_get_test_run_evidence"), "S10")
   assert.equal(stageForTool("c1_connector_authoring_deploy_connector_instance"), "S11")
-  assert.equal(stageForTool("c1_connector_authoring_mint_approval_token"), "S11")
-  assert.equal(stageForTool("squire.fs.write"), null)
+assert.equal(stageForTool("c1_connector_authoring_mint_approval_token"), "S11")
+  assert.equal(stageForTool("driver.write_file"), null)
+  assert.equal(stageForTool("driver.complete_run"), null)
 })
 
 test("parseStream detects failures via data.is_error (the real signal)", () => {

@@ -1,0 +1,52 @@
+{
+  "run_id": "tier0-canned",
+  "draft": {
+    "required_source_files": {
+      "connector.ts": true,
+      "config-schema.json": true,
+      "runtime-schema.json": true,
+      "capabilities.json": true
+    },
+    "source_files": [
+      {
+        "path": "connector.ts",
+        "content": "directory.GET({path: \"/v1/users\", query: {account_id: \"acct-1\"}, pagination: offsetPagination}) user.title totalPath config(\"base-url\") config(\"account-email\") config(\"api-token\") newUserResource user.id"
+      }
+    ],
+    "config_schema": {
+      "fields": [
+        {"name": "base-url", "is_secret": false},
+        {"name": "account-email", "is_secret": false},
+        {"name": "api-token", "is_secret": true}
+      ]
+    },
+    "runtime_schema": {
+      "fields": [
+        {"name": "base-url", "is_secret": false},
+        {"name": "account-email", "is_secret": false},
+        {"name": "api-token", "is_secret": true}
+      ]
+    }
+  },
+  "connector_config": {
+    "base-url": "http://127.0.0.1:18080",
+    "account-email": "connector@example.com",
+    "api-token": "fixture-token"
+  },
+  "evidence": {
+    "result": "PASS"
+  },
+  "build_run": {
+    "state": "RUN_STATE_SUCCEEDED"
+  },
+  "revision_status": "REVISION_STATUS_ACTIVE",
+  "tenant_counts": {
+    "users": 0,
+    "groups": 0,
+    "memberships": 0
+  },
+  "resource_ids": {
+    "users": [],
+    "groups": []
+  }
+}

@@ -1,4 +1,4 @@
-// Deterministic Directory API fixture seed (CXF-216 PR 1).
+// Deterministic Directory API fixture seed.
 // No randomness, no Date.now, no env reads — the seed is pinned in
 // evals/scenarios/tier1-directory.json and asserted by verify.sh.
 

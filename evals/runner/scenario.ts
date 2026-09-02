@@ -1,4 +1,4 @@
-// scenario.ts — scenario loader + validation (CXF-216 PR 1).
+// scenario.ts — scenario loader + validation.
 import {readFileSync} from "node:fs"
 
 export interface FixtureConfig {
@@ -38,9 +38,8 @@ export interface Scenario {
   expected: ExpectedConfig
   skillBundle: SkillBundleConfig
   model: string
-  requiredSourceFiles: string[]
+requiredSourceFiles: string[]
   readinessTools: string[]
-  handoffPath: string
 }
 
 // Canonical record guard for the evals/runner package (no shared type-guard
@@ -89,7 +88,7 @@ export function loadScenario(path: string): Scenario {
   if (!isRecord(data)) throw new Error(`scenario ${path} must be a JSON object`)
 
 const id = requireString(data, "id", "scenario")
-  // scenario.id flows into arena-FS paths and the output filename — restrict
+  // scenario.id flows into the output filename — restrict
   // to a safe charset (path traversal via a malicious scenario file).
   if (!/^[A-Za-z0-9._-]+$/.test(id)) {
     throw new Error(`scenario field scenario.id invalid: ${id} (must match [A-Za-z0-9._-]+)`)
@@ -144,19 +143,9 @@ const id = requireString(data, "id", "scenario")
   if (requiredSourceFiles.length !== 4) {
     throw new Error("scenario field requiredSourceFiles must have exactly 4 entries")
   }
-  const readinessTools = requireStringArray(data, "readinessTools", "scenario")
+const readinessTools = requireStringArray(data, "readinessTools", "scenario")
   if (readinessTools.length !== 5) {
     throw new Error("scenario field readinessTools must have exactly 5 entries")
-  }
-  const handoffPath = requireString(data, "handoffPath", "scenario")
-  if (!handoffPath.includes("<run-id>")) {
-    throw new Error('scenario field handoffPath must contain the "<run-id>" placeholder')
-  }
-  // The runner derives the sanitized sibling path by replacing the
-  // "handoff.json" suffix; a scenario with any other filename would make
-  // that replace a no-op and overwrite the agent's original handoff.
-  if (!handoffPath.endsWith("handoff.json")) {
-    throw new Error('scenario field handoffPath must end with "handoff.json"')
   }
 
   return {
@@ -169,6 +158,5 @@ const id = requireString(data, "id", "scenario")
     model,
     requiredSourceFiles,
     readinessTools,
-    handoffPath,
   }
 }

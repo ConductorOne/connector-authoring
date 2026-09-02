@@ -36,12 +36,11 @@
     "runtime-schema.json",
     "capabilities.json"
   ],
-  "readinessTools": [
+"readinessTools": [
     "c1_connector_authoring_get_authoring_guide",
     "c1_connector_authoring_create_draft",
     "c1_connector_authoring_build_bundle",
     "c1_connector_authoring_run_draft_test_sync",
     "c1_connector_authoring_get_test_run_evidence"
-  ],
-  "handoffPath": "/current-tasks/evals/<run-id>/handoff.json"
+  ]
 }

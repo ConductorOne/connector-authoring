@@ -8,7 +8,7 @@ import {STAGES, type Handoff, type StageCtx} from "./stages.ts"
 import {parseStream, type ParsedStream} from "./stream.ts"
 import type {ScoreInput} from "./stages.ts"
 
-const HANDOFF_PATH = "/current-tasks/evals/evals-tier1-directory-20260902-120000-000/handoff.json"
+const HANDOFF_PATH = "/tmp/evals-run/handoff.json"
 
 function fullHandoff(): Handoff {
   return {
@@ -70,10 +70,10 @@ function cleanEvents(): Record<string, unknown>[] {
     toolResult("c1_connector_authoring_deploy_connector_instance", "dep"),
     toolCall("c1_connector_authoring_mint_approval_token"),
     toolResult("c1_connector_authoring_mint_approval_token", "token"),
-    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
-    toolResult("bash", "written"),
-    toolCall("bash", {i: "complete", command: `squire-tool call squire.task.complete '{"summary": "handoff written"}'`}),
-    toolResult("bash", "done"),
+toolCall("driver.write_file", {path: HANDOFF_PATH, content: "{}"}),
+    toolResult("driver.write_file", "written"),
+    toolCall("driver.complete_run"),
+    toolResult("driver.complete_run", "done"),
   ]
 }
 

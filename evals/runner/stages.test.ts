@@ -4,7 +4,7 @@ import assert from "node:assert/strict"
 import {STAGES, sanitizeHandoffValue, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
 import {parseStream, type ParsedStream} from "./stream.ts"
 
-const HANDOFF_PATH = "/current-tasks/evals/evals-tier1-directory-20260902-120000-000/handoff.json"
+const HANDOFF_PATH = "/tmp/evals-run/handoff.json"
 
 function fullHandoff(): Handoff {
   return {
@@ -62,16 +62,14 @@ function cleanEvents(): Record<string, unknown>[] {
     toolResult("c1_connector_authoring_get_test_run_evidence", "PENDING"),
     toolCall("c1_connector_authoring_get_test_run_evidence"),
     toolResult("c1_connector_authoring_get_test_run_evidence", "PASS"),
-toolCall("c1_connector_authoring_deploy_connector_instance"),
+    toolCall("c1_connector_authoring_deploy_connector_instance"),
     toolResult("c1_connector_authoring_deploy_connector_instance", "dep"),
     toolCall("c1_connector_authoring_mint_approval_token"),
     toolResult("c1_connector_authoring_mint_approval_token", "token"),
-    // The prompt instructs the handoff write + termination via bash
-    // `squire-tool call ...` — the real stream shows bash tool calls.
-    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}", "content": "{}"}'`}),
-    toolResult("bash", "written"),
-    toolCall("bash", {i: "complete", command: `squire-tool call squire.task.complete '{"summary": "handoff written"}'`}),
-    toolResult("bash", "done"),
+    toolCall("driver.write_file", {path: HANDOFF_PATH, content: "{}"}),
+    toolResult("driver.write_file", "written"),
+    toolCall("driver.complete_run"),
+    toolResult("driver.complete_run", "done"),
   ]
 }
 
@@ -165,20 +163,20 @@ test("S2 accepts concatenated and mixed-line 200 PUT results", () => {
   assert.equal(check("S2", ctx({transcript: parseStream(bad)})), false)
 })
 
-test("S11 accepts the bash handoff write with object args + task.complete", () => {
+test("S11 accepts the driver.write_file handoff write + driver.complete_run", () => {
   const c = ctx({})
   assert.equal(check("S11", c), true)
 })
 
-test("S11 also accepts the direct squire.fs.write / squire.task.complete form", () => {
+test("S11 rejects a bash-wrapped driver.write_file (the bash transport is not a control-plane call)", () => {
   const events = [
     ...cleanEvents().slice(0, -4),
-    toolCall("squire.fs.write", {path: HANDOFF_PATH, content: "{}"}),
-    toolResult("squire.fs.write", "written"),
-    toolCall("squire.task.complete"),
-    toolResult("squire.task.complete", "done"),
+    toolCall("bash", {i: "handoff", command: `driver.write_file '{"path": "${HANDOFF_PATH}"}'`}),
+    toolResult("bash", "written"),
+    toolCall("bash", {i: "complete", command: "driver.complete_run"}),
+    toolResult("bash", "done"),
   ]
-  assert.equal(check("S11", ctx({transcript: parseStream(events)})), true)
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 
 test("S11 fails when the handoff write happened BEFORE the mint", () => {
@@ -186,8 +184,8 @@ test("S11 fails when the handoff write happened BEFORE the mint", () => {
   // 33 = mint result. Insert the handoff write BETWEEN deploy and mint.
   const events = [
     ...cleanEvents().slice(0, 32), // up to and including the deploy result
-    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
-    toolResult("bash", "written"),
+    toolCall("driver.write_file", {path: HANDOFF_PATH}),
+    toolResult("driver.write_file", "written"),
     ...cleanEvents().slice(32, 34), // mint call + result
   ]
   // The handoff write precedes the mint; nothing after the mint is a
@@ -216,13 +214,13 @@ test("S11 fails when deployment_instance_id is fabricated (no deploy call)", () 
   assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 
-test("S11 fails when a post-mint bash call merely mentions task.complete (no squire-tool)", () => {
+test("S11 fails when a post-mint call merely mentions driver.complete_run", () => {
   const events = [
     ...cleanEvents().slice(0, -4), // up to and including the mint result
-    toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
-    toolResult("bash", "written"),
-    toolCall("bash", {i: "note", command: "echo 'remember to run task.complete later'"}),
-    toolResult("bash", "remember to run task.complete later"),
+    toolCall("driver.write_file", {path: HANDOFF_PATH}),
+    toolResult("driver.write_file", "written"),
+    toolCall("bash", {i: "note", command: "echo 'remember to run driver.complete_run later'"}),
+    toolResult("bash", "remember to run driver.complete_run later"),
   ]
   // The bare mention must NOT be stripped as terminal — S11 fails.
   assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
