@@ -59,7 +59,7 @@ async function readSetupStream(
   for (;;) {
     let page: Record<string, unknown>
     try {
-      page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+      page = (await taskStream(taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
     } catch (err) {
       // Transient stream hiccup: return what we have (the setup markers are
       // usually early in the stream; a retry would re-read from scratch).
@@ -107,14 +107,29 @@ export async function installFixture(
     throw new ReadinessError(`fixture setup for ${envId} timed out after 10 min`)
   }
 
-  const stream = await readSetupStream(envId, setupTaskId, opts)
+const stream = await readSetupStream(envId, setupTaskId, opts)
   if (stream.includes("SETUP FAIL")) {
     const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? "SETUP FAIL"
     throw new ReadinessError(`fixture setup failed in ${envId}: ${failLine} (probe state ${state})`)
   }
-  const baseUrlMatch = stream.match(/FIXTURE_BASE_URL=(\S+)/)
-  if (!baseUrlMatch) {
+  // The setup prompt itself contains the literal FIXTURE_BASE_URL strings, so
+  // a restatement by the setup agent can false-match. Take the LAST match
+  // (the agent's actual printed line), strip surrounding quotes, and require
+  // a URL with a literal host — the unexpanded `http://$HOST:18080` template
+  // must not flow into buildPrompt as the fixture base-url.
+  const baseUrlMatches = [...stream.matchAll(/FIXTURE_BASE_URL=(\S+)/g)]
+  if (baseUrlMatches.length === 0) {
     throw new ReadinessError(`fixture setup in ${envId} produced no FIXTURE_BASE_URL (probe state ${state})`)
   }
-  return {baseUrl: baseUrlMatch[1]}
+  const raw = baseUrlMatches[baseUrlMatches.length - 1][1].replace(/^["']|["']$/g, "")
+  let baseUrl: URL
+  try {
+    baseUrl = new URL(raw)
+  } catch {
+    throw new ReadinessError(`fixture setup in ${envId} produced an invalid FIXTURE_BASE_URL: ${raw} (probe state ${state})`)
+  }
+  if (baseUrl.hostname === "" || baseUrl.hostname.includes("$")) {
+    throw new ReadinessError(`fixture setup in ${envId} produced a non-literal FIXTURE_BASE_URL host: ${raw} (probe state ${state})`)
+  }
+  return {baseUrl: baseUrl.toString().replace(/\/$/, "")}
 }

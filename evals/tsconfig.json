@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2024"],
     "allowImportingTsExtensions": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "strict": true
   },
   "include": ["**/*.ts"]
 }

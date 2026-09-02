@@ -152,6 +152,12 @@ const id = requireString(data, "id", "scenario")
   if (!handoffPath.includes("<run-id>")) {
     throw new Error('scenario field handoffPath must contain the "<run-id>" placeholder')
   }
+  // The runner derives the sanitized sibling path by replacing the
+  // "handoff.json" suffix; a scenario with any other filename would make
+  // that replace a no-op and overwrite the agent's original handoff.
+  if (!handoffPath.endsWith("handoff.json")) {
+    throw new Error('scenario field handoffPath must end with "handoff.json"')
+  }
 
   return {
     id,

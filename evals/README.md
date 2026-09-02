@@ -107,15 +107,15 @@ events — never invented.
 | Stage | Gate | Evidence |
 |---|---|---|
 | S0 | guide read | ≥1 successful `get_authoring_guide` call in the transcript |
-| S1 | `catalog_id` + `draft_id` | both non-empty in handoff |
+| S1 | `catalog_id` + `draft_id` | both non-empty in handoff; ≥1 successful `create_draft` call in the transcript |
 | S2 | `upload_id` + PUTs 200 | handoff `upload_id`; ≥1 successful `create_draft_source_upload`; no `-X PUT` bash call whose result lacks `200` |
 | S3 | required source files | all 4 `required_source_files` true in score-input |
-| S4 | build `run_id` | handoff `run_id` non-empty |
+| S4 | build `run_id` | handoff `run_id` non-empty; ≥1 successful `build_bundle` call in the transcript |
 | S5 | `RUN_STATE_SUCCEEDED` + `revision_id` | score-input `build_run.state`; handoff `revision_id` |
-| S6 | `app_id` | handoff non-empty |
-| S7 | `connector_id` | handoff non-empty |
+| S6 | `app_id` | handoff non-empty; ≥1 successful `apps_create` call in the transcript |
+| S7 | `connector_id` | handoff non-empty; ≥1 successful `provision_connector` call in the transcript |
 | S8 | credentials configured | score-input `connector_config` base-url/account-email/api-token all non-empty |
-| S9 | `test_run_id` | handoff non-empty |
+| S9 | `test_run_id` | handoff non-empty; ≥1 successful `run_draft_test_sync` call in the transcript |
 | S10 | durable PASS evidence | score-input `evidence.result == "PASS"` |
 | S11 | handoff discipline | deploy + mint succeeded; all 10 handoff fields; zero tool calls after the mint except the handoff write; no token redemption |
 

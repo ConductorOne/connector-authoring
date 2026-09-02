@@ -124,7 +124,13 @@ function successfulCalls(transcript: ParsedStream, nameSuffix: string) {
 function isHttp200(result: unknown): boolean {
   if (typeof result !== "string") return false
   const trimmed = result.trim()
-  return trimmed === "200" || trimmed.endsWith("\n200")
+  // The prompt's curl form (-w "%{http_code}") prints the code with no
+  // trailing newline, so an agent that PUTs all four files in one bash call
+  // produces "200200200200". Accept any result whose non-empty lines/codes
+  // are all 200.
+  if (/^(200)+$/.test(trimmed)) return true
+  const lines = trimmed.split("\n").map((l) => l.trim()).filter((l) => l.length > 0)
+  return lines.length > 0 && lines.every((l) => l === "200")
 }
 
 function successfulPutCalls(transcript: ParsedStream): ToolCallRecord[] {

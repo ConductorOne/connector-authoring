@@ -184,8 +184,10 @@ let envId: string
       opts,
     )
     envId = e
-  } else {
-    envId = cli.env
+} else {
+    const existingEnv = cli.env
+    if (!existingEnv) throw new Error("--env requires a non-empty value")
+    envId = existingEnv
     await assertEnvOwned(envId, opts)
     // --env mode: single readiness attempt, no retries, no teardown.
     const r = await waitForReady(envId, scenario, runId, opts)
@@ -222,7 +224,7 @@ let envId: string
     let tailEvents: unknown[] = []
     let drainFailed = false
     try {
-      const tail = (await taskStream(envId, agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
+      const tail = (await taskStream(agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
       tailEvents = (tail.events ?? []) as unknown[]
     } catch (err) {
       drainFailed = true
@@ -255,13 +257,13 @@ let envId: string
     // instructions into the collector's transcription (quotes, braces,
     // semicolons, control chars) and coerce non-string fields to empty, then
     // write a sanitized copy for it.
-    const sanitizedHandoff = sanitizeHandoff(handoff)
+const sanitizedHandoff = sanitizeHandoff(handoff)
     const sanitizedHandoffPath = handoffPath.replace("handoff.json", "handoff-sanitized.json")
-    try {
-      await fsWrite(sanitizedHandoffPath, JSON.stringify(sanitizedHandoff), opts)
-    } catch (err) {
-      stderr.write(`WARNING: could not write sanitized handoff for the collector: ${(err as Error).message}\n`)
-    }
+    // Fatal, not a warning: if the sanitized copy cannot be written, the
+    // collector would read a nonexistent file, record nulls, and the run
+    // would be written as a scored record — an infrastructure failure
+    // recorded as an agent outcome. Rethrow -> exit 1, no record.
+    await fsWrite(sanitizedHandoffPath, JSON.stringify(sanitizedHandoff), opts)
 
     // Collect. On the stalled path (no handoff at all), a collector failure
     // must still produce a scored record (exit 0) — the plan's exit-0

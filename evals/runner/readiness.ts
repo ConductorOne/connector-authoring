@@ -76,11 +76,11 @@ async function waitForTaskTerminal(
   return {state: "running", timedOut: true}
 }
 
-// Read the probe's tool list: prefer the arena file the probe writes; fall
-// back to scanning the task stream for the five readiness tool names.
+// Read the probe's tool list. The arena file the probe writes is the ONLY
+// trusted source: the probe prompt itself names the five readiness tools, so
+// a transcript fallback could false-pass on the agent's own narration of the
+// prompt. A missing/unreadable file is a readiness failure (fail-closed).
 async function readProbeToolList(
-  envId: string,
-  taskId: string,
   runId: string,
   opts: CallOpts,
 ): Promise<string | null> {
@@ -89,37 +89,9 @@ async function readProbeToolList(
     const content = res.content as string | undefined
     if (typeof content === "string" && content.length > 0) return content
   } catch {
-    // fall through to stream scan
+    // fall through to null — the caller treats it as a readiness failure
   }
-// Stream fallback: concatenate every tool result and text delta. The real
-  // stream puts tool_result text in the TOP-LEVEL `message` (data carries
-  // only tool_name/is_error) — read both.
-  let sinceSeq = 0
-  const parts: string[] = []
-  for (;;) {
-    let page: Record<string, unknown>
-    try {
-      page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-    } catch (err) {
-      // Transient stream hiccup: return what we have.
-      console.error(`WARNING: probe stream read failed: ${(err as Error).message}`)
-      break
-    }
-    const events = (page?.events ?? []) as Record<string, unknown>[]
-    for (const ev of events) {
-      if (typeof ev.message === "string" && ev.message.length > 0) parts.push(ev.message)
-      const data = (ev.data ?? {}) as Record<string, unknown>
-      for (const key of ["result", "output"]) {
-        const v = data[key]
-        if (typeof v === "string") parts.push(v)
-      }
-    }
-    const nextSeq = page?.next_seq as number | undefined
-    if (nextSeq === undefined || nextSeq <= sinceSeq) break
-    sinceSeq = nextSeq
-  }
-  const text = parts.join("\n")
-  return text.length > 0 ? text : null
+  return null
 }
 
 export async function waitForReady(
@@ -166,7 +138,7 @@ export async function waitForReady(
     throw new ReadinessError(`readiness probe for ${envId} timed out after 10 min`)
   }
 
-  const toolList = await readProbeToolList(envId, probeTaskId, runId, opts)
+  const toolList = await readProbeToolList(runId, opts)
   if (!toolList) {
     throw new ReadinessError(`readiness probe for ${envId} produced no tool list (probe state ${state})`)
   }

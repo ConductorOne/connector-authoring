@@ -211,7 +211,7 @@ export async function pollStreamIncrementally(
   let pollErrors = 0
   for (;;) {
     try {
-      const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+      const page = (await taskStream(taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
       const events = (page?.events ?? []) as unknown[]
       if (events.length > 0) {
         onEvents(events)

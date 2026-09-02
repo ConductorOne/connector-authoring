@@ -92,11 +92,13 @@ export async function getTask(
 }
 
 export async function taskStream(
-  envId: string,
   taskId: string,
   streamOpts: {sinceSeq?: number; limit?: number} = {},
   opts: CallOpts = {},
 ): Promise<Record<string, unknown>> {
+  // squire.task.stream takes task_id only (no env_id) — the caller's env
+  // ownership is enforced gateway-side. The envId parameter was accepted but
+  // never sent; dropped so the asymmetry is not misread as intentional.
   const args: Record<string, unknown> = {task_id: taskId}
   if (streamOpts.sinceSeq !== undefined) args.since_seq = streamOpts.sinceSeq
   if (streamOpts.limit !== undefined) args.limit = streamOpts.limit
