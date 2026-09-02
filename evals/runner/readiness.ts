@@ -97,8 +97,15 @@ async function readProbeToolList(
   let sinceSeq = 0
   const parts: string[] = []
   for (;;) {
-    const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-    const events = (page.events ?? []) as Record<string, unknown>[]
+    let page: Record<string, unknown>
+    try {
+      page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+    } catch (err) {
+      // Transient stream hiccup: return what we have.
+      console.error(`WARNING: probe stream read failed: ${(err as Error).message}`)
+      break
+    }
+    const events = (page?.events ?? []) as Record<string, unknown>[]
     for (const ev of events) {
       if (typeof ev.message === "string" && ev.message.length > 0) parts.push(ev.message)
       const data = (ev.data ?? {}) as Record<string, unknown>
@@ -111,7 +118,7 @@ async function readProbeToolList(
     if (nextSeq === undefined || nextSeq <= sinceSeq) break
     sinceSeq = nextSeq
   }
-const text = parts.join("\n")
+  const text = parts.join("\n")
   return text.length > 0 ? text : null
 }
 
@@ -124,19 +131,22 @@ export async function waitForReady(
   // (a) env status running (10 min timeout)
   const envDeadline = Date.now() + 10 * 60 * 1000
   let envStatus: unknown = "pending"
+  let envPollErrors = 0
   while (Date.now() < envDeadline) {
     try {
       const env = (await getEnv(envId, opts)) as Record<string, unknown> | null
       envStatus = env?.status ?? "unknown"
     } catch (err) {
       // Transient gateway failure: log and keep polling.
+      envPollErrors++
       console.error(`WARNING: get_env poll failed: ${(err as Error).message}`)
     }
     if (envStatus === "running") break
     await sleep(10_000)
   }
   if (envStatus !== "running") {
-    throw new ReadinessError(`env ${envId} not running after 10 min (status ${String(envStatus)})`)
+    const cause = envPollErrors > 0 ? ` (${envPollErrors} get_env poll(s) failed)` : ""
+    throw new ReadinessError(`env ${envId} not running after 10 min (status ${String(envStatus)})${cause}`)
   }
 
   // (b)+(c) one probe task: wait_for_services settled, then tool-list check

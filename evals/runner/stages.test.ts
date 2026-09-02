@@ -223,7 +223,7 @@ test("S11 fails when a non-handoff call follows the mint", () => {
   assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 
-test("S1/S4/S6/S7/S9 fail on empty handoff fields", () => {
+test("S1 fails on an empty catalog_id while S4/S6/S7/S9 still pass on present fields", () => {
   const h = fullHandoff()
   h.catalog_id = ""
   const c = ctx({handoff: h})

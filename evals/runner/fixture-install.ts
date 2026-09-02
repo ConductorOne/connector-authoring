@@ -57,8 +57,16 @@ async function readSetupStream(
   let sinceSeq = 0
   const parts: string[] = []
   for (;;) {
-    const page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-    const events = (page.events ?? []) as Record<string, unknown>[]
+    let page: Record<string, unknown>
+    try {
+      page = (await taskStream(envId, taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+    } catch (err) {
+      // Transient stream hiccup: return what we have (the setup markers are
+      // usually early in the stream; a retry would re-read from scratch).
+      console.error(`WARNING: setup stream read failed: ${(err as Error).message}`)
+      break
+    }
+    const events = (page?.events ?? []) as Record<string, unknown>[]
     for (const ev of events) {
       // The real stream puts tool_result text in the TOP-LEVEL `message`
       // (data carries only tool_name/is_error) — read it first.

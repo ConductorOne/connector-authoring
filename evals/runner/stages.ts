@@ -144,9 +144,11 @@ function isTerminalComplete(call: ToolCallRecord): boolean {
   if (call.name === "squire.task.complete" || call.name.endsWith("task.complete")) return true
   // The agent prompt instructs termination via the bash form
   // `squire-tool call squire.task.complete ...` — a bash-wrapped complete
-  // has name="bash" and must be recognized as the terminal call.
+  // has name="bash" and must be recognized as the terminal call. The match
+  // requires an actual squire-tool invocation (a bare mention of
+  // "task.complete" in a comment/echo must NOT strip the call).
   const command = bashCommand(call)
-  return command !== null && command.includes("task.complete")
+  return command !== null && command.includes("squire-tool") && command.includes("task.complete")
 }
 
 // The handoff write is the ONLY permitted non-terminal call after the mint:

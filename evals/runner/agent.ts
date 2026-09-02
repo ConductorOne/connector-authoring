@@ -79,8 +79,8 @@ export async function createAgentTask(
   prompt: string,
   opts: CallOpts = {},
 ): Promise<{taskId: string}> {
-  const models = (await listModels(opts)) as Record<string, unknown>
-  const modelList = (models.models ?? []) as Record<string, unknown>[]
+  const models = (await listModels(opts)) as Record<string, unknown> | null
+  const modelList = (models?.models ?? []) as Record<string, unknown>[]
   const present = modelList.some((m) => m.id === scenario.model)
   if (!present) {
     throw new Error(
