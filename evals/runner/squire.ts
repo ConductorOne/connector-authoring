@@ -71,7 +71,9 @@ export async function taskCreate(
   args: Record<string, unknown>,
   opts: CallOpts = {},
 ): Promise<Record<string, unknown>> {
-  return call("squire.task.create", args, opts) as Promise<Record<string, unknown>>
+  const res = await call("squire.task.create", args, opts)
+  // A null/empty response must not become a TypeError at the call site.
+  return (res ?? {}) as Record<string, unknown>
 }
 
 export async function getTask(

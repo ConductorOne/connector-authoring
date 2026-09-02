@@ -216,9 +216,15 @@ let envId: string
     )
     stopPolling = true
     const {lastSeq} = await poller
-    // final drain: catch anything appended after the last cursor
-    const tail = (await taskStream(envId, agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
-    const tailEvents = (tail.events ?? []) as unknown[]
+    // final drain: catch anything appended after the last cursor (a
+    // transient hiccup here must not abort a completed run).
+    let tailEvents: unknown[] = []
+    try {
+      const tail = (await taskStream(envId, agentTaskId, {sinceSeq: lastSeq, limit: 500}, opts)) as Record<string, unknown>
+      tailEvents = (tail.events ?? []) as unknown[]
+    } catch (err) {
+      stderr.write(`WARNING: final task.stream drain failed: ${(err as Error).message}\n`)
+    }
     if (tailEvents.length > 0) streamEvents.push(...tailEvents)
     if (timedOut) {
       stderr.write(`WARNING: agent task ${agentTaskId} did not reach terminal within ${cli.maxAgentMinutes} min — scoring the partial stream\n`)

@@ -133,13 +133,17 @@ export async function collect(
   // task only — it cannot target the eval-env collector); the race is
   // benign: the retry only runs after the first attempt failed to produce a
   // valid score-input, and the record is written from the retry's read.
-  let lastErr: unknown
+let lastErr: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const {result, taskId} = await collectOnce(envId, scenario, runId, handoff, opts)
-    if (result !== null) return result
-    lastErr = new Error(`collector attempt ${attempt} failed (task ${taskId})`)
+    try {
+      const {result, taskId} = await collectOnce(envId, scenario, runId, handoff, opts)
+      if (result !== null) return result
+      lastErr = new Error(`collector attempt ${attempt} produced no score-input (task ${taskId})`)
+    } catch (err) {
+      lastErr = err
+    }
     if (attempt < 2) {
-      console.warn(`WARNING: collector attempt ${attempt}/2 failed — retrying`)
+      console.warn(`WARNING: collector attempt ${attempt}/2 failed (${(lastErr as Error).message}) — retrying`)
       await sleep(5_000)
     }
   }

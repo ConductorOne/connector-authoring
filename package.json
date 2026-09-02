@@ -6,7 +6,7 @@
     "eval:fixture": "node --experimental-strip-types evals/fixture/server.ts --port 18080",
     "eval:verify": "bash evals/fixture/verify.sh",
     "eval:test": "node --test evals/runner/*.test.ts",
-    "eval:run": "node evals/runner/run.ts"
+    "eval:run": "node --experimental-strip-types evals/runner/run.ts"
   },
   "devDependencies": {
     "typescript": "5.9.3",
