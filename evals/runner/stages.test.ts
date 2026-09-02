@@ -182,6 +182,18 @@ test("S11 fails on a pre-mint force_sync (never legitimate)", () => {
   assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 
+test("S11 fails when deployment_instance_id is fabricated (no deploy call)", () => {
+  // Remove the deploy call+result from the transcript; the handoff still
+  // carries deployment_instance_id — the transcript cross-check must fail it.
+  const events = cleanEvents().filter((e) => {
+    const rec = e as Record<string, unknown>
+    const data = (rec.data ?? {}) as Record<string, unknown>
+    return !(rec.type === "tool_call" && rec.message === "c1_connector_authoring_deploy_connector_instance") &&
+      !(rec.type === "tool_result" && data.tool_name === "c1_connector_authoring_deploy_connector_instance")
+  })
+  assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
+})
+
 test("S11 fails on a redemption call after the mint", () => {
   const events = [
     ...cleanEvents(),

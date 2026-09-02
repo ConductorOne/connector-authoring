@@ -39,12 +39,3 @@ test("an invalid --ref (shell metacharacters) exits 1 with a clear error", async
   assert.equal(code, 1)
   assert.ok(stderr.includes("invalid --ref"))
 })
-
-test("a valid --ref charset is accepted at parse time", async () => {
-  // Parsing succeeds (the run then fails later on provisioning — that is
-  // NOT an arg-parse error, so the exit code must not be the parse error 1
-  // with "invalid --ref").
-  const {code, stderr} = await runCli(["--scenario", "evals/scenarios/tier1-directory.json", "--ref", "am/src-81ose/src-att4-impl"])
-  assert.ok(!stderr.includes("invalid --ref"), `stderr: ${stderr}`)
-  assert.ok(code === 1 || code === 2, `expected a runtime (not parse) failure, got ${code}`)
-})

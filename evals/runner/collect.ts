@@ -1,5 +1,5 @@
 // collect.ts — score collector task + score-input validation (CXF-216 PR 1, D1).
-import {call, fsRead, getTask, taskCreate, type CallOpts} from "./squire.ts"
+import {fsRead, getTask, taskCreate, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
 import {isRecord} from "./scenario.ts"
 import type {Handoff, ScoreInput} from "./stages.ts"
@@ -129,20 +129,17 @@ export async function collect(
 ): Promise<{scoreInput: ScoreInput; notes: string[]}> {
   // Bounded retry: a transient collector failure (task-create hiccup, stream
   // gap, arena-FS write race) must not discard a full run. The orphaned
-  // first collector task is canceled so it cannot race the retry on the
-  // shared score-input path.
+  // first collector task is NOT canceled (squire.task.die ends the CURRENT
+  // task only — it cannot target the eval-env collector); the race is
+  // benign: the retry only runs after the first attempt failed to produce a
+  // valid score-input, and the record is written from the retry's read.
   let lastErr: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
     const {result, taskId} = await collectOnce(envId, scenario, runId, handoff, opts)
     if (result !== null) return result
-    lastErr = new Error(`collector attempt ${attempt} failed`)
+    lastErr = new Error(`collector attempt ${attempt} failed (task ${taskId})`)
     if (attempt < 2) {
       console.warn(`WARNING: collector attempt ${attempt}/2 failed — retrying`)
-      try {
-        await call("squire.task.die", {task_id: taskId, reason: "collector retry superseded"}, opts)
-      } catch {
-        // best-effort cancel
-      }
       await sleep(5_000)
     }
   }
@@ -196,8 +193,8 @@ if (!terminal) {
   let parsed: unknown
   try {
     parsed = JSON.parse(content)
-  } catch (err) {
-    throw new Error(`score-input.json is not valid JSON: ${(err as Error).message} — no record written`)
+  } catch {
+    return {result: null, taskId: collectorTaskId}
   }
   return {result: normalizeScoreInput(parsed), taskId: collectorTaskId}
 }

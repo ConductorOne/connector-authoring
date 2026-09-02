@@ -93,6 +93,17 @@ test("turns counts text/user events and is at least 1", () => {
   assert.equal(parseStream([]).turns, 1)
 })
 
+test("turns dedupes consecutive text_delta chunks into one turn", () => {
+  const parsed = parseStream([
+    {type: "text_delta", message: "hel"},
+    {type: "text_delta", message: "lo"},
+    {type: "tool_call", message: "bash", data: {input: {}}},
+    {type: "tool_result", message: "out", data: {tool_name: "bash"}},
+    {type: "text_delta", message: "done"},
+  ])
+  assert.equal(parsed.turns, 2)
+})
+
 test("usage events sum tokens", () => {
   const parsed = parseStream([
     {type: "usage", data: {tokens_in: 10, tokens_out: 5}},

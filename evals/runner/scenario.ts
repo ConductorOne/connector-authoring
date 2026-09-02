@@ -88,7 +88,12 @@ export function loadScenario(path: string): Scenario {
   }
   if (!isRecord(data)) throw new Error(`scenario ${path} must be a JSON object`)
 
-  const id = requireString(data, "id", "scenario")
+const id = requireString(data, "id", "scenario")
+  // scenario.id flows into arena-FS paths and the output filename — restrict
+  // to a safe charset (path traversal via a malicious scenario file).
+  if (!/^[A-Za-z0-9._-]+$/.test(id)) {
+    throw new Error(`scenario field scenario.id invalid: ${id} (must match [A-Za-z0-9._-]+)`)
+  }
   const name = requireString(data, "name", "scenario")
 
   if (!isRecord(data.fixture)) throw new Error("scenario field fixture missing or not an object")

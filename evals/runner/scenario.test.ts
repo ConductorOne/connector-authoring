@@ -2,6 +2,9 @@
 // Loads the REAL tier1-directory.json and asserts the locked contract.
 import {test} from "node:test"
 import assert from "node:assert/strict"
+import {readFileSync, writeFileSync, mkdtempSync, rmSync} from "node:fs"
+import {tmpdir} from "node:os"
+import {join} from "node:path"
 import {loadScenario} from "./scenario.ts"
 
 test("loadScenario loads the real tier1-directory.json", () => {
@@ -29,4 +32,15 @@ test("loadScenario loads the real tier1-directory.json", () => {
 
 test("loadScenario rejects a missing required field", () => {
   assert.throws(() => loadScenario("/nonexistent.json"), /cannot read scenario file/)
+})
+
+test("loadScenario rejects an unsafe scenario id (path traversal)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "evals-scenario-"))
+  try {
+    const bad = join(dir, "bad.json")
+    writeFileSync(bad, JSON.stringify({...JSON.parse(readFileSync("evals/scenarios/tier1-directory.json", "utf8")), id: "../../etc/passwd"}))
+    assert.throws(() => loadScenario(bad), /scenario.id invalid/)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
 })

@@ -93,6 +93,7 @@ export function parseStream(events: unknown[]): ParsedStream {
   const stageAttempts: Record<string, number> = {}
   const stageFailures: Record<string, number> = {}
   let turns = 0
+  let lastWasText = false
   let tokensIn: number | null = null
   let tokensOut: number | null = null
 
@@ -103,6 +104,7 @@ export function parseStream(events: unknown[]): ParsedStream {
     const message = typeof raw.message === "string" ? raw.message : ""
 
     if (type === "tool_call") {
+      lastWasText = false
       const name = firstString(message, data.name, data.toolName) ?? "unknown"
       const args = firstValue(data.input, data.args)
       toolCalls.push({name, args})
@@ -110,6 +112,7 @@ export function parseStream(events: unknown[]): ParsedStream {
       queue.push(toolCalls.length - 1)
       pendingByName.set(name, queue)
     } else if (type === "tool_result") {
+      lastWasText = false
       const name = firstString(data.tool_name, data.name, data.toolName) ?? "unknown"
       const result = firstValue(message, data.result, data.output)
       const error = toolError(data, message)
@@ -126,13 +129,22 @@ export function parseStream(events: unknown[]): ParsedStream {
       if (error !== undefined && error !== null && error !== false) {
         errors.push(typeof error === "string" ? error : JSON.stringify(error))
       }
-    } else if (type === "text" || type === "text_delta" || type === "user" || type === "user_message" || type === "human") {
+} else if (type === "text" || type === "text_delta") {
+      // A burst of text_delta chunks is ONE assistant message — count
+      // consecutive text events as a single turn (no inflation).
+      if (!lastWasText) turns++
+      lastWasText = true
+    } else if (type === "user" || type === "user_message" || type === "human") {
       turns++
+      lastWasText = false
     } else if (type === "usage") {
       const inTok = firstNumber(data.tokens_in, data.input_tokens, data.prompt_tokens)
       const outTok = firstNumber(data.tokens_out, data.output_tokens, data.completion_tokens)
       if (inTok !== null) tokensIn = (tokensIn ?? 0) + inTok
       if (outTok !== null) tokensOut = (tokensOut ?? 0) + outTok
+      lastWasText = false
+    } else {
+      lastWasText = false
     }
     // unknown event shapes are skipped, never thrown
   }
