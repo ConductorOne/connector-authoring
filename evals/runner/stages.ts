@@ -167,12 +167,17 @@ export const STAGES: Stage[] = [
     evidence: (ctx) =>
       `transcript has ${successfulCalls(ctx.transcript, "get_authoring_guide").length} successful get_authoring_guide call(s)`,
   },
-  {
+{
     stage: "S1",
     gate: "catalog_id + draft_id",
-    check: (ctx) => nonEmpty(ctx.handoff, "catalog_id") && nonEmpty(ctx.handoff, "draft_id"),
+    // Transcript cross-check: a fabricated handoff must not pass — the
+    // create_draft call must actually appear in the transcript.
+    check: (ctx) =>
+      nonEmpty(ctx.handoff, "catalog_id") &&
+      nonEmpty(ctx.handoff, "draft_id") &&
+      successfulCalls(ctx.transcript, "create_draft").length >= 1,
     evidence: (ctx) =>
-      `catalog_id=${ctx.handoff.catalog_id ? "set" : "EMPTY"}, draft_id=${ctx.handoff.draft_id ? "set" : "EMPTY"}`,
+      `catalog_id=${ctx.handoff.catalog_id ? "set" : "EMPTY"}, draft_id=${ctx.handoff.draft_id ? "set" : "EMPTY"}, create_draft calls=${successfulCalls(ctx.transcript, "create_draft").length}`,
   },
   {
     stage: "S2",
@@ -202,11 +207,13 @@ export const STAGES: Stage[] = [
       return missing.length === 0 ? "all 4 required source files present" : `missing: ${missing.join(", ")}`
     },
   },
-  {
+{
     stage: "S4",
     gate: "build run_id",
-    check: (ctx) => nonEmpty(ctx.handoff, "run_id"),
-    evidence: (ctx) => `run_id=${ctx.handoff.run_id ? "set" : "EMPTY"}`,
+    check: (ctx) =>
+      nonEmpty(ctx.handoff, "run_id") && successfulCalls(ctx.transcript, "build_bundle").length >= 1,
+    evidence: (ctx) =>
+      `run_id=${ctx.handoff.run_id ? "set" : "EMPTY"}, build_bundle calls=${successfulCalls(ctx.transcript, "build_bundle").length}`,
   },
   {
     stage: "S5",
@@ -216,17 +223,21 @@ export const STAGES: Stage[] = [
     evidence: (ctx) =>
       `build_run.state=${ctx.scoreInput.build_run.state ?? "null"}, revision_id=${ctx.handoff.revision_id ? "set" : "EMPTY"}`,
   },
-  {
+{
     stage: "S6",
     gate: "app_id",
-    check: (ctx) => nonEmpty(ctx.handoff, "app_id"),
-    evidence: (ctx) => `app_id=${ctx.handoff.app_id ? "set" : "EMPTY"}`,
+    check: (ctx) =>
+      nonEmpty(ctx.handoff, "app_id") && successfulCalls(ctx.transcript, "apps_create").length >= 1,
+    evidence: (ctx) =>
+      `app_id=${ctx.handoff.app_id ? "set" : "EMPTY"}, apps_create calls=${successfulCalls(ctx.transcript, "apps_create").length}`,
   },
-  {
+{
     stage: "S7",
     gate: "connector_id",
-    check: (ctx) => nonEmpty(ctx.handoff, "connector_id"),
-    evidence: (ctx) => `connector_id=${ctx.handoff.connector_id ? "set" : "EMPTY"}`,
+    check: (ctx) =>
+      nonEmpty(ctx.handoff, "connector_id") && successfulCalls(ctx.transcript, "provision_connector").length >= 1,
+    evidence: (ctx) =>
+      `connector_id=${ctx.handoff.connector_id ? "set" : "EMPTY"}, provision_connector calls=${successfulCalls(ctx.transcript, "provision_connector").length}`,
   },
   {
     stage: "S8",
@@ -240,11 +251,13 @@ export const STAGES: Stage[] = [
       return `base-url=${cfg["base-url"] ? "set" : "EMPTY"}, account-email=${cfg["account-email"] ? "set" : "EMPTY"}, api-token=${cfg["api-token"] ? "set" : "EMPTY"}`
     },
   },
-  {
+{
     stage: "S9",
     gate: "test_run_id",
-    check: (ctx) => nonEmpty(ctx.handoff, "test_run_id"),
-    evidence: (ctx) => `test_run_id=${ctx.handoff.test_run_id ? "set" : "EMPTY"}`,
+    check: (ctx) =>
+      nonEmpty(ctx.handoff, "test_run_id") && successfulCalls(ctx.transcript, "run_draft_test_sync").length >= 1,
+    evidence: (ctx) =>
+      `test_run_id=${ctx.handoff.test_run_id ? "set" : "EMPTY"}, run_draft_test_sync calls=${successfulCalls(ctx.transcript, "run_draft_test_sync").length}`,
   },
   {
     stage: "S10",
@@ -261,15 +274,16 @@ check: (ctx) => {
       if (!HANDOFF_FIELDS.every((f) => nonEmpty(h, f))) return false
       const mintIdx = mintIndex(ctx.transcript)
       if (mintIdx < 0) return false
-      const after = ctx.transcript.toolCalls.slice(mintIdx + 1)
+const after = ctx.transcript.toolCalls.slice(mintIdx + 1)
       // The handoff write must actually occur AFTER the mint (a handoff
       // written before deploy+mint violates the stop rule).
       if (!after.some((c) => isHandoffWrite(c, ctx.handoffPath))) return false
       // Allowed after the mint: the handoff write, then the terminal
       // squire.task.complete (the task must terminate for the runner to
-      // score; harness bookkeeping, not funnel activity).
-      const last = after.length > 0 ? after[after.length - 1] : undefined
-      const body = last !== undefined && isTerminalComplete(last) ? after.slice(0, -1) : after
+      // score; harness bookkeeping, not funnel activity). Strip ALL
+      // trailing terminal calls (an agent may complete more than once).
+      const body = [...after]
+      while (body.length > 0 && isTerminalComplete(body[body.length - 1])) body.pop()
       for (const call of body) {
         if (!isHandoffWrite(call, ctx.handoffPath)) return false
       }
@@ -282,8 +296,8 @@ check: (ctx) => {
       const h = ctx.handoff
       const mintIdx = mintIndex(ctx.transcript)
       const after = mintIdx >= 0 ? ctx.transcript.toolCalls.slice(mintIdx + 1) : ctx.transcript.toolCalls
-      const last = after.length > 0 ? after[after.length - 1] : undefined
-      const body = last !== undefined && isTerminalComplete(last) ? after.slice(0, -1) : after
+      const body = [...after]
+      while (body.length > 0 && isTerminalComplete(body[body.length - 1])) body.pop()
       const nonWriteAfter = body.filter((c) => !isHandoffWrite(c, ctx.handoffPath))
       const redemption = after.filter((c) => isRedemptionCall(c))
       return `deployment_instance_id=${h.deployment_instance_id ? "set" : "EMPTY"}, activation_url=${h.activation_url ? "set" : "EMPTY"}, all10=${HANDOFF_FIELDS.every((f) => nonEmpty(h, f)) ? "yes" : "no"}, calls after mint=${after.length}, non-handoff after mint=${nonWriteAfter.length}, redemption calls after mint=${redemption.length}`

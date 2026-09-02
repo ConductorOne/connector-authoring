@@ -160,13 +160,16 @@ test("S11 also accepts the direct squire.fs.write / squire.task.complete form", 
 })
 
 test("S11 fails when the handoff write happened BEFORE the mint", () => {
+  // cleanEvents: index 30 = deploy call, 31 = deploy result, 32 = mint call,
+  // 33 = mint result. Insert the handoff write BETWEEN deploy and mint.
   const events = [
-    ...cleanEvents().slice(0, -6), // up to and including the mint
+    ...cleanEvents().slice(0, 32), // up to and including the deploy result
     toolCall("bash", {i: "handoff", command: `squire-tool call squire.fs.write '{"path": "${HANDOFF_PATH}"}'`}),
     toolResult("bash", "written"),
+    ...cleanEvents().slice(32, 34), // mint call + result
   ]
-  // handoff write is the LAST call; the mint happened before it — no
-  // handoff write AFTER the mint exists.
+  // The handoff write precedes the mint; nothing after the mint is a
+  // handoff write -> S11 fails.
   assert.equal(check("S11", ctx({transcript: parseStream(events)})), false)
 })
 

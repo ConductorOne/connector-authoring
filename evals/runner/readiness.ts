@@ -64,7 +64,7 @@ async function waitForTaskTerminal(
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const res = await getTask(envId, taskId, opts)
-    const state = (res.task as Record<string, unknown> | undefined)?.state as string | undefined
+    const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
     if (state && isTerminal(state)) return {state, timedOut: false}
     await sleep(10_000)
   }
@@ -120,8 +120,8 @@ export async function waitForReady(
   const envDeadline = Date.now() + 10 * 60 * 1000
   let envStatus: unknown = "pending"
   while (Date.now() < envDeadline) {
-    const env = await getEnv(envId, opts)
-    envStatus = env.status
+    const env = (await getEnv(envId, opts)) as Record<string, unknown> | null
+    envStatus = env?.status ?? "unknown"
     if (envStatus === "running") break
     await sleep(10_000)
   }

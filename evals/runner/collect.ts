@@ -1,5 +1,5 @@
 // collect.ts — score collector task + score-input validation (CXF-216 PR 1, D1).
-import {fsRead, getTask, taskCreate, type CallOpts} from "./squire.ts"
+import {call, fsRead, getTask, taskCreate, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
 import {isRecord} from "./scenario.ts"
 import type {Handoff, ScoreInput} from "./stages.ts"
@@ -128,17 +128,22 @@ export async function collect(
   opts: CallOpts = {},
 ): Promise<{scoreInput: ScoreInput; notes: string[]}> {
   // Bounded retry: a transient collector failure (task-create hiccup, stream
-  // gap, arena-FS write race) must not discard a full run.
+  // gap, arena-FS write race) must not discard a full run. The orphaned
+  // first collector task is canceled so it cannot race the retry on the
+  // shared score-input path.
   let lastErr: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      return await collectOnce(envId, scenario, runId, handoff, opts)
-    } catch (err) {
-      lastErr = err
-      if (attempt < 2) {
-        console.warn(`WARNING: collector attempt ${attempt}/2 failed (${(err as Error).message}) — retrying`)
-        await sleep(5_000)
+    const {result, taskId} = await collectOnce(envId, scenario, runId, handoff, opts)
+    if (result !== null) return result
+    lastErr = new Error(`collector attempt ${attempt} failed`)
+    if (attempt < 2) {
+      console.warn(`WARNING: collector attempt ${attempt}/2 failed — retrying`)
+      try {
+        await call("squire.task.die", {task_id: taskId, reason: "collector retry superseded"}, opts)
+      } catch {
+        // best-effort cancel
       }
+      await sleep(5_000)
     }
   }
   throw lastErr
@@ -150,7 +155,7 @@ async function collectOnce(
   runId: string,
   handoff: Handoff,
   opts: CallOpts = {},
-): Promise<{scoreInput: ScoreInput; notes: string[]}> {
+): Promise<{result: {scoreInput: ScoreInput; notes: string[]} | null; taskId: string}> {
   const collector = (await taskCreate(
     {
       env_id: envId,
@@ -167,26 +172,26 @@ async function collectOnce(
   let terminal = false
   while (Date.now() < deadline) {
     const res = await getTask(envId, collectorTaskId, opts)
-    const state = (res.task as Record<string, unknown> | undefined)?.state as string | undefined
+    const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
     if (state && isTerminal(state)) {
       terminal = true
       break
     }
     await sleep(10_000)
   }
-  if (!terminal) {
-    throw new Error(`collector task ${collectorTaskId} did not reach terminal within 10 min — run cannot be scored`)
+if (!terminal) {
+    return {result: null, taskId: collectorTaskId}
   }
 
   let raw: unknown
   try {
     raw = await fsRead(scoreInputPath(runId), opts)
   } catch {
-    throw new Error(`collector reached terminal but score-input.json is absent at ${scoreInputPath(runId)} — no record written`)
+    return {result: null, taskId: collectorTaskId}
   }
   const content = isRecord(raw) ? raw.content : undefined
   if (typeof content !== "string" || content.length === 0) {
-    throw new Error(`collector reached terminal but score-input.json has no content — no record written`)
+    return {result: null, taskId: collectorTaskId}
   }
   let parsed: unknown
   try {
@@ -194,5 +199,5 @@ async function collectOnce(
   } catch (err) {
     throw new Error(`score-input.json is not valid JSON: ${(err as Error).message} — no record written`)
   }
-  return normalizeScoreInput(parsed)
+  return {result: normalizeScoreInput(parsed), taskId: collectorTaskId}
 }

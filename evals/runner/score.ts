@@ -31,13 +31,23 @@ const MAX_FILES = 256
 // under-sync trap (a) is only avoided when account_id is actually passed as
 // the query param — a comment or config string must not satisfy it).
 function accountIdInQuery(source: string): boolean {
-  // Check EVERY occurrence: a leading comment mentioning account_id must not
-  // mask the real query usage (or vice versa).
+  // Check EVERY occurrence: the literal must sit inside a `query:` object
+  // that is itself inside a directory.GET / walk call — a comment or config
+  // string mentioning account_id must not satisfy the under-sync trap.
   let idx = source.indexOf("account_id")
   while (idx >= 0) {
-    const before = source.slice(Math.max(0, idx - 100), idx)
+    const before = source.slice(Math.max(0, idx - 200), idx)
     const queryIdx = before.lastIndexOf("query:")
-    if (queryIdx >= 0 && !before.slice(queryIdx).includes("}")) return true
+    if (queryIdx >= 0 && !before.slice(queryIdx).includes("}")) {
+      const callBefore = before.slice(0, queryIdx)
+      const callIdx = Math.max(
+        callBefore.lastIndexOf("directory.GET"),
+        callBefore.lastIndexOf("directory.walk"),
+        callBefore.lastIndexOf("walk("),
+      )
+      // No line comment between the call and the query object.
+      if (callIdx >= 0 && !callBefore.slice(callIdx).includes("//")) return true
+    }
     idx = source.indexOf("account_id", idx + 1)
   }
   return false

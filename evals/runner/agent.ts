@@ -111,7 +111,7 @@ export async function waitForAgentTask(
   const deadline = startedAt + timeoutMs
   while (Date.now() < deadline) {
     const res = await getTask(envId, taskId, opts)
-    const state = (res.task as Record<string, unknown> | undefined)?.state as string | undefined
+    const state = ((res as Record<string, unknown> | null)?.task as Record<string, unknown> | undefined)?.state as string | undefined
     if (state && isTerminal(state)) {
       return {terminal: true, wallTimeMs: Date.now() - startedAt, timedOut: false}
     }
