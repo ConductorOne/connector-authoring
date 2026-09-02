@@ -330,6 +330,7 @@ const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath}
       parity_verdict: scored.parity_verdict,
       parity_evidence: scored.parity_evidence,
       parity_tenant: scored.parity_tenant,
+      parity_tenant_evidence: scored.parity_tenant_evidence,
       hygiene_verdict: scored.hygiene_verdict,
       hygiene_evidence: scored.hygiene_evidence,
       handoff_discipline_verdict: scored.handoff_discipline_verdict,

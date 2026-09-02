@@ -88,7 +88,7 @@ are recorded as `skipped_human_boundary`).
 1. **Run meta:** `{run_id, scenario, skill_bundle_version, skill_bundle_mode, model_version, harness, reasoning_effort, started_at, wall_time_ms, funnel_tools_present}`
 2–13. **Stage rows** S0–S11: `{stage, gate, pass, first_pass, attempts, evidence}` (`pass` boolean; `first_pass` boolean; `attempts` int; `evidence` string)
 14–15. **Skipped rows:** `{stage: "S11b", gate: "REVISION_STATUS_ACTIVE", pass: "skipped_human_boundary"}` and `{stage: "S11c", gate: "SYNC_STATUS_DONE", pass: "skipped_human_boundary"}`
-16. **Summary:** `{summary: true, funnel, first_pass_rate, recovery_cycles, parity_verdict, parity_evidence, parity_tenant, hygiene_verdict, hygiene_evidence, handoff_discipline_verdict, tool_calls, turns, tokens_in, tokens_out}`
+16. **Summary:** `{summary: true, funnel, first_pass_rate, recovery_cycles, parity_verdict, parity_evidence, parity_tenant, parity_tenant_evidence, hygiene_verdict, hygiene_evidence, handoff_discipline_verdict, tool_calls, turns, tokens_in, tokens_out}`
 
 Example lines:
 
@@ -96,7 +96,7 @@ Example lines:
 {"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"omp","reasoning_effort":"inherit","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
 {"stage":"S0","gate":"guide read","pass":true,"first_pass":true,"attempts":1,"evidence":"transcript has 1 successful get_authoring_guide call(s)"}
 {"stage":"S11b","gate":"REVISION_STATUS_ACTIVE","pass":"skipped_human_boundary"}
-{"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
+{"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
 ```
 
 `tokens_in`/`tokens_out` are `null` when the harness stream carries no usage
@@ -142,9 +142,12 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   ZERO BY CONSTRUCTION, so a tenant-count parity verdict would be structurally
   always-FAIL. `parity_tenant` (the post-draft-test tenant counts + resource
   ids the collector records) is an OBSERVATION, not the verdict: when zero it
-  is recorded as `not_applicable` with evidence "draft test did not persist
-  synced resources (tenant counts 0) — parity measured statically from
-  source". Full-sync parity after activation is a later CXF-70 concern.
+  is recorded as `not_applicable` with the explanation carried in
+  `parity_tenant_evidence` ("draft test did not persist synced resources
+  (tenant counts 0) — parity measured statically from source");
+  `parity_evidence` always carries the static source-check evidence, so a
+  `parity_verdict: "FAIL"` is diagnosable from the record alone. Full-sync
+  parity after activation is a later CXF-70 concern.
 - **`hygiene_verdict`** PASS iff: all 4 required source files present;
   `config-schema.json` and `runtime-schema.json` declare the same field names
   (dual-schema parity); `api-token` is `is_secret`/`isSecret` in both

@@ -25,6 +25,7 @@ export interface SummaryLine {
   parity_verdict: string
   parity_evidence: string
   parity_tenant: string | Record<string, unknown>
+  parity_tenant_evidence: string
   hygiene_verdict: string
   hygiene_evidence: string
   handoff_discipline_verdict: boolean

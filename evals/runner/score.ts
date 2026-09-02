@@ -15,6 +15,7 @@ export interface ScoreResult {
   parity_verdict: "PASS" | "FAIL"
   parity_evidence: string
   parity_tenant: string | Record<string, unknown>
+  parity_tenant_evidence: string
   hygiene_verdict: "PASS" | "FAIL"
   hygiene_evidence: string
   handoff_discipline_verdict: boolean
@@ -192,16 +193,18 @@ export function scoreRun(ctx: StageCtx): ScoreResult {
   const funnel = stageRows.filter((r) => r.pass).map((r) => r.stage)
 
   // The evidence strings are carried on the record so a FAIL verdict is
-  // diagnosable from the JSONL alone (the README documents the
-  // not_applicable tenant evidence; it must exist in the code).
-  const parityEvidence = parityTenant === "not_applicable"
+  // diagnosable from the JSONL alone. parity_evidence is ALWAYS the static
+  // source-check evidence; the not_applicable tenant observation (zero by
+  // construction — the draft test sync never persists) is a separate field.
+  const parityTenantEvidence = parityTenant === "not_applicable"
     ? "draft test did not persist synced resources (tenant counts 0) — parity measured statically from source"
-    : parity.evidence
+    : ""
   return {
     stageRows,
     parity_verdict: parity.verdict,
-    parity_evidence: parityEvidence,
+    parity_evidence: parity.evidence,
     parity_tenant: parityTenant,
+    parity_tenant_evidence: parityTenantEvidence,
     hygiene_verdict: hygiene.verdict,
     hygiene_evidence: hygiene.evidence,
     handoff_discipline_verdict: handoffDiscipline,
