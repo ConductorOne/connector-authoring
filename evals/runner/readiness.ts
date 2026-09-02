@@ -88,11 +88,13 @@ async function readProbeToolList(
   // healthy env (every other gateway read in the runner retries). A
   // genuinely absent file still fails closed after the retries.
   let lastErr: unknown
+  let sawEmpty = false
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const res = (await fsRead(probeToolsPath(runId), opts)) as Record<string, unknown>
       const content = res.content as string | undefined
       if (typeof content === "string" && content.length > 0) return content
+      sawEmpty = true
     } catch (err) {
       lastErr = err
     }
@@ -102,6 +104,8 @@ async function readProbeToolList(
   }
   if (lastErr !== undefined) {
     console.error(`WARNING: probe tool-list read failed after 3 attempts: ${(lastErr as Error).message} — treating as readiness failure`)
+  } else if (sawEmpty) {
+    console.error("WARNING: probe tool-list file present but empty after 3 attempts — treating as readiness failure")
   }
   return null
 }
