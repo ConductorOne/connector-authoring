@@ -25,6 +25,7 @@ const SCENARIO: Scenario = {
   expected: {users: 23, groups: 5, memberships: 23},
   skillBundle: {mode: "none", version: "0.0.0"},
   model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
+  reasoningEffort: "high",
   requiredSourceFiles: ["connector.ts", "config-schema.json", "runtime-schema.json", "capabilities.json"],
   readinessTools: [
     "c1_connector_authoring_get_authoring_guide",
@@ -43,7 +44,7 @@ const META: RunMeta = {
   skill_bundle_mode: "none",
   model_version: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
   harness: "inherit",
-  reasoning_effort: "inherit",
+  reasoning_effort: "high",
   started_at: "2026-09-02T12:00:00.000Z",
   wall_time_ms: 123456,
   funnel_tools_present: true,
