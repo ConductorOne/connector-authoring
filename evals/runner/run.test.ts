@@ -13,7 +13,7 @@ import {promisify} from "node:util"
 import {mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join} from "node:path"
-import {collectScoreInput, provisionWithRetry} from "./run.ts"
+import {collectScoreInput, isCollectionFailure, provisionWithRetry} from "./run.ts"
 import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type AgentRunRequest, type AgentRunResult, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "./driver.ts"
 import type {ParsedStream} from "./stream.ts"
 import type {Scenario} from "./scenario.ts"
@@ -135,16 +135,21 @@ test("readiness failure (missing tool) exits 2 with no record", async () => {
 test("provisionWithRetry succeeds on the first attempt and derives funnel_tools_present from the declared surface", async () => {
   const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: fullSurface()}
   let teardowns = 0
+  let receivedRef = ""
   const driver = makeDriver({
-    provision: async () => handle,
+    provision: async (ctx) => {
+      receivedRef = ctx.ref
+      return handle
+    },
     checkReadiness: async () => {},
     teardown: async () => {
       teardowns++
     },
   })
-  const {handle: h, funnelToolsPresent} = await provisionWithRetry(driver, SCENARIO, "r", "")
+  const {handle: h, funnelToolsPresent} = await provisionWithRetry(driver, SCENARIO, "r", "main")
   assert.equal(h, handle)
   assert.equal(funnelToolsPresent, true)
+  assert.equal(receivedRef, "main")
   assert.equal(teardowns, 0)
 })
 
@@ -219,7 +224,7 @@ test("collectScoreInput returns the normalized score-input on success", async ()
         return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "")
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
     assert.equal(scoreInput.evidence.result, "PASS")
   } finally {
     rmSync(dir, {recursive: true, force: true})
@@ -240,7 +245,7 @@ test("collectScoreInput retries once on a transient failure", async () => {
         return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "")
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
     assert.equal(calls, 2)
     assert.equal(scoreInput.evidence.result, "PASS")
   } finally {
@@ -269,7 +274,7 @@ test("collectScoreInput rethrows after 2 failures when the handoff is complete",
       deployment_instance_id: "di",
       activation_url: "https://x",
     }
-    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, ""), /collector down/)
+    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, "", 1), /collector down/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
@@ -296,7 +301,7 @@ test("collectScoreInput rethrows after 2 failures on a partial handoff", async (
       deployment_instance_id: "",
       activation_url: "",
     }
-    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), partialHandoff, SCENARIO.readinessTools, false, ""), /collector down/)
+    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), partialHandoff, SCENARIO.readinessTools, false, "", 1), /collector down/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
@@ -311,9 +316,32 @@ test("collectScoreInput returns a null score-input on the stalled path (absent h
         throw new Error("collector down")
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "")
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
     assert.deepEqual(scoreInput.draft.required_source_files, {})
     assert.equal(scoreInput.tenant_counts.users, null)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("isCollectionFailure is true only for an empty transcript with the driver-reported signal", () => {
+  const empty = emptyStream()
+  const withCalls = {...emptyStream(), toolCalls: [{name: "x", args: {}, result: null, error: null, stage: "S0"}]}
+  assert.equal(isCollectionFailure({transcript: empty, timedOut: false, wallTimeMs: 0, collectionFailed: true}), true)
+  // A genuine zero-tool-call stall (no signal) stays a scored outcome.
+  assert.equal(isCollectionFailure({transcript: empty, timedOut: false, wallTimeMs: 0}), false)
+  // A timed-out run always scores its partial stream.
+  assert.equal(isCollectionFailure({transcript: empty, timedOut: true, wallTimeMs: 0, collectionFailed: true}), false)
+  // A non-empty transcript is scored even with the signal (partial collection).
+  assert.equal(isCollectionFailure({transcript: withCalls, timedOut: false, wallTimeMs: 0, collectionFailed: true}), false)
+})
+
+test("a valid --ref is accepted and the run completes (driver-interpreted)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "run-ref-"))
+  try {
+    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/tier1-directory.json", "--driver", "tier0", "--ref", "main", "--out", dir])
+    assert.equal(code, 0)
+    assert.ok(stdout.includes("record:"))
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

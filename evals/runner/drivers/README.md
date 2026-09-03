@@ -10,10 +10,14 @@ through its registry (`--driver <name>`, default `tier0`).
 - **Provisioner** — `provision(ctx)` returns a `TenantHandle` (base URL,
   credentials, declared tool surface) for a fresh tenant; `checkReadiness(handle)`
   proves the tenant surface is reachable; `teardown(handle)` releases it
-  best-effort (never throws).
+  best-effort (never throws). `ctx.ref` is the git ref under test
+  (`--ref`), driver-interpreted.
 - **AgentDriver** — `runAgent(req)` runs one agent (or collector) turn against
   the tenant and returns an `AgentRunResult` carrying the parsed transcript,
-  the timeout flag, and wall time.
+  the timeout flag, wall time, and — when the driver knows the stream
+  collection failed — `collectionFailed: true` (the runner then refuses to
+  score an empty transcript as an all-fail outcome). `req.ref` is the git ref
+  under test, driver-interpreted.
 - **RunChannel** — the runner-owned local file contract: `runDir`,
   `handoffPath`, `scoreInputPath`, `transcriptPath`, plus the driver-supplied
   `handoffInstructions`/`completionInstructions` prompt text.

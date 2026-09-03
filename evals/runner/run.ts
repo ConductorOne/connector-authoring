@@ -8,7 +8,7 @@ import {join, resolve} from "node:path"
 import {argv, exit, stderr, stdout} from "node:process"
 import {pathToFileURL} from "node:url"
 import {loadScenario, type Scenario} from "./scenario.ts"
-import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type Driver, type RunChannel, type TenantHandle} from "./driver.ts"
+import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type AgentRunResult, type Driver, type RunChannel, type TenantHandle} from "./driver.ts"
 import {buildPrompt} from "./agent.ts"
 import {buildCollectorPrompt, normalizeScoreInput} from "./collect.ts"
 import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
@@ -207,6 +207,7 @@ export async function collectScoreInput(
   toolSurface: string[],
   handoffOk: boolean,
   ref: string,
+  retryBackoffMs = 5000,
 ): Promise<{scoreInput: ScoreInput; notes: string[]}> {
   let lastErr: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -220,14 +221,21 @@ export async function collectScoreInput(
         model: scenario.model,
         ref,
       })
-      const raw = JSON.parse(readFileSync(channel.scoreInputPath, "utf8")) as unknown
+      let raw: unknown
+      try {
+        raw = JSON.parse(readFileSync(channel.scoreInputPath, "utf8"))
+      } catch {
+        // Never surface the parse error: JSON.parse messages embed a snippet
+        // of the offending content, which can carry connector secrets.
+        throw new Error("collector produced an unreadable score-input")
+      }
       const normalized = normalizeScoreInput(raw)
       return {scoreInput: normalized.scoreInput, notes: normalized.notes}
     } catch (err) {
       lastErr = err
       if (attempt < 2) {
         console.warn(`WARNING: collector attempt ${attempt}/2 failed (${(err as Error).message}) — retrying`)
-        await new Promise<void>((resolve) => setTimeout(resolve, 5000))
+        await new Promise<void>((resolve) => setTimeout(resolve, retryBackoffMs))
       }
     }
   }
@@ -245,6 +253,15 @@ export async function collectScoreInput(
     },
     notes: [],
   }
+}
+
+// A driver-reported collection failure with an empty stream is an
+// infrastructure outage, not an agent outcome — the runner must not score it
+// as an all-fail funnel. A genuine zero-tool-call stall (no collectionFailed
+// signal) stays a scored exit-0 outcome, and a timed-out run always scores
+// its partial stream.
+export function isCollectionFailure(result: AgentRunResult): boolean {
+  return result.transcript.toolCalls.length === 0 && !result.timedOut && result.collectionFailed === true
 }
 
 async function main(): Promise<number> {
@@ -282,12 +299,12 @@ async function main(): Promise<number> {
     if (timedOut) {
       stderr.write(`WARNING: agent run did not complete within ${cli.maxAgentMinutes} min — scoring the partial stream\n`)
     }
-    // An empty transcript from a driver that did NOT time out is a stream
-    // collection failure, not an agent outcome — fail loudly with no record
-    // rather than scoring an all-fail funnel (a genuinely stalled agent still
-    // produces tool calls; an empty stream means the driver lost it).
-    if (transcript.toolCalls.length === 0 && !timedOut) {
-      throw new Error("agent driver returned an empty transcript without timing out — stream collection failure, no record written")
+// A driver-reported collection failure with an empty stream is an
+    // infrastructure outage, not an agent outcome — fail loudly with no
+    // record rather than scoring an all-fail funnel. A genuine zero-tool-call
+    // stall (no collectionFailed signal) stays a scored exit-0 outcome.
+    if (isCollectionFailure(result)) {
+      throw new Error("agent driver reported a stream collection failure with an empty transcript — no record written")
     }
 
     // Handoff: missing/incomplete -> L18 stalled-agent path.

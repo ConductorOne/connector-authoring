@@ -80,6 +80,12 @@ export interface AgentRunResult {
   transcript: ParsedStream
   timedOut: boolean
   wallTimeMs: number
+  // Set by the driver when it knows the stream collection failed (e.g. the
+  // transport dropped the stream). The runner treats an empty transcript
+  // with collectionFailed as an infrastructure outage (no record) rather
+  // than a scored all-fail outcome; a genuine zero-tool-call stall without
+  // this signal stays a scored exit-0 outcome.
+  collectionFailed?: boolean
 }
 
 export interface AgentDriver {
