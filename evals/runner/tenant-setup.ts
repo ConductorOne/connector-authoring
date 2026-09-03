@@ -94,7 +94,7 @@ export async function runTenantSetup(
   if (timedOut) {
     throw new ReadinessError(`tenant setup for ${envId} timed out after 10 min (task ${taskId})`)
   }
-const stream = await readSetupStream(taskId, opts)
+  const stream = await readSetupStream(taskId, opts)
   if (state === "failed" || state === "canceled") {
     const failLine = lastMarkerLine(stream, "SETUP FAIL") ?? `task state ${state}`
     throw new ReadinessError(`tenant setup failed in ${envId}: ${failLine} (task ${taskId})`)
