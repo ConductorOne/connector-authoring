@@ -82,6 +82,9 @@ test("buildTenantSetupPrompt resolves dev-util explicitly (not PATH-assumed)", (
   const prompt = buildTenantSetupPrompt("r")
   assert.ok(prompt.includes("DEV_UTIL=$(command -v dev-util"))
   assert.ok(prompt.includes("SETUP FAIL: dev-util not found"))
+  // dev-util needs the dev-shell env (SQUIRE_ENV_ID etc.) — the halt-path
+  // agent had to source it manually; the prompt must be self-sufficient.
+  assert.ok(prompt.includes(". /data/squire/src/c1/.dev/env/dev-shell.env"))
 })
 
 test("buildTenantSetupPrompt fails closed on tenant selection (no arbitrary .[0] fallback)", () => {
@@ -116,6 +119,38 @@ test("runTenantSetup throws ReadinessError when a completed task stream still sh
     () => runTenantSetup("env-1", "r"),
     (err: Error) => {
       assert.ok(err.message.includes("SETUP FAIL: CONNECTOR_AUTHORING not effective"))
+      return true
+    },
+  )
+})
+
+test("runTenantSetup succeeds when a completed task recovered from an intermediate SETUP FAIL (LAST-marker discipline)", async () => {
+  resetCalls()
+  // The halt-path stream shows exactly this pattern: the first attempt
+  // printed SETUP FAIL (dev-util not on PATH), the agent recovered and the
+  // final result was SETUP DONE. A whole-stream `includes` scan would
+  // false-positive; the LAST marker is authoritative.
+  taskCreateResult = {id: "task-recovered"}
+  getTaskResult = {task: {state: "completed"}}
+  taskStreamResult = streamWith(
+    "CALL bash: dev-util list-tenants",
+    "RESULT: error: command not found: dev-util",
+    "RESULT: SETUP FAIL: no tenants",
+    "CALL bash: $DEV_UTIL list-tenants",
+    "RESULT: SETUP DONE",
+  )
+  await runTenantSetup("env-1", "r")
+})
+
+test("runTenantSetup throws when a completed task stream has no SETUP DONE marker (unreadable stream)", async () => {
+  resetCalls()
+  taskCreateResult = {id: "task-no-marker"}
+  getTaskResult = {task: {state: "completed"}}
+  taskStreamResult = {events: [], next_seq: 0}
+  await assert.rejects(
+    () => runTenantSetup("env-1", "r"),
+    (err: Error) => {
+      assert.ok(err.message.includes("no SETUP DONE marker"))
       return true
     },
   )

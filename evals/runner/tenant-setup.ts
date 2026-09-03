@@ -24,6 +24,7 @@ export function buildTenantSetupPrompt(runId: string): string {
 
 0. DEV_UTIL=$(command -v dev-util || find /data/squire/src/c1/build -name dev-util -type f 2>/dev/null | head -1)
    if [ -z "$DEV_UTIL" ]; then echo "SETUP FAIL: dev-util not found on PATH or under /data/squire/src/c1/build"; exit 1; fi
+   if [ -f /data/squire/src/c1/.dev/env/dev-shell.env ]; then . /data/squire/src/c1/.dev/env/dev-shell.env; fi
 1. TENANT=$("$DEV_UTIL" list-tenants --format=json | jq -r '.[] | select(.tenant_domain=="c1dev") | .tenant_id' | head -1)
    if [ -z "$TENANT" ]; then echo "SETUP FAIL: no c1dev tenant found"; exit 1; fi
 2. STATE=$("$DEV_UTIL" manage-ff get --tenant-id="$TENANT" --json)
@@ -61,9 +62,14 @@ export function buildTenantSetupPrompt(runId: string): string {
 // Create the tenant-setup task in the eval env and wait for its terminal
 // state (the same nested field path + 10 s poll cadence as
 // fixture-install.ts's waitForSetupTerminal). Timeout after 10 min.
-// A failed/canceled setup task (or a completed one whose stream shows
-// SETUP FAIL) throws a ReadinessError naming the failure line — the setup
-// failure must not be masked as a generic readiness failure downstream.
+// A failed/canceled setup task throws a ReadinessError naming the failure
+// line. A completed task is a success only if the LAST SETUP marker in its
+// stream is SETUP DONE — LAST-marker discipline (mirroring fixture-install.ts's
+// FIXTURE_BASE_URL handling): the prompt and any recovered intermediate
+// attempt embed SETUP FAIL literals, so a whole-stream `includes` scan
+// false-positives on a successful setup that recovered from an early failure
+// (the halt-path stream shows exactly this: "SETUP FAIL: no tenants" then
+// "SETUP DONE"). The readiness gate remains the final backstop.
 export async function runTenantSetup(
   envId: string,
   runId: string,
@@ -84,18 +90,30 @@ export async function runTenantSetup(
   if (timedOut) {
     throw new ReadinessError(`tenant setup for ${envId} timed out after 10 min (task ${taskId})`)
   }
-  if (state === "failed" || state === "canceled") {
-    const stream = await readSetupStream(taskId, opts)
-    const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? `task state ${state}`
-    throw new ReadinessError(`tenant setup failed in ${envId}: ${failLine} (task ${taskId})`)
-  }
-  // completed: a task that printed SETUP FAIL but still reached completed is
-  // a setup failure, not a success (the readiness gate is the final backstop).
   const stream = await readSetupStream(taskId, opts)
-  if (stream.includes("SETUP FAIL")) {
-    const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? "SETUP FAIL"
+  if (state === "failed" || state === "canceled") {
+    const failLine = lastMarkerLine(stream, "SETUP FAIL") ?? `task state ${state}`
     throw new ReadinessError(`tenant setup failed in ${envId}: ${failLine} (task ${taskId})`)
   }
+  // completed: the agent's final result is the LAST SETUP marker. Anything
+  // other than SETUP DONE (including no marker at all — unreadable stream)
+  // is a setup failure, not a success.
+  const lastMarker = lastMarkerLine(stream, "SETUP DONE")
+  if (lastMarker === null) {
+    const failLine = lastMarkerLine(stream, "SETUP FAIL") ?? "no SETUP DONE marker in stream"
+    throw new ReadinessError(`tenant setup did not complete in ${envId}: ${failLine} (task ${taskId})`)
+  }
+}
+
+// The LAST line of the stream containing the given marker, or null. The
+// prompt text and echoed commands embed marker literals, so only the agent's
+// actual printed line (the last occurrence) is authoritative.
+function lastMarkerLine(stream: string, marker: string): string | null {
+  const lines = stream.split("\n")
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].includes(marker)) return lines[i]
+  }
+  return null
 }
 
 export async function waitForSetupTerminal(
