@@ -5,6 +5,7 @@
 // Traps: (a) /v1/users without account_id -> 3-row unscoped subset;
 //        (b) user.title nullable; (c) replayed grant POST -> X-Idempotency-Replay: true.
 import {createServer, type IncomingMessage, type ServerResponse} from "node:http"
+import type {AddressInfo} from "node:net"
 import {readFileSync} from "node:fs"
 import {argv, stdout} from "node:process"
 import {
@@ -348,5 +349,8 @@ if (method === "POST") {
 })
 
 server.listen(port, host, () => {
-  stdout.write(`fixture listening on http://${host}:${port}\n`)
+  // Report the ACTUAL bound port (server.address().port) — with --port 0 the
+  // OS assigns a free port and the variable still holds 0.
+  const addr = server.address() as AddressInfo
+  stdout.write(`fixture listening on http://${host}:${addr.port}\n`)
 })

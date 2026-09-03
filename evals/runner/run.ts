@@ -3,7 +3,7 @@
 // Exit codes: 0 = record written (a scored outcome, even if the agent failed
 // stages, timed out, or never wrote the handoff); 2 = readiness failure
 // (distinct; NO record written); 1 = any other error.
-import {mkdirSync, readFileSync, realpathSync, writeFileSync} from "node:fs"
+import {mkdirSync, readFileSync, realpathSync, statSync, writeFileSync} from "node:fs"
 import {join, resolve} from "node:path"
 import {argv, exit, stderr, stdout} from "node:process"
 import {pathToFileURL} from "node:url"
@@ -109,6 +109,12 @@ function isPlaceholder(v: string): boolean {
   return v.length >= 3 && v.startsWith("<") && v.endsWith(">")
 }
 
+// The agent-written handoff is untrusted: cap the read at 64 MiB (the
+// removed gateway path bounded every such read via execFile maxBuffer) so a
+// runaway agent cannot buffer a multi-gigabyte file into the runner.
+const MAX_HANDOFF_BYTES = 64 * 1024 * 1024
+const MAX_SCORE_INPUT_BYTES = 64 * 1024 * 1024
+
 export async function readHandoff(handoffPath: string): Promise<Handoff | null> {
   // Bounded retry: a transient read failure must not be misread as a stalled
   // agent (locked L18). A written-but-empty file is a genuine stall; a
@@ -116,6 +122,10 @@ export async function readHandoff(handoffPath: string): Promise<Handoff | null> 
   let lastErr: unknown
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
+      if (statSync(handoffPath).size > MAX_HANDOFF_BYTES) {
+        stderr.write(`WARNING: handoff at ${handoffPath} exceeds ${MAX_HANDOFF_BYTES} bytes — scoring as stalled\n`)
+        return null
+      }
       const content = readFileSync(handoffPath, "utf8")
       if (content.length === 0) return null
       let parsed: unknown
@@ -228,7 +238,7 @@ export async function collectScoreInput(
   let lastErr: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      await driver.runAgent({
+      const result = await driver.runAgent({
         kind: "collector",
         prompt: buildCollectorPrompt(scenario, runId, handoffPath, channel.scoreInputPath, handoff, toolSurface),
         toolSurface,
@@ -237,11 +247,21 @@ export async function collectScoreInput(
         model: scenario.model,
         ref,
       })
+      // A driver-reported timeout or collection failure on the collector leg
+      // is a failed attempt — the 2-attempt retry and the stalled-path
+      // fallback must apply, not a partial-but-parseable score-input scored
+      // as authoritative.
+      if (result.timedOut || result.collectionFailed === true) {
+        throw new Error(`collector ${result.timedOut ? "timed out" : "reported a stream collection failure"}`)
+      }
       // Read the file OUTSIDE the redacting try: an ENOENT (the collector
       // never wrote score-input.json) is an infrastructure failure whose
       // message carries only a path — surface it. Only JSON.parse errors are
       // redacted: their messages embed a snippet of the offending content,
       // which can carry connector secrets.
+      if (statSync(channel.scoreInputPath).size > MAX_SCORE_INPUT_BYTES) {
+        throw new Error(`collector produced an oversized score-input (over ${MAX_SCORE_INPUT_BYTES} bytes)`)
+      }
       const rawText = readFileSync(channel.scoreInputPath, "utf8")
       let raw: unknown
       try {

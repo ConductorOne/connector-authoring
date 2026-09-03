@@ -1,7 +1,7 @@
 // drivers/tier0/driver.ts — Tier-0 local/static driver (no credentials).
 import {spawn, type ChildProcess} from "node:child_process"
 import {readFileSync, writeFileSync} from "node:fs"
-import {createServer, type AddressInfo} from "node:net"
+
 import {join} from "node:path"
 import {cwd} from "node:process"
 import {fileURLToPath} from "node:url"
@@ -22,11 +22,23 @@ export const TIER0_TOOL_SURFACE: string[] = [
   "c1_connector_authoring_create_draft",
 ]
 
-async function findFreePort(): Promise<number> {
-  const server = createServer()
-  await new Promise<void>((r) => server.listen(0, r))
-  const port = (server.address() as AddressInfo).port
-  await new Promise<void>((r) => server.close(() => r()))
+// The fixture binds port 0 (OS-assigned) and reports the bound port on
+// stdout — no pre-reservation gap, so concurrent provisions cannot collide
+// on EADDRINUSE (the old findFreePort released the port before the spawn).
+async function waitForFixturePort(child: ChildProcess): Promise<number> {
+  const deadline = Date.now() + 10_000
+  let port: number | null = null
+  child.stdout?.on("data", (chunk) => {
+    const m = /fixture listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(String(chunk))
+    if (m) port = Number(m[1])
+  })
+  while (Date.now() < deadline && port === null) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new ReadinessError(`fixture exited before reporting its port (code ${child.exitCode ?? "signal " + child.signalCode})`)
+    }
+    await new Promise((r) => setTimeout(r, 50))
+  }
+  if (port === null) throw new ReadinessError("fixture did not report a bound port within 10 s")
   return port
 }
 
@@ -36,6 +48,10 @@ async function waitForFixture(baseUrl: string, expectedUsers: number): Promise<v
     try {
       const res = await fetch(baseUrl + "/v1/users?account_id=acct-1", {
         headers: {authorization: "Basic " + Buffer.from("connector@example.com:fixture-token").toString("base64")},
+        // Bound each probe: a peer that accepts but never responds must not
+        // hang past the deadline (the deadline is only checked between
+        // iterations).
+        signal: AbortSignal.timeout(2_000),
       })
       const body = await res.text()
       // Parse the JSON and compare the total numerically — a literal
@@ -59,14 +75,14 @@ async function waitForFixture(baseUrl: string, expectedUsers: number): Promise<v
 
 const provisioner: Provisioner = {
   provision: async (ctx) => {
-    const port = await findFreePort()
-    const child = spawn(process.execPath, ["--experimental-strip-types", FIXTURE_SCRIPT, "--port", String(port), "--host", "127.0.0.1"], {cwd: cwd(), stdio: "ignore"})
+    const child = spawn(process.execPath, ["--experimental-strip-types", FIXTURE_SCRIPT, "--port", "0", "--host", "127.0.0.1"], {cwd: cwd(), stdio: ["ignore", "pipe", "ignore"]})
     // A spawn failure (e.g. ENOENT on the node binary) emits 'error' on the
     // child; without a listener it would crash the runner. Log it — the
     // readiness poll fails closed with a ReadinessError either way.
     child.on("error", (err) => {
       console.error(`WARNING: fixture spawn failed: ${err.message}`)
     })
+    const port = await waitForFixturePort(child)
     const baseUrl = "http://127.0.0.1:" + port
     return {baseUrl, credentials: {username: "connector@example.com", password: "fixture-token"}, toolSurface: TIER0_TOOL_SURFACE, meta: {child, port, expectedUsers: ctx.scenario.seed.users}}
   },
