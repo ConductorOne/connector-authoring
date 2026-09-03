@@ -244,3 +244,41 @@ test("(h) mismatched reasoning_effort across records exits 1", async () => {
     rmSync(dir, {recursive: true, force: true})
   }
 })
+
+test("(i) pass_at_3 is 1 when any run passes and 0 when none do", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "evals-baseline-"))
+  try {
+    // none: one pass of two -> pass_at_3 1; guide-only: all fail -> 0.
+    writeFileSync(join(dir, "a-pass.jsonl"), buildRecord("a-pass", "none", ALL_PASS, ALL_FIRST, 1.0))
+    const failFlags = [...ALL_PASS]
+    failFlags[5] = false
+    writeFileSync(join(dir, "b-fail.jsonl"), buildRecord("b-fail", "none", failFlags, ALL_FIRST, 0.9))
+    writeFileSync(join(dir, "c-fail.jsonl"), buildRecord("c-fail", "guide-only", failFlags, ALL_FIRST, 0.9))
+    const {code} = await runCli(["--out", dir])
+    assert.equal(code, 0)
+    const b = readBaseline(dir)
+    const modes = b.modes as Record<string, Record<string, unknown>>
+    assert.equal(modes.none.pass_at_3, 1)
+    assert.equal(modes["guide-only"].pass_at_3, 0)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("(j) scenarios field is the sorted distinct scenario ids across records", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "evals-baseline-"))
+  try {
+    // guide-only records carry their own scenario id (locked decision 4).
+    writeFileSync(join(dir, "a.jsonl"), buildRecord("a", "none", ALL_PASS, ALL_FIRST, 1.0))
+    writeFileSync(
+      join(dir, "b.jsonl"),
+      buildRecord("b", "guide-only", ALL_PASS, ALL_FIRST, 1.0, {scenario: "tier1-directory-guide-only"}),
+    )
+    const {code} = await runCli(["--out", dir])
+    assert.equal(code, 0)
+    const b = readBaseline(dir)
+    assert.deepEqual(b.scenarios, ["tier1-directory", "tier1-directory-guide-only"])
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
