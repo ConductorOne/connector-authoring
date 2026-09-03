@@ -63,15 +63,15 @@ function parseRecord(file: string, lines: string[]): RunRecord | null {
   const mode = meta.skill_bundle_mode as string
   const modelVersion = meta.model_version as string
   const reasoningEffort = meta.reasoning_effort as string
-  const startedAt = meta.started_at as string | undefined
-  if (typeof startedAt !== "string" || Number.isNaN(Date.parse(startedAt))) {
-    fail(file, 1, "meta field started_at missing or not an ISO timestamp")
-  }
   if (!MODES.includes(mode)) {
     // A record outside the baseline matrix (e.g. a `full`-mode run the
     // scenario schema permits) must not block regeneration of the reference.
     console.error(`WARNING: skipping ${file}: skill_bundle_mode ${mode} is outside the baseline matrix (${MODES.join(",")})`)
     return null
+  }
+  const startedAt = meta.started_at as string | undefined
+  if (typeof startedAt !== "string" || Number.isNaN(Date.parse(startedAt))) {
+    fail(file, 1, "meta field started_at missing or not an ISO timestamp")
   }
 
   // The last line must be the summary.
@@ -172,7 +172,7 @@ function main(): void {
     if (lines.length < 3) {
       fail(f, 0, "record has fewer than 3 lines (meta + stages + summary)")
     }
-const parsed = parseRecord(f, lines)
+    const parsed = parseRecord(f, lines)
     if (parsed !== null) records.push(parsed)
   }
   if (records.length === 0) {

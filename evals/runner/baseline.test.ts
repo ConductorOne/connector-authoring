@@ -242,12 +242,13 @@ test("(h) mismatched reasoning_effort across records exits 1", async () => {
   }
 })
 
-test("(i) unknown skill_bundle_mode exits 1", async () => {
+test("(i) a dir containing only out-of-matrix records exits 1", async () => {
   const dir = tmpDir()
   try {
     writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "bogus-mode"))
     const {code, stderr} = await runBaseline(dir)
     assert.equal(code, 1)
+    assert.ok(stderr.includes("no baseline-matrix records"))
     assert.ok(stderr.includes("skill_bundle_mode"))
   } finally {
     rmSync(dir, {recursive: true, force: true})

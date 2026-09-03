@@ -172,6 +172,12 @@ pareto}`. A run is a pass iff every stage row S0–S11 has `pass === true`
 (S11b/S11c `skipped_human_boundary` rows excluded). `modes.<mode>` carries
 `run_ids`, `runs`, `passes`, `pass_rate`, `pass_at_3`, `first_pass_rate_mean`,
 and `per_stage` failures; `pareto` ranks stages by failure count.
+`pass_at_3` is `number | null`: 1 when any of the first three runs (by `run_id`
+ascending) passes, 0 when none do, and `null` when the mode has fewer than 3
+runs. Records whose `skill_bundle_mode` is outside the {`none`, `guide-only`}
+matrix (e.g. a `full`-mode run) are skipped with a one-line stderr warning,
+never validated or fatal; the generator exits 1 only when no matrix records
+remain.
 
 **Regression-gate contract.** The CI regression gate (a later PR) reruns the
 pinned scenarios on a skill PR and fails if the measured pass rate drops below
