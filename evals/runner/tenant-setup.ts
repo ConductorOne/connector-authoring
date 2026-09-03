@@ -24,7 +24,7 @@ export function buildTenantSetupPrompt(runId: string): string {
 
 0. DEV_UTIL=$(command -v dev-util || find /data/squire/src/c1/build -name dev-util -type f 2>/dev/null | head -1)
    if [ -z "$DEV_UTIL" ]; then echo "SETUP FAIL: dev-util not found on PATH or under /data/squire/src/c1/build"; exit 1; fi
-   if [ -f /data/squire/src/c1/.dev/env/dev-shell.env ]; then . /data/squire/src/c1/.dev/env/dev-shell.env; fi
+   if [ -f /data/squire/src/c1/.dev/env/dev-shell.env ]; then set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a; fi
 1. TENANT=$("$DEV_UTIL" list-tenants --format=json | jq -r '.[] | select(.tenant_domain=="c1dev") | .tenant_id' | head -1)
    if [ -z "$TENANT" ]; then echo "SETUP FAIL: no c1dev tenant found"; exit 1; fi
 2. STATE=$("$DEV_UTIL" manage-ff get --tenant-id="$TENANT" --json)
@@ -90,17 +90,17 @@ export async function runTenantSetup(
   if (timedOut) {
     throw new ReadinessError(`tenant setup for ${envId} timed out after 10 min (task ${taskId})`)
   }
-  const stream = await readSetupStream(taskId, opts)
+const stream = await readSetupStream(taskId, opts)
   if (state === "failed" || state === "canceled") {
     const failLine = lastMarkerLine(stream, "SETUP FAIL") ?? `task state ${state}`
     throw new ReadinessError(`tenant setup failed in ${envId}: ${failLine} (task ${taskId})`)
   }
-  // completed: the agent's final result is the LAST SETUP marker. Anything
-  // other than SETUP DONE (including no marker at all — unreadable stream)
-  // is a setup failure, not a success.
-  const lastMarker = lastMarkerLine(stream, "SETUP DONE")
-  if (lastMarker === null) {
-    const failLine = lastMarkerLine(stream, "SETUP FAIL") ?? "no SETUP DONE marker in stream"
+  // completed: the agent's final result is the LAST SETUP marker of either
+  // kind. Anything other than SETUP DONE (including no marker at all —
+  // unreadable stream) is a setup failure, not a success.
+  const last = lastSetupMarker(stream)
+  if (last === null || last.marker !== "DONE") {
+    const failLine = last?.line ?? "no SETUP DONE marker in stream"
     throw new ReadinessError(`tenant setup did not complete in ${envId}: ${failLine} (task ${taskId})`)
   }
 }
@@ -112,6 +112,19 @@ function lastMarkerLine(stream: string, marker: string): string | null {
   const lines = stream.split("\n")
   for (let i = lines.length - 1; i >= 0; i--) {
     if (lines[i].includes(marker)) return lines[i]
+  }
+  return null
+}
+
+// The LAST line containing either SETUP DONE or SETUP FAIL — the agent's
+// actual final result. A stream ending in SETUP FAIL after an earlier
+// SETUP DONE (e.g. a post-setup echo) is a failure, not a success.
+function lastSetupMarker(stream: string): {marker: "DONE" | "FAIL"; line: string} | null {
+  const lines = stream.split("\n")
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i]
+    if (l.includes("SETUP DONE")) return {marker: "DONE", line: l}
+    if (l.includes("SETUP FAIL")) return {marker: "FAIL", line: l}
   }
   return null
 }

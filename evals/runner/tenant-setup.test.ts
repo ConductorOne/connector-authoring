@@ -82,9 +82,11 @@ test("buildTenantSetupPrompt resolves dev-util explicitly (not PATH-assumed)", (
   const prompt = buildTenantSetupPrompt("r")
   assert.ok(prompt.includes("DEV_UTIL=$(command -v dev-util"))
   assert.ok(prompt.includes("SETUP FAIL: dev-util not found"))
-  // dev-util needs the dev-shell env (SQUIRE_ENV_ID etc.) — the halt-path
-  // agent had to source it manually; the prompt must be self-sufficient.
-  assert.ok(prompt.includes(". /data/squire/src/c1/.dev/env/dev-shell.env"))
+// dev-util needs the dev-shell env (SHELL_* vars, SQUIRE_ENV_ID etc.) —
+  // the halt-path agent had to source it manually with set -a (the file has
+  // zero export statements, so plain `. file` would not export the vars to
+  // the dev-util child process); the prompt must be self-sufficient.
+  assert.ok(prompt.includes("set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a"))
 })
 
 test("buildTenantSetupPrompt fails closed on tenant selection (no arbitrary .[0] fallback)", () => {
@@ -140,6 +142,23 @@ test("runTenantSetup succeeds when a completed task recovered from an intermedia
     "RESULT: SETUP DONE",
   )
   await runTenantSetup("env-1", "r")
+})
+
+test("runTenantSetup throws when a completed task stream ends in SETUP FAIL after an earlier SETUP DONE (LAST marker of either kind)", async () => {
+  resetCalls()
+  taskCreateResult = {id: "task-done-then-fail"}
+  getTaskResult = {task: {state: "completed"}}
+  taskStreamResult = streamWith(
+    "RESULT: SETUP DONE",
+    "CALL bash: echo \"SETUP FAIL: CONNECTOR_AUTHORING not effective\"",
+  )
+  await assert.rejects(
+    () => runTenantSetup("env-1", "r"),
+    (err: Error) => {
+      assert.ok(err.message.includes("SETUP FAIL"))
+      return true
+    },
+  )
 })
 
 test("runTenantSetup throws when a completed task stream has no SETUP DONE marker (unreadable stream)", async () => {
