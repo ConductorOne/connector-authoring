@@ -1,3 +1,3 @@
-node_modules/
+/node_modules
 evals/results/*.jsonl
 evals/results/*/

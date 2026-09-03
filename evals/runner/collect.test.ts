@@ -63,6 +63,7 @@ test("buildCollectorPrompt never interpolates handoff VALUES (injection invarian
     expected: {users: 23, groups: 5, memberships: 23},
     skillBundle: {mode: "none" as const, version: "0.0.0"},
     model: "m",
+    reasoningEffort: "high" as const,
     requiredSourceFiles: ["a", "b", "c", "d"],
     readinessTools: ["t1", "t2", "t3", "t4", "t5"],
   }

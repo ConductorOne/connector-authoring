@@ -13,7 +13,7 @@ import {buildPrompt} from "./agent.ts"
 import {buildCollectorPrompt, normalizeScoreInput} from "./collect.ts"
 import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
 import {scoreRun} from "./score.ts"
-import {writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
+import {buildRunMeta, writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
 import {tier0} from "./drivers/tier0/driver.ts"
 
 const DRIVERS: Record<string, Driver> = {tier0}
@@ -245,6 +245,7 @@ export async function collectScoreInput(
         channel,
         timeoutMs: COLLECTOR_TIMEOUT_MS,
         model: scenario.model,
+        reasoningEffort: scenario.reasoningEffort,
         ref,
       })
       // A driver-reported timeout or collection failure on the collector leg
@@ -333,6 +334,7 @@ async function main(): Promise<number> {
       channel,
       timeoutMs: cli.maxAgentMinutes * 60 * 1000,
       model: scenario.model,
+      reasoningEffort: scenario.reasoningEffort,
       ref: cli.ref,
     })
     const {transcript, timedOut, wallTimeMs} = result
@@ -380,19 +382,8 @@ async function main(): Promise<number> {
     const scored = scoreRun(ctx)
     const stageRows = scored.stageRows
 
-    // Run meta: harness = driver name; Tier-0 has no reasoning-effort knob.
-    const meta: RunMeta = {
-      run_id: runId,
-      scenario: scenario.id,
-      skill_bundle_version: scenario.skillBundle.version,
-      skill_bundle_mode: scenario.skillBundle.mode,
-      model_version: scenario.model,
-      harness: driver.name,
-      reasoning_effort: "n/a",
-      started_at: startedAt,
-      wall_time_ms: wallTimeMs,
-      funnel_tools_present: funnelToolsPresent,
-    }
+    // Run meta: harness = driver name; reasoning_effort comes from the scenario pin.
+    const meta: RunMeta = buildRunMeta(runId, scenario, driver.name, startedAt, wallTimeMs, funnelToolsPresent)
 
     const summary: SummaryLine = {
       summary: true,

@@ -87,7 +87,7 @@ are recorded as `skipped_human_boundary`).
 Example lines:
 
 ```json
-{"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"n/a","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
+{"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"high","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
 {"stage":"S0","gate":"guide read","pass":true,"first_pass":true,"attempts":1,"evidence":"transcript has 1 successful get_authoring_guide call(s)"}
 {"stage":"S11b","gate":"REVISION_STATUS_ACTIVE","pass":"skipped_human_boundary"}
 {"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
@@ -149,13 +149,59 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   plaintext secrets); bundle caps respected (each file ≤ 12 MiB, total ≤
   16 MiB, ≤ 256 files).
 
+## Baseline + regression gate
+
+The control-group baseline (CXF-217) is six scored Tier-1 runs — scenario
+`tier1-directory` × skill-bundle modes {`none`, `guide-only`} × 3 runs each —
+with the model pinned to `together/deepseek-ai/DeepSeek-V4-Flash-0731` and
+`reasoningEffort: "high"` in both scenario files. Each run writes a JSONL
+record to `evals/results/<run-id>.jsonl` (gitignored).
+
+Regenerate the committed reference with:
+
+```bash
+npm run eval:baseline
+```
+
+`evals/runner/baseline.ts` reads every `*.jsonl` record in `evals/results/`
+(or `--out <dir>`), validates each record (meta fields, the 12 canonical stage
+rows S0–S11, skipped rows, summary), enforces cross-record model/effort
+consistency, and writes `evals/results/baseline.json` — the locked v1 schema:
+`{schema_version, generated_at, model, reasoning_effort, scenarios, modes,
+pareto}`. A run is a pass iff every stage row S0–S11 has `pass === true`
+(S11b/S11c `skipped_human_boundary` rows excluded). `modes.<mode>` carries
+`run_ids`, `runs`, `passes`, `pass_rate`, `pass_at_3`, `first_pass_rate_mean`,
+and `per_stage` failures; `pareto` ranks stages by failure count.
+`pass_at_3` is `number | null`: 1 when any of the first three runs (by `run_id`
+ascending) passes, 0 when none do, and `null` when the mode has fewer than 3
+runs. Records whose `skill_bundle_mode` is outside the {`none`, `guide-only`}
+matrix (e.g. a `full`-mode run) are skipped with a one-line stderr warning,
+never validated or fatal; the generator exits 1 only when no matrix records
+remain. `generated_at` is the newest record's `started_at` (not the wall-clock
+generation time) so identical inputs produce an identical file. Each mode
+group must contain exactly one distinct scenario id — a mixed-scenario mode
+is an error naming the conflicting files.
+
+**Regression-gate contract.** The CI regression gate (a later PR) reruns the
+pinned scenarios on a skill PR and fails if the measured pass rate drops below
+`modes.<mode>.pass_rate` in the committed `evals/results/baseline.json`. The
+gate workflow itself is not built in this batch; the committed file plus this
+consumption rule is the reference.
+
+**Halt-path status.** The E2E runs that would produce the six records are
+blocked (see E2E status below), so no scored runs exist and no
+`baseline.json` is committed. The generator is covered by unit smokes
+(`evals/runner/baseline.test.ts`); the reference will be published once a
+real-tenant driver and the tool surface are available.
+
 ## Non-goals
 
 - The skills themselves (orchestrator/stage/diagnose) — later PRs.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.
-- Baseline matrix runs and CI regression gating.
+- Baseline matrix runs and CI regression gating — the runs are blocked on the
+  E2E tool surface (halt path); no `baseline.json` is committed in this PR.
 - The `/v2` fixture surface (bearer + link pagination) is fixture capability
   asserted by `verify.sh` only; the Tier-1 agent uses `/v1` (basic + offset).
 - Tier-1+ end-to-end runs require a private driver (credentials + a real
@@ -170,6 +216,18 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   `examples/**/*.ts` and `baton/**/*.d.ts` surface — the evals options do not
   leak into the repo-wide type environment. `npm run typecheck` runs both
   configs; the CI workflow is unmodified.
+- **E2E status.** The Tier-1 end-to-end run (done-definition 4) is BLOCKED.
+  The public repo ships only the Tier-0 local driver (canned transcript); a
+  Tier-1+ run needs a private driver with real tenant credentials and an
+  agent transport, which is out of scope for the public repo. The CXF-217
+  preflight (on the Squire-based harness) also established a structural
+  blocker on the c1 side: fresh c1-image eval envs expose no
+  `c1_connector_authoring_*` tools even with `CONNECTOR_AUTHORING` effective
+  (the `c1.api.*` MCP surface is not mounted in this region's envs) —
+  evidence at `/current-tasks/src-tu2rs/results/BLOCKER.md`. The batch halted
+  per done-definition 7; the runner, scorer, and stage gates are covered by
+  the committed unit smokes (`npm run eval:test`), and the E2E must run once
+  a real-tenant driver and the tool surface are available.
 - **Score-input boundary.** `score-input.json` is written by a collector
   agent that transcribes tenant tool responses; the scorer type-validates but
   cannot verify truthfulness. The collector reads the agent-written handoff

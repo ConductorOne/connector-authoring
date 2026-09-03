@@ -30,6 +30,7 @@ const SCENARIO: Scenario = {
   expected: {users: 23, groups: 5, memberships: 23},
   skillBundle: {mode: "none", version: "0.0.0"},
   model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
+  reasoningEffort: "high",
   requiredSourceFiles: ["connector.ts", "config-schema.json", "runtime-schema.json", "capabilities.json"],
   readinessTools: [
     "c1_connector_authoring_get_authoring_guide",
