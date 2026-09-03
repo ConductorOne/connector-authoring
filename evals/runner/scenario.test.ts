@@ -23,7 +23,7 @@ test("loadScenario loads the real tier1-directory.json", () => {
   assert.equal(s.expected.users, 23)
   assert.equal(s.expected.groups, 5)
   assert.equal(s.expected.memberships, 23)
-assert.equal(s.skillBundle.mode, "none")
+  assert.equal(s.skillBundle.mode, "none")
   assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4-Flash-0731")
   assert.equal(s.reasoningEffort, "high")
   assert.equal(s.requiredSourceFiles.length, 4)

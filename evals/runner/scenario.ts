@@ -36,7 +36,7 @@ export interface Scenario {
   fixture: FixtureConfig
   seed: SeedConfig
   expected: ExpectedConfig
-skillBundle: SkillBundleConfig
+  skillBundle: SkillBundleConfig
   model: string
   reasoningEffort: "high" | "medium" | "low"
   requiredSourceFiles: string[]

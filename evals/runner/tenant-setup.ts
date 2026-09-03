@@ -4,6 +4,7 @@
 // CONNECTOR_AUTHORING flag) so the authoring tools surface. IDEMPOTENT: the
 // script pre-checks effective_flags before mutating.
 import {getTask, taskCreate, taskStream, type CallOpts} from "./squire.ts"
+import {ReadinessError} from "./readiness.ts"
 
 const sleep = (ms: number): Promise<void> => {
   const {promise, resolve} = Promise.withResolvers<void>()
@@ -13,6 +14,26 @@ const sleep = (ms: number): Promise<void> => {
 
 function isTerminal(state: unknown): boolean {
   return state === "completed" || state === "failed" || state === "canceled"
+}
+
+// Terminal-marker check for the setup transcript (D21, evidence-fixed).
+// The setup task's early transient failures echo "SETUP FAIL" before the
+// agent adapts and completes — a whole-transcript includes() check rejects a
+// SUCCESSFUL setup (observed: preflight2 attempt 1 succeeded after
+// `dev-util ensure` yet was recorded "tenant setup failed: SETUP FAIL: no
+// tenants"). The terminal marker wins: done iff the last non-empty line
+// carries SETUP DONE; SETUP FAIL is a failure only when it is the terminal
+// outcome (no SETUP DONE at the end).
+export function setupOutcome(transcript: string): {status: "done"} | {status: "failed"; line: string} {
+  const lines = transcript
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+  const last = lines[lines.length - 1] ?? ""
+  if (last.includes("SETUP DONE")) return {status: "done"}
+  const failLine = lines.find((l) => l.includes("SETUP FAIL"))
+  if (failLine !== undefined) return {status: "failed", line: failLine}
+  return {status: "failed", line: `no SETUP DONE marker (transcript tail: ${transcript.slice(-200)})`}
 }
 
 // The COMPLETE setup script (locked D21) — the setup task runs this in the
@@ -83,13 +104,21 @@ async function readSetupStream(
   let sinceSeq = 0
   const parts: string[] = []
   for (;;) {
-    let page: Record<string, unknown>
-    try {
-      page = (await taskStream(taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
-    } catch (err) {
-      // Transient stream hiccup: return what we have (the setup markers are
+    let page: Record<string, unknown> | undefined
+    let pageErr: unknown = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        page = (await taskStream(taskId, {sinceSeq, limit: 500}, opts)) as Record<string, unknown>
+        pageErr = null
+        break
+      } catch (err) {
+        pageErr = err
+        console.error(`WARNING: setup stream read failed (attempt ${attempt + 1}/3): ${(err as Error).message}`)
+      }
+    }
+    if (pageErr !== null || page === undefined) {
+      // Persistent stream failure: return what we have (the setup markers are
       // usually early in the stream; a retry would re-read from scratch).
-      console.error(`WARNING: setup stream read failed: ${(err as Error).message}`)
       break
     }
     const events = (page?.events ?? []) as Record<string, unknown>[]
@@ -126,15 +155,14 @@ export async function runTenantSetup(
 
   const {timedOut} = await waitForSetupTerminal(envId, setupTaskId, 10 * 60 * 1000, opts)
   if (timedOut) {
-    throw new Error("tenant setup timed out after 10 min")
+    // The unblock could not complete — the readiness gate is unreachable.
+    // Surface as exit 2 (readiness-class halt, D9) rather than generic exit 1.
+    throw new ReadinessError("tenant setup timed out after 10 min")
   }
 
   const stream = await readSetupStream(setupTaskId, opts)
-  if (stream.includes("SETUP FAIL")) {
-    const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? stream.slice(-200)
-    throw new Error(`tenant setup failed: ${failLine}`)
-  }
-  if (!stream.includes("SETUP DONE")) {
-    throw new Error(`tenant setup failed: no SETUP DONE marker (transcript tail: ${stream.slice(-200)})`)
+  const outcome = setupOutcome(stream)
+  if (outcome.status === "failed") {
+    throw new ReadinessError(`tenant setup failed: ${outcome.line}`)
   }
 }
