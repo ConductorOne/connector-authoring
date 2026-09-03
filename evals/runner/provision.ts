@@ -1,6 +1,7 @@
 // provision.ts — eval env provisioning + teardown (CXF-216 PR 1).
 import {createEnv, stopEnv, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
+import {runTenantSetup} from "./tenant-setup.ts"
 
 // Pure builder for the create_env args — the reasoning-effort pin is an
 // ENV-level field (squire.create_env.omp_reasoning_effort), not a
@@ -51,6 +52,9 @@ export async function retryProvision(
     try {
       const provisioned = await provisionEnv(scenario, runId, opts)
       envId = provisioned.envId
+      // Provisioning-time unblock (D21): enable the CONNECTOR_AUTHORING flag
+      // surface on the eval tenant before the readiness probe runs.
+      await runTenantSetup(envId, runId, opts)
       await readiness(envId)
       return {envId}
     } catch (err) {
