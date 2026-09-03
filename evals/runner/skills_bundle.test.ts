@@ -57,12 +57,36 @@ test("(b) every bundle.json path resolves to an existing file", () => {
   }
 })
 
-test("(c) each SKILL.md carries the locked section markers and stays <= 200 lines", () => {
+// Locked content literals per skill (plan B1c/B3f/C1c/C3c string checks).
+const SKILL_LITERALS: Record<string, string[]> = {
+  "author-in-app-connector": [
+    "skipped_human_boundary",
+    "catalog_id", "draft_id", "upload_id", "run_id", "revision_id",
+    "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url",
+  ],
+  "read-authoring-contract": [
+    "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
+    "runtime_pin_matched", "default_tag",
+  ],
+  "build-and-test": [
+    "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
+  ],
+  "deploy-and-activate": [
+    "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
+    "SYNC_STATUS_DONE", "skipped_human_boundary",
+  ],
+}
+
+test("(c) each SKILL.md carries the locked section markers, content literals, ASCII-only bodies, and stays <= 200 lines", () => {
   for (const name of SKILLS) {
     const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
     for (const marker of ["## Exit criteria", "## Anti-patterns", "## Blocker protocol"]) {
       assert.ok(file.includes(marker), `${name}: missing section marker ${marker}`)
     }
+    for (const literal of SKILL_LITERALS[name]) {
+      assert.ok(file.includes(literal), `${name}: missing locked literal ${literal}`)
+    }
+    assert.ok(/^[\x00-\x7F]*$/.test(file), `${name}: body must be ASCII-only (locked body contract)`)
     assert.ok(file.split("\n").length <= 200, `${name}: exceeds the 200-line bound`)
   }
 })
