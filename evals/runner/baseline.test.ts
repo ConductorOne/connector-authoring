@@ -306,6 +306,21 @@ test("(i4) a mode mixing scenarios exits 1 naming the files", async () => {
   }
 })
 
+test("(i5) duplicate run_ids across files exit 1 naming the files", async () => {
+  const dir = tmpDir()
+  try {
+    writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "none"))
+    writeFileSync(join(dir, "b.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "none"))
+    const {code, stderr} = await runBaseline(dir)
+    assert.equal(code, 1)
+    assert.ok(stderr.includes("duplicate run_ids"))
+    assert.ok(stderr.includes("a.jsonl"))
+    assert.ok(stderr.includes("b.jsonl"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
 test("(j) duplicate stage row exits 1", async () => {
   const dir = tmpDir()
   try {

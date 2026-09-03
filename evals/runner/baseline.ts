@@ -212,6 +212,15 @@ function main(): void {
       )
       exit(1)
     }
+    const runIds = list.map((r) => r.runId)
+    const uniqueRunIds = new Set(runIds)
+    if (uniqueRunIds.size < runIds.length) {
+      const dupes = [...new Set(runIds.filter((id, i) => runIds.indexOf(id) !== i))]
+      console.error(
+        `ERROR: mode ${mode} has duplicate run_ids ${dupes.join(", ")} (files: ${list.map((r) => r.file).join(", ")})`,
+      )
+      exit(1)
+    }
   }
   const modes: Record<string, unknown> = {}
   for (const mode of [...byMode.keys()].sort()) {
