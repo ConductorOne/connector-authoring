@@ -1,7 +1,11 @@
 // tenant-setup.ts — manage-ff provisioning step for the eval tenant (CXF-217, D21).
-// Runs between create_env and the readiness probe: fresh c1-image eval envs in
-// this region do not expose the c1_connector_authoring_* tools until the eval
-// tenant is an internal account with the CONNECTOR_AUTHORING flag effective.
+// Runs between create_env and the readiness probe. NOTE: the halt-path
+// evidence (BLOCKER.md) proves this mechanism is INEFFECTIVE in this region —
+// fresh c1-image eval envs do not mount the c1 MCP server at all, so no
+// feature-flag change can surface the c1_connector_authoring_* tools. The
+// step is kept per the locked D21 contract (idempotent; the readiness gate
+// remains the real check) and should be replaced by an MCP-mount mechanism
+// (e.g. squire.user_mcp.add_c1_tenant) when the unblock is reworked.
 import {getTask, taskCreate, taskStream, type CallOpts} from "./squire.ts"
 import {ReadinessError} from "./readiness.ts"
 
