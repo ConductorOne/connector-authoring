@@ -155,13 +155,50 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   plaintext secrets); bundle caps respected (each file ≤ 12 MiB, total ≤
   16 MiB, ≤ 256 files).
 
+## Baseline + regression gate
+
+The control-group baseline (CXF-217) is six scored Tier-1 runs — scenario
+`tier1-directory` × skill-bundle modes {`none`, `guide-only`} × 3 runs each —
+with the model pinned to `together/deepseek-ai/DeepSeek-V4-Flash-0731` and
+`reasoningEffort: "high"` in both scenario files. Each run writes a JSONL
+record to `evals/results/<run-id>.jsonl` (gitignored).
+
+Regenerate the committed reference with:
+
+```bash
+npm run eval:baseline
+```
+
+`evals/runner/baseline.ts` reads every `*.jsonl` record in `evals/results/`
+(or `--out <dir>`), validates each record (meta fields, the 12 canonical stage
+rows S0–S11, skipped rows, summary), enforces cross-record model/effort
+consistency, and writes `evals/results/baseline.json` — the locked v1 schema:
+`{schema_version, generated_at, model, reasoning_effort, scenarios, modes,
+pareto}`. A run is a pass iff every stage row S0–S11 has `pass === true`
+(S11b/S11c `skipped_human_boundary` rows excluded). `modes.<mode>` carries
+`run_ids`, `runs`, `passes`, `pass_rate`, `pass_at_3`, `first_pass_rate_mean`,
+and `per_stage` failures; `pareto` ranks stages by failure count.
+
+**Regression-gate contract.** The CI regression gate (a later PR) reruns the
+pinned scenarios on a skill PR and fails if the measured pass rate drops below
+`modes.<mode>.pass_rate` in the committed `evals/results/baseline.json`. The
+gate workflow itself is not built in this batch; the committed file plus this
+consumption rule is the reference.
+
+**Halt-path status.** The E2E runs that would produce the six records are
+blocked (see E2E status below), so no scored runs exist and no
+`baseline.json` is committed. The generator is covered by unit smokes
+(`evals/runner/baseline.test.ts`); the reference will be published once the
+tool surface is available.
+
 ## Non-goals (this PR)
 
 - The skills themselves (orchestrator/stage/diagnose) — later CXF-70 PRs.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.
-- Baseline matrix runs and CI regression gating.
+- Baseline matrix runs and CI regression gating — the runs are blocked on the
+  E2E tool surface (halt path); no `baseline.json` is committed in this PR.
 - The `/v2` fixture surface (bearer + link pagination) is fixture capability
   asserted by `verify.sh` only; the Tier-1 agent uses `/v1` (basic + offset).
 
@@ -174,12 +211,18 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   `examples/**/*.ts` and `baton/**/*.d.ts` surface — the evals options do not
   leak into the repo-wide type environment. `npm run typecheck` runs both
   configs; the CI workflow is unmodified.
-- **E2E status.** The Tier-1 end-to-end run (done-definition 4) was BLOCKED
-  at the time of writing: fresh c1-image eval envs in this region expose no
-  `c1_connector_authoring_*` tools (verified in multiple fresh envs), so the
-  readiness gate aborts exit 2 per L20 and an unready run is never scored. The
-  runner, scorer, and stage gates are covered by the committed unit smokes
-  (`npm run eval:test`); the E2E must run once the tool surface is available.
+- **E2E status.** The Tier-1 end-to-end run (done-definition 4) is BLOCKED.
+  Fresh c1-image eval envs in this region expose no `c1_connector_authoring_*`
+  tools, so the readiness gate aborts exit 2 and an unready run is never
+  scored. The tenant-setup unblock (`evals/runner/tenant-setup.ts`) was
+  implemented and verified working — the eval tenant is bootstrapped and
+  `CONNECTOR_AUTHORING` is effective — but the authoring tools remain absent
+  from the eval env's MCP surface: the `c1.api.*` surface is not mounted in
+  this region's c1 envs at all. The batch halted per done-definition 7 with
+  evidence at `/current-tasks/src-tu2rs/results/BLOCKER.md`; the runner,
+  scorer, and stage gates are covered by the committed unit smokes
+  (`npm run eval:test`), and the E2E must run once the tool surface is
+  available.
 - **Score-input boundary.** `score-input.json` is written by an LLM collector
   task that transcribes tenant tool responses; the scorer type-validates but
   cannot verify truthfulness. The collector reads the agent-written handoff
