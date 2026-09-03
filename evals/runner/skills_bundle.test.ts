@@ -6,7 +6,7 @@ import {test} from "node:test"
 import assert from "node:assert/strict"
 import {execFile} from "node:child_process"
 import {promisify} from "node:util"
-import {existsSync, mkdtempSync, readFileSync, readdirSync, rmSync} from "node:fs"
+import {existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join, resolve} from "node:path"
 import {loadScenario} from "./scenario.ts"
@@ -109,6 +109,19 @@ test("(d) the full-mode scenario parses with mode full and the two pinned scenar
   assert.equal(none.skillBundle.mode, "none")
   const guideOnly = loadScenario("evals/scenarios/tier1-directory-guide-only.json")
   assert.equal(guideOnly.skillBundle.mode, "guide-only")
+})
+
+test("(d2) a full-mode scenario pinning a version other than bundle.json's throws", () => {
+  const dir = mkdtempSync(join(tmpdir(), "skills-bundle-"))
+  try {
+    const scenario = JSON.parse(readFileSync("evals/scenarios/tier1-directory-full.json", "utf8")) as Record<string, unknown>
+    scenario.skillBundle = {...(scenario.skillBundle as Record<string, unknown>), version: "9.9.9"}
+    const bad = join(dir, "tier1-directory-full-bad.json")
+    writeFileSync(bad, JSON.stringify(scenario))
+    assert.throws(() => loadScenario(bad), /does not match/)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carries the bundle mode", async () => {

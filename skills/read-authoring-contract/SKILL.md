@@ -19,12 +19,14 @@ abbreviates them (e.g. `get_authoring_guide` for
    Served-guide-wins rule (verbatim): when the served guide conflicts with
    any other doc (including this skill or the lifecycle doc), the served
    guide wins.
-2. Call `c1_connector_authoring_list_sdk_types_versions`. GATE: capture
-   `default_tag` and `runtime_pin_matched` from the response. STOP if either
-   field is missing.
-3. Call `c1_connector_authoring_get_sdk_types` with `tag: default_tag`.
-   GATE: the returned `.d.ts` files are received. STOP if the response
-   carries no declaration files.
+2. If `c1_connector_authoring_list_sdk_types_versions` is present in this
+   session, call it. GATE: capture `default_tag` and `runtime_pin_matched`
+   from the response; STOP if either field is missing. If the tool is
+   absent, proceed - the served guide is the contract.
+3. If `c1_connector_authoring_get_sdk_types` is present, call it with
+   `tag: default_tag`. GATE: the returned `.d.ts` files are received; STOP
+   if the response carries no declaration files. If the tool is absent,
+   proceed - the served guide is the contract.
 4. Apply the `runtime_pin_matched` decision table:
 
    | `runtime_pin_matched` | Meaning and action |
@@ -32,13 +34,14 @@ abbreviates them (e.g. `get_authoring_guide` for
    | `true` | The tagged declarations are the compatibility contract for the tenant's pinned runtime. Proceed. |
    | `false` | `default_tag` is the latest release, NOT a confirmed runtime match. Surface that limitation rather than claiming compatibility. |
 
-5. Resume-existing-work check BEFORE creating anything: call
-   `c1_connector_authoring_list_authored_catalog_entries`, then
-   `c1_connector_authoring_list_drafts` with the returned `catalog_id`.
-   GATE: if an existing `catalog_id` +
+5. Resume-existing-work check BEFORE creating anything: if
+   `c1_connector_authoring_list_authored_catalog_entries` and
+   `c1_connector_authoring_list_drafts` are present, call them (list_drafts
+   with the returned `catalog_id`). GATE: if an existing `catalog_id` +
    `draft_id` is found, reuse it; call
    `c1_connector_authoring_create_draft` only when none exists. Record every
-   returned ID. STOP if the listing calls error. In a fresh tenant the resume
+   returned ID. STOP if the listing calls error. If the tools are absent,
+   proceed - the served guide is the contract. In a fresh tenant the resume
    check finds nothing, so `create_draft` is the next step; the reuse path
    is for real resumed sessions only.
 

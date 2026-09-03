@@ -6,8 +6,8 @@ version: 0.1.0
 
 # build-and-test
 
-Covers funnel stages 3-5 and 9-10: the required-source-files gate, the
-out-of-band upload dance, the build, and the draft test. Tool names below are
+Covers funnel stages 2-5 and 9-10: the out-of-band upload dance, the
+required-source-files gate, the build, and the draft test. Tool names below are
 the exact tenant MCP titles; the served guide abbreviates them.
 
 ## Checklist

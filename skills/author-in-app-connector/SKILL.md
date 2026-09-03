@@ -77,8 +77,8 @@ produces it:
 | Stage | Route |
 |---|---|
 | 0 | `read-authoring-contract` |
-| 1-2 (create_draft, upload) | ORCHESTRATOR-OWNED - perform directly |
-| 3-5, 9-10 | `build-and-test` |
+| 1 (create_draft) | ORCHESTRATOR-OWNED - perform directly |
+| 2-5, 9-10 | `build-and-test` |
 | 6-8, 11 | `deploy-and-activate` |
 | design/spec/write/verify/update/diagnose (not yet shipped) | follow the served guide |
 

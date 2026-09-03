@@ -1,5 +1,6 @@
 // scenario.ts — scenario loader + validation.
 import {readFileSync} from "node:fs"
+import {fileURLToPath} from "node:url"
 
 export interface FixtureConfig {
   port: number
@@ -142,7 +143,21 @@ const id = requireString(data, "id", "scenario")
     // Fail fast when the scenario's bundle version drifts from the mounted
     // bundle: run records must never be stamped with a version that does not
     // match the skills actually mounted (bundle.json is the single source).
-    const bundle = JSON.parse(readFileSync("evals/skills-bundle/bundle.json", "utf8")) as {version?: unknown}
+    // Resolve relative to this module so the check is not cwd-dependent, and
+    // wrap read/parse errors like the scenario file's own.
+    const bundlePath = fileURLToPath(new URL("../skills-bundle/bundle.json", import.meta.url))
+    let bundleRaw: string
+    try {
+      bundleRaw = readFileSync(bundlePath, "utf8")
+    } catch (err) {
+      throw new Error(`cannot read skill bundle ${bundlePath}: ${(err as Error).message}`)
+    }
+    let bundle: {version?: unknown}
+    try {
+      bundle = JSON.parse(bundleRaw) as {version?: unknown}
+    } catch (err) {
+      throw new Error(`skill bundle ${bundlePath} is not valid JSON: ${(err as Error).message}`)
+    }
     if (typeof bundle.version !== "string" || bundle.version !== skillBundle.version) {
       throw new Error(
         `scenario skillBundle.version ${skillBundle.version} does not match evals/skills-bundle/bundle.json version ${bundle.version}`,
