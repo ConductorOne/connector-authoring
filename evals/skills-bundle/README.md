@@ -2,11 +2,23 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
-This PR ships the bundle-mode plumbing only — **no skills yet**. The runner
-records `skill_bundle_mode` and `skill_bundle_version` in every run record;
-mode `none` means the agent follows only the authoring guide returned by
-`get_authoring_guide`.
+## v0.1.0 — the four mechanical funnel skills
 
-Future PRs add the orchestrator / stage / diagnose skills here, pinned
-by version, and the scenario file selects them via `skillBundle.mode`
-(`guide-only` or `full`).
+The bundle ships four skills, authored against the v0.0.26 DSL contract and
+the 23-tool tenant MCP surface:
+
+- `author-in-app-connector` — the S0–S11 funnel orchestrator (routing,
+  handoff table, human-boundary hard stop).
+- `read-authoring-contract` — stage 0: guide read, SDK types, resume check.
+- `build-and-test` — stages 2–5, 9–10: upload dance, build, draft test.
+- `deploy-and-activate` — stages 6–8, 11: app, provision, configure, deploy,
+  mint, handoff.
+
+## Mount contract
+
+`bundle.json` is a **manifest**, not a directory copy: each `skills[]` entry
+names a skill and a `path` relative to this directory pointing into
+`skills/` (the canonical home). Private drivers mount per the manifest —
+the manifest indirection is the contract, not a directory copy. The scenario
+file selects the bundle via `skillBundle.mode` (`full`) and pins
+`skillBundle.version` (`0.1.0`); the runner records both in every run record.
