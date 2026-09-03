@@ -21,18 +21,35 @@ function isTerminal(state: unknown): boolean {
 // agent adapts and completes — a whole-transcript includes() check rejects a
 // SUCCESSFUL setup (observed: preflight2 attempt 1 succeeded after
 // `dev-util ensure` yet was recorded "tenant setup failed: SETUP FAIL: no
-// tenants"). The terminal marker wins: done iff the last non-empty line
-// carries SETUP DONE; SETUP FAIL is a failure only when it is the terminal
-// outcome (no SETUP DONE at the end).
+// tenants"). The setup script's step 5 (squire.task.complete) always trails
+// the step-4 "SETUP DONE" echo, so a last-LINE check also false-fails real
+// successful transcripts. Last-marker-occurrence semantics: done iff the
+// LAST "SETUP DONE" line occurs after the LAST "SETUP FAIL" line anywhere in
+// the transcript; otherwise the LAST "SETUP FAIL" line (if any) is the
+// failure, else no-marker failure.
 export function setupOutcome(transcript: string): {status: "done"} | {status: "failed"; line: string} {
   const lines = transcript
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
-  const last = lines[lines.length - 1] ?? ""
-  if (last.includes("SETUP DONE")) return {status: "done"}
-  const failLine = lines.find((l) => l.includes("SETUP FAIL"))
-  if (failLine !== undefined) return {status: "failed", line: failLine}
+  // The D21 script echoes the markers as bare lines; stream renderings may
+  // prefix the tool_result ("RESULT: SETUP DONE"). Match both exact forms —
+  // never substring, so an LLM failure line merely mentioning a marker is not
+  // misclassified.
+  const isDone = (l: string): boolean => l === "SETUP DONE" || l === "RESULT: SETUP DONE"
+  const isFail = (l: string): boolean => l.startsWith("SETUP FAIL") || l.startsWith("RESULT: SETUP FAIL")
+  let lastDone = -1
+  let lastFail = -1
+  let failLine = ""
+  lines.forEach((l, i) => {
+    if (isDone(l)) lastDone = i
+    if (isFail(l)) {
+      lastFail = i
+      failLine = l
+    }
+  })
+  if (lastDone > lastFail) return {status: "done"}
+  if (lastFail >= 0) return {status: "failed", line: failLine}
   return {status: "failed", line: `no SETUP DONE marker (transcript tail: ${transcript.slice(-200)})`}
 }
 
