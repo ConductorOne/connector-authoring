@@ -30,7 +30,7 @@ async function findFreePort(): Promise<number> {
   return port
 }
 
-async function waitForFixture(baseUrl: string): Promise<void> {
+async function waitForFixture(baseUrl: string, expectedUsers: number): Promise<void> {
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
     try {
@@ -38,13 +38,23 @@ async function waitForFixture(baseUrl: string): Promise<void> {
         headers: {authorization: "Basic " + Buffer.from("connector@example.com:fixture-token").toString("base64")},
       })
       const body = await res.text()
-      if (body.includes("\"total\":23")) return
+      // Parse the JSON and compare the total numerically — a literal
+      // substring match would hardcode the fixture seed and its exact JSON
+      // serialization, failing closed as a generic timeout on any change.
+      let total: number | null = null
+      try {
+        const parsed = JSON.parse(body) as {total?: unknown}
+        total = typeof parsed.total === "number" ? parsed.total : null
+      } catch {
+        /* not JSON yet — retry */
+      }
+      if (total === expectedUsers) return
     } catch {
       /* server not up yet — retry */
     }
     await new Promise((r) => setTimeout(r, 500))
   }
-  throw new ReadinessError("fixture not reachable at " + baseUrl + " within 30 s")
+  throw new ReadinessError(`fixture not reachable at ${baseUrl} within 30 s (expected ${expectedUsers} users)`)
 }
 
 const provisioner: Provisioner = {
@@ -58,7 +68,7 @@ const provisioner: Provisioner = {
       console.error(`WARNING: fixture spawn failed: ${err.message}`)
     })
     const baseUrl = "http://127.0.0.1:" + port
-    return {baseUrl, credentials: {username: "connector@example.com", password: "fixture-token"}, toolSurface: TIER0_TOOL_SURFACE, meta: {child, port}}
+    return {baseUrl, credentials: {username: "connector@example.com", password: "fixture-token"}, toolSurface: TIER0_TOOL_SURFACE, meta: {child, port, expectedUsers: ctx.scenario.seed.users}}
   },
   checkReadiness: async (handle) => {
     // Fail fast if the fixture child already exited (spawn error or crash) —
@@ -67,7 +77,7 @@ const provisioner: Provisioner = {
     if (child && (child.exitCode !== null || child.signalCode !== null)) {
       throw new ReadinessError(`fixture exited before readiness (code ${child.exitCode ?? "signal " + child.signalCode})`)
     }
-    await waitForFixture(handle.baseUrl)
+    await waitForFixture(handle.baseUrl, (handle.meta?.expectedUsers as number | undefined) ?? 23)
   },
   teardown: async (handle) => {
     const child = (handle.meta?.child as ChildProcess | undefined)

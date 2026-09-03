@@ -157,7 +157,10 @@ export async function readHandoff(handoffPath: string): Promise<Handoff | null> 
 // scored from each stage's own evidence).
 
 function buildChannel(out: string, runId: string): RunChannel {
-  const runDir = join(out, runId)
+  // Resolve the out dir: channel paths are interpolated into the agent prompt
+  // and strict-equality-compared in the S11 gate — they must not be
+  // cwd-dependent for a private driver whose agent runs elsewhere.
+  const runDir = join(resolve(out), runId)
   return {
     runDir,
     handoffPath: join(runDir, "handoff.json"),
@@ -410,8 +413,15 @@ async function main(): Promise<number> {
 
 // Only run the CLI when this file is the entry point — importing run.ts from
 // tests must not execute main() (the registry stays private; the exported
-// helpers are exercised directly).
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+// helpers are exercised directly). realpathSync can throw ENOENT when argv[1]
+// is not an existing path — that means "not the entry point", not a crash.
+let entryHref: string | null = null
+try {
+  if (process.argv[1] !== undefined) entryHref = pathToFileURL(realpathSync(process.argv[1])).href
+} catch {
+  entryHref = null
+}
+if (entryHref !== null && import.meta.url === entryHref) {
   main()
     .then((code) => exit(code))
     .catch((err: unknown) => {
