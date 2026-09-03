@@ -380,7 +380,7 @@ async function main(): Promise<number> {
     const scored = scoreRun(ctx)
     const stageRows = scored.stageRows
 
-// Run meta: harness = driver name; reasoning_effort comes from the scenario pin.
+    // Run meta: harness = driver name; reasoning_effort comes from the scenario pin.
     const meta: RunMeta = buildRunMeta(runId, scenario, driver.name, startedAt, wallTimeMs, funnelToolsPresent)
 
     const summary: SummaryLine = {

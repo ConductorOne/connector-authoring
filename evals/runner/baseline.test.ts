@@ -254,6 +254,38 @@ test("(i) unknown skill_bundle_mode exits 1", async () => {
   }
 })
 
+test("(i2) a non-matrix mode record is skipped, not fatal", async () => {
+  const dir = tmpDir()
+  try {
+    writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "none"))
+    writeFileSync(join(dir, "b.jsonl"), allPassRecord("evals-tier1-directory-full-20260902-120000-000", "full"))
+    const {code, stderr} = await runBaseline(dir)
+    assert.equal(code, 0)
+    assert.ok(stderr.includes("skipping b.jsonl"))
+    assert.ok(stderr.includes("full"))
+    const b = readBaseline(dir)
+    const modes = b.modes as Record<string, Record<string, unknown>>
+    assert.deepEqual(Object.keys(modes), ["none"])
+    assert.equal(modes.none.runs, 1)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("(i3) pass_at_3 is null when a mode has fewer than 3 runs", async () => {
+  const dir = tmpDir()
+  try {
+    writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "none"))
+    const {code} = await runBaseline(dir)
+    assert.equal(code, 0)
+    const b = readBaseline(dir)
+    const none = b.modes as Record<string, Record<string, unknown>>
+    assert.equal(none.none.pass_at_3, null)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
 test("(j) duplicate stage row exits 1", async () => {
   const dir = tmpDir()
   try {

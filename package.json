@@ -1,7 +1,7 @@
 {
   "name": "connector-authoring",
   "private": true,
-"scripts": {
+  "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p evals/tsconfig.json",
     "eval:baseline": "node --experimental-strip-types evals/runner/baseline.ts",
     "eval:fixture": "node --experimental-strip-types evals/fixture/server.ts --port 18080",

@@ -23,6 +23,7 @@ interface RunRecord {
   mode: string
   modelVersion: string
   reasoningEffort: string
+  startedAt: string
   stageRows: Map<string, StageRow>
   firstPassRate: number
 }
@@ -44,7 +45,7 @@ function parseLine(file: string, lineNo: number, line: string): unknown {
   }
 }
 
-function parseRecord(file: string, lines: string[]): RunRecord {
+function parseRecord(file: string, lines: string[]): RunRecord | null {
   // Line 1 must be the meta with the five locked non-empty string fields.
   const metaRaw = parseLine(file, 1, lines[0])
   if (typeof metaRaw !== "object" || metaRaw === null || Array.isArray(metaRaw)) {
@@ -57,13 +58,20 @@ function parseRecord(file: string, lines: string[]): RunRecord {
       fail(file, 1, `meta field ${key} missing or not a non-empty string`)
     }
   }
-const runId = meta.run_id as string
+  const runId = meta.run_id as string
   const scenario = meta.scenario as string
   const mode = meta.skill_bundle_mode as string
   const modelVersion = meta.model_version as string
   const reasoningEffort = meta.reasoning_effort as string
+  const startedAt = meta.started_at as string | undefined
+  if (typeof startedAt !== "string" || Number.isNaN(Date.parse(startedAt))) {
+    fail(file, 1, "meta field started_at missing or not an ISO timestamp")
+  }
   if (!MODES.includes(mode)) {
-    fail(file, 1, `meta skill_bundle_mode must be one of ${MODES.join(",")}`)
+    // A record outside the baseline matrix (e.g. a `full`-mode run the
+    // scenario schema permits) must not block regeneration of the reference.
+    console.error(`WARNING: skipping ${file}: skill_bundle_mode ${mode} is outside the baseline matrix (${MODES.join(",")})`)
+    return null
   }
 
   // The last line must be the summary.
@@ -114,7 +122,7 @@ const runId = meta.run_id as string
     }
   }
 
-  return {file, runId, scenario, mode, modelVersion, reasoningEffort, stageRows, firstPassRate}
+  return {file, runId, scenario, mode, modelVersion, reasoningEffort, startedAt, stageRows, firstPassRate}
 }
 
 function main(): void {
@@ -164,7 +172,12 @@ function main(): void {
     if (lines.length < 3) {
       fail(f, 0, "record has fewer than 3 lines (meta + stages + summary)")
     }
-    records.push(parseRecord(f, lines))
+const parsed = parseRecord(f, lines)
+    if (parsed !== null) records.push(parsed)
+  }
+  if (records.length === 0) {
+    console.error(`ERROR: no baseline-matrix records found in ${out} (all *.jsonl skipped)`)
+    exit(1)
   }
 
   // Cross-record consistency: shared model_version and reasoning_effort.
@@ -193,7 +206,8 @@ function main(): void {
     const list = byMode.get(mode) as RunRecord[]
     list.sort((a, b) => (a.runId < b.runId ? -1 : a.runId > b.runId ? 1 : 0))
     const runs = list.length
-    const passes = list.filter((r) => STAGES.every((s) => (r.stageRows.get(s) as StageRow).pass)).length
+    const allStagesPass = (r: RunRecord): boolean => STAGES.every((s) => (r.stageRows.get(s) as StageRow).pass)
+    const passes = list.filter(allStagesPass).length
     const perStage: Record<string, unknown> = {}
     for (const stage of STAGES) {
       const rows = list.map((r) => r.stageRows.get(stage) as StageRow)
@@ -208,7 +222,7 @@ function main(): void {
       runs,
       passes,
       pass_rate: passes / runs,
-      pass_at_3: passes > 0 ? 1 : 0,
+      pass_at_3: runs >= 3 ? (list.slice(0, 3).some(allStagesPass) ? 1 : 0) : null,
       first_pass_rate_mean: list.reduce((sum, r) => sum + r.firstPassRate, 0) / runs,
       per_stage: perStage,
     }
@@ -237,7 +251,7 @@ function main(): void {
 
   const baseline = {
     schema_version: 1,
-    generated_at: new Date().toISOString(),
+    generated_at: new Date(Math.max(...records.map((r) => Date.parse(r.startedAt)))).toISOString(),
     model: modelVersion,
     reasoning_effort: reasoningEffort,
     scenarios,
