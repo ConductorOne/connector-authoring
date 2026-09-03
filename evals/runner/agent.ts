@@ -11,8 +11,7 @@ function skillBundleSection(scenario: Scenario): string {
   if (scenario.skillBundle.mode === "guide-only") {
     return "No skill bundle. Follow the authoring guide returned by get_authoring_guide; the guide is your only reference."
   }
-  // full: inline the contents of evals/skills-bundle/ (placeholder this PR)
-  return `Skill bundle (version ${scenario.skillBundle.version}) is mounted at evals/skills-bundle/ in the connector-authoring checkout. Read its README and follow any skill instructions there.`
+  return `Skill bundle (version ${scenario.skillBundle.version}) is mounted at evals/skills-bundle/ in the connector-authoring checkout. Read evals/skills-bundle/bundle.json and follow the skill instructions at the paths it lists (skills/<name>/SKILL.md).`
 }
 
 export function buildPrompt(scenario: Scenario, runId: string, baseUrl: string, channel: RunChannel): string {

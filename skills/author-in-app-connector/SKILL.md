@@ -104,7 +104,7 @@ never call `force_sync` - S11b/S11c are `skipped_human_boundary`.
 - Do not skip a stage.
 - Do not fabricate handoff values.
 - Do not redeem the approval token.
-- Do not call `force_sync` before activation.
+- Do not call `force_sync` at any point in the funnel run.
 - Do not write the handoff before deploy + mint.
 
 ## Blocker protocol

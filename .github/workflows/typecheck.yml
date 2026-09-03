@@ -22,3 +22,4 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --audit=false --fund=false
       - run: npm run typecheck
+      - run: npm run eval:test
