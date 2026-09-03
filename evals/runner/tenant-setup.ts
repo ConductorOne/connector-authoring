@@ -18,9 +18,9 @@ function isTerminal(state: unknown): boolean {
 export function buildTenantSetupPrompt(runId: string): string {
   return `You are the tenant-setup task for eval run ${runId}. Run this exact sequence and report the result:
 
-0. Source the c1 dev shell env, put dev-util on PATH, and bootstrap the eval tenant (idempotent):
+0. Run these commands EXACTLY as written, in order, without modification or investigation:
    set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a
-   export PATH="/data/squire/src/c1/build/$(go env GOOS)_$(go env GOARCH):$PATH"
+   export PATH="/data/squire/src/c1/build/$(go env GOOS)_$(go env GOARCH)/dev-util:$PATH"
    dev-util ensure
    If ensure fails, print "SETUP FAIL: ensure failed" and stop.
 
@@ -139,12 +139,14 @@ export async function runTenantSetup(
   }
 
   const stream = await readSetupStream(setupTaskId, opts)
+  // SETUP DONE wins: the sequence prints it only on real success, while the
+  // prompt text (which contains the SETUP FAIL literals) can leak into the
+  // transcript via agent narration or ps output — a false positive.
+  if (stream.includes("SETUP DONE")) return
   if (stream.includes("SETUP FAIL")) {
     const failLine = stream.split("\n").find((l) => l.includes("SETUP FAIL")) ?? "SETUP FAIL"
     throw new Error(`tenant setup failed: ${failLine} (task state ${state})`)
   }
-  if (!stream.includes("SETUP DONE")) {
-    const tail = stream.split("\n").slice(-5).join("\n")
-    throw new Error(`tenant setup failed: no SETUP DONE marker (task state ${state}; transcript tail: ${tail})`)
-  }
+  const tail = stream.split("\n").slice(-5).join("\n")
+  throw new Error(`tenant setup failed: no SETUP DONE marker (task state ${state}; transcript tail: ${tail})`)
 }
