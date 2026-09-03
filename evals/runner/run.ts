@@ -85,8 +85,8 @@ function parseArgs(args: string[]): CliArgs {
   }
   // --ref is driver-interpreted; restrict to a safe charset (branch/SHA/tag)
   // to prevent shell injection when a driver interpolates it.
-  if (out.ref !== "" && !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(out.ref)) {
-    stderr.write(`ERROR: invalid --ref: ${out.ref} (must start with a letter or digit, then [A-Za-z0-9._/-]*)\n`)
+  if (out.ref !== "" && (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(out.ref) || out.ref.includes(".."))) {
+    stderr.write(`ERROR: invalid --ref: ${out.ref} (must start with a letter or digit, then [A-Za-z0-9._/-]*, and must not contain "..")\n`)
     exit(1)
   }
   return out

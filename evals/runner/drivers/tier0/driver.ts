@@ -25,14 +25,21 @@ export const TIER0_TOOL_SURFACE: string[] = [
 // The fixture binds port 0 (OS-assigned) and reports the bound port on
 // stdout — no pre-reservation gap, so concurrent provisions cannot collide
 // on EADDRINUSE (the old findFreePort released the port before the spawn).
-async function waitForFixturePort(child: ChildProcess): Promise<number> {
+async function waitForFixturePort(child: ChildProcess, spawnFailed: () => boolean): Promise<number> {
   const deadline = Date.now() + 10_000
   let port: number | null = null
+  // Accumulate stdout: the port line can arrive split across chunk
+  // boundaries — matching each chunk in isolation would lose it.
+  let buf = ""
   child.stdout?.on("data", (chunk) => {
-    const m = /fixture listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(String(chunk))
+    buf += String(chunk)
+    const m = /fixture listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(buf)
     if (m) port = Number(m[1])
   })
   while (Date.now() < deadline && port === null) {
+    if (spawnFailed()) {
+      throw new ReadinessError("fixture spawn failed (see warning above)")
+    }
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new ReadinessError(`fixture exited before reporting its port (code ${child.exitCode ?? "signal " + child.signalCode})`)
     }
@@ -77,12 +84,23 @@ const provisioner: Provisioner = {
   provision: async (ctx) => {
     const child = spawn(process.execPath, ["--experimental-strip-types", FIXTURE_SCRIPT, "--port", "0", "--host", "127.0.0.1"], {cwd: cwd(), stdio: ["ignore", "pipe", "ignore"]})
     // A spawn failure (e.g. ENOENT on the node binary) emits 'error' on the
-    // child; without a listener it would crash the runner. Log it — the
-    // readiness poll fails closed with a ReadinessError either way.
+    // child; without a listener it would crash the runner. Log it and flag
+    // it so the port poll fails fast instead of burning the 10 s deadline.
+    let spawnFailed = false
     child.on("error", (err) => {
+      spawnFailed = true
       console.error(`WARNING: fixture spawn failed: ${err.message}`)
     })
-    const port = await waitForFixturePort(child)
+    let port: number
+    try {
+      port = await waitForFixturePort(child, () => spawnFailed)
+    } catch (err) {
+      // Reap the child: provision never returns a handle, so provisionWithRetry
+      // cannot teardown it — an orphaned fixture would keep its listening
+      // socket past the runner's exit.
+      child.kill()
+      throw err
+    }
     const baseUrl = "http://127.0.0.1:" + port
     return {baseUrl, credentials: {username: "connector@example.com", password: "fixture-token"}, toolSurface: TIER0_TOOL_SURFACE, meta: {child, port, expectedUsers: ctx.scenario.seed.users}}
   },
