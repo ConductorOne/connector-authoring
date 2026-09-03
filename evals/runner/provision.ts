@@ -1,6 +1,7 @@
 // provision.ts — eval env provisioning + teardown (CXF-216 PR 1).
 import {createEnv, stopEnv, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
+import {runTenantSetup} from "./tenant-setup.ts"
 
 // Locked D14: the omp reasoning-effort pin is an ENV-level field on
 // squire.create_env (the gateway's squire.task.create has no such field),
@@ -51,6 +52,9 @@ export async function retryProvision(
     try {
       const provisioned = await provisionEnv(scenario, runId, opts)
       envId = provisioned.envId
+      // D21: provisioning-time manage-ff step (between create_env and the
+      // readiness probe) so the authoring tools surface on the eval tenant.
+      await runTenantSetup(envId, runId, opts)
       await readiness(envId)
       return {envId}
     } catch (err) {
