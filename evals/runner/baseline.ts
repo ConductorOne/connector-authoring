@@ -8,6 +8,9 @@ import {argv, exit, stdout} from "node:process"
 
 const STAGES = ["S0", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11"]
 
+// Locked D16: the baseline matrix is tier1-directory × {none, guide-only}.
+const MODES = ["none", "guide-only"]
+
 interface StageRow {
   pass: boolean
   firstPass: boolean
@@ -54,11 +57,14 @@ function parseRecord(file: string, lines: string[]): RunRecord {
       fail(file, 1, `meta field ${key} missing or not a non-empty string`)
     }
   }
-  const runId = meta.run_id as string
+const runId = meta.run_id as string
   const scenario = meta.scenario as string
   const mode = meta.skill_bundle_mode as string
   const modelVersion = meta.model_version as string
   const reasoningEffort = meta.reasoning_effort as string
+  if (!MODES.includes(mode)) {
+    fail(file, 1, `meta skill_bundle_mode must be one of ${MODES.join(",")}`)
+  }
 
   // The last line must be the summary.
   const lastIdx = lines.length - 1
@@ -94,6 +100,9 @@ function parseRecord(file: string, lines: string[]): RunRecord {
     }
     if (typeof row.pass !== "boolean" || typeof row.first_pass !== "boolean") {
       fail(file, lineNo, "stage row must have boolean pass and first_pass")
+    }
+    if (stageRows.has(stage)) {
+      fail(file, lineNo, `duplicate stage row ${stage}`)
     }
     stageRows.set(stage, {pass: row.pass as boolean, firstPass: row.first_pass as boolean})
   }

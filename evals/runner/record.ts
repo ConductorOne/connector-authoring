@@ -35,6 +35,31 @@ export interface SummaryLine {
   tokens_out: number | null
 }
 
+// Run meta (locked D15): harness is inherited (no override); reasoning_effort
+// comes from the scenario pin. Lives here (not run.ts) so tests can import
+// it without executing the runner CLI.
+export function buildRunMeta(
+  runId: string,
+  scenario: Scenario,
+  harness: string,
+  startedAt: string,
+  wallTimeMs: number,
+  funnelToolsPresent: boolean,
+): RunMeta {
+  return {
+    run_id: runId,
+    scenario: scenario.id,
+    skill_bundle_version: scenario.skillBundle.version,
+    skill_bundle_mode: scenario.skillBundle.mode,
+    model_version: scenario.model,
+    harness,
+    reasoning_effort: scenario.reasoningEffort,
+    started_at: startedAt,
+    wall_time_ms: wallTimeMs,
+    funnel_tools_present: funnelToolsPresent,
+  }
+}
+
 export function writeRecord(
   runId: string,
   scenario: Scenario,

@@ -15,7 +15,7 @@ import {parseStream, pollStreamIncrementally} from "./stream.ts"
 import {collect} from "./collect.ts"
 import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
 import {scoreRun} from "./score.ts"
-import {writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
+import {buildRunMeta, writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
 
 const HANDOFF_FIELDS: (keyof Handoff)[] = [
   "catalog_id",
@@ -309,18 +309,7 @@ const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath}
     } catch {
       // non-fatal: keep "inherit"
     }
-    const meta: RunMeta = {
-      run_id: runId,
-      scenario: scenario.id,
-      skill_bundle_version: scenario.skillBundle.version,
-      skill_bundle_mode: scenario.skillBundle.mode,
-      model_version: scenario.model,
-      harness,
-      reasoning_effort: scenario.reasoningEffort,
-      started_at: startedAt,
-      wall_time_ms: wallTimeMs,
-      funnel_tools_present: funnelToolsPresent,
-    }
+    const meta: RunMeta = buildRunMeta(runId, scenario, harness, startedAt, wallTimeMs, funnelToolsPresent)
 
     const summary: SummaryLine = {
       summary: true,

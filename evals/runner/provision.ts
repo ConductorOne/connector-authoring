@@ -1,6 +1,7 @@
 // provision.ts — eval env provisioning + teardown (CXF-216 PR 1).
 import {createEnv, stopEnv, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
+import {ReadinessError} from "./readiness.ts"
 import {runTenantSetup} from "./tenant-setup.ts"
 
 // Locked D14: the omp reasoning-effort pin is an ENV-level field on
@@ -37,6 +38,34 @@ export async function teardownEnv(envId: string, opts: CallOpts = {}): Promise<v
   }
 }
 
+// Injectable I/O surface so the readiness-gating decision is unit-testable.
+export interface ProvisionDeps {
+  runTenantSetup: (envId: string, runId: string, opts?: CallOpts) => Promise<void>
+}
+
+const defaultDeps: ProvisionDeps = {runTenantSetup}
+
+// D21 (ratified round-2 amendment): the manage-ff step runs ONLY when the
+// readiness gate fails — a healthy env (flag already effective) skips the
+// setup task entirely, so the setup's failure mode and wall-clock bound
+// never touch the clean path. A non-ReadinessError (transient gateway
+// failure) propagates without triggering the setup.
+export async function provisionWithReadiness(
+  envId: string,
+  runId: string,
+  readiness: (envId: string) => Promise<void>,
+  opts: CallOpts = {},
+  deps: ProvisionDeps = defaultDeps,
+): Promise<void> {
+  try {
+    await readiness(envId)
+  } catch (err) {
+    if (!(err instanceof ReadinessError)) throw err
+    await deps.runTenantSetup(envId, runId, opts)
+    await readiness(envId)
+  }
+}
+
 // Provision a fresh env and run the readiness gate; on readiness failure
 // tear down and retry with a fresh env (max `attempts` total).
 export async function retryProvision(
@@ -45,6 +74,7 @@ export async function retryProvision(
   readiness: (envId: string) => Promise<void>,
   attempts = 3,
   opts: CallOpts = {},
+  deps: ProvisionDeps = defaultDeps,
 ): Promise<{envId: string}> {
   let lastErr: unknown
   for (let i = 0; i < attempts; i++) {
@@ -52,10 +82,7 @@ export async function retryProvision(
     try {
       const provisioned = await provisionEnv(scenario, runId, opts)
       envId = provisioned.envId
-      // D21: provisioning-time manage-ff step (between create_env and the
-      // readiness probe) so the authoring tools surface on the eval tenant.
-      await runTenantSetup(envId, runId, opts)
-      await readiness(envId)
+      await provisionWithReadiness(envId, runId, readiness, opts, deps)
       return {envId}
     } catch (err) {
       lastErr = err

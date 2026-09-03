@@ -241,3 +241,35 @@ test("(h) mismatched reasoning_effort across records exits 1", async () => {
     rmSync(dir, {recursive: true, force: true})
   }
 })
+
+test("(i) unknown skill_bundle_mode exits 1", async () => {
+  const dir = tmpDir()
+  try {
+    writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "bogus-mode"))
+    const {code, stderr} = await runBaseline(dir)
+    assert.equal(code, 1)
+    assert.ok(stderr.includes("skill_bundle_mode"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("(j) duplicate stage row exits 1", async () => {
+  const dir = tmpDir()
+  try {
+    const lines = [metaLine("evals-tier1-directory-20260902-120000-000", "none")]
+    for (let i = 0; i < 12; i++) {
+      lines.push(stageRow(`S${i}`, true, true))
+    }
+    lines.push(stageRow("S0", true, true)) // duplicate S0
+    lines.push(skippedRow("S11b"))
+    lines.push(skippedRow("S11c"))
+    lines.push(summaryLine(1.0))
+    writeFileSync(join(dir, "a.jsonl"), lines.join("\n") + "\n")
+    const {code, stderr} = await runBaseline(dir)
+    assert.equal(code, 1)
+    assert.ok(stderr.includes("duplicate stage row S0"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})

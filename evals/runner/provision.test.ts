@@ -1,9 +1,13 @@
 // provision.test.ts — unit smoke for the env provisioning args builder
-// (locked D14). The omp reasoning-effort pin is an ENV-level field on
-// squire.create_env; provisionEnvArgs must carry the scenario's pin.
+// (locked D14) and the readiness-gated tenant-setup wiring (D21, ratified
+// round-2 amendment). The omp reasoning-effort pin is an ENV-level field on
+// squire.create_env; provisionEnvArgs must carry the scenario's pin. The
+// manage-ff step must run ONLY on a ReadinessError, never on the clean path
+// or on transient non-readiness failures.
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {provisionEnvArgs} from "./provision.ts"
+import {provisionEnvArgs, provisionWithReadiness, type ProvisionDeps} from "./provision.ts"
+import {ReadinessError} from "./readiness.ts"
 import type {Scenario} from "./scenario.ts"
 
 const SCENARIO: Scenario = {
@@ -45,4 +49,69 @@ test("provisionEnvArgs carries the scenario reasoning-effort pin to createEnv", 
 test("provisionEnvArgs reflects a low reasoning-effort scenario", () => {
   const args = provisionEnvArgs({...SCENARIO, reasoningEffort: "low"}, "r")
   assert.equal(args.omp_reasoning_effort, "low")
+})
+
+// --- readiness-gated tenant-setup wiring ---
+
+function trackingDeps(): {deps: ProvisionDeps; setupCalls: string[]} {
+  const setupCalls: string[] = []
+  return {
+    setupCalls,
+    deps: {
+      runTenantSetup: async (envId: string, runId: string) => {
+        setupCalls.push(`${envId}:${runId}`)
+      },
+    },
+  }
+}
+
+test("provisionWithReadiness skips the setup when readiness passes (clean path)", async () => {
+  const {deps, setupCalls} = trackingDeps()
+  await provisionWithReadiness("env-1", "r", async () => {}, {}, deps)
+  assert.deepEqual(setupCalls, [])
+})
+
+test("provisionWithReadiness runs the setup on a ReadinessError then re-probes", async () => {
+  const {deps, setupCalls} = trackingDeps()
+  let probes = 0
+  await provisionWithReadiness(
+    "env-1",
+    "r",
+    async () => {
+      probes++
+      if (probes === 1) throw new ReadinessError("env env-1 missing readiness tools: c1_connector_authoring_get_authoring_guide")
+    },
+    {},
+    deps,
+  )
+  assert.deepEqual(setupCalls, ["env-1:r"])
+  assert.equal(probes, 2)
+})
+
+test("provisionWithReadiness propagates a non-ReadinessError without running the setup", async () => {
+  const {deps, setupCalls} = trackingDeps()
+  await assert.rejects(
+    provisionWithReadiness("env-1", "r", async () => {
+      throw new Error("gateway blip")
+    }, {}, deps),
+    /gateway blip/,
+  )
+  assert.deepEqual(setupCalls, [])
+})
+
+test("provisionWithReadiness propagates a re-probe ReadinessError (halt path)", async () => {
+  const {deps, setupCalls} = trackingDeps()
+  await assert.rejects(
+    provisionWithReadiness(
+      "env-1",
+      "r",
+      async () => {
+        throw new ReadinessError("env env-1 missing readiness tools: c1_connector_authoring_get_authoring_guide")
+      },
+      {},
+      deps,
+    ),
+    /READINESS FAILURE/,
+  )
+  assert.deepEqual(setupCalls, ["env-1:r"])
 })
