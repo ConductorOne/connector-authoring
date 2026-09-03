@@ -10,7 +10,7 @@ the 23-tool tenant MCP surface:
 - `author-in-app-connector` — the S0–S11 funnel orchestrator (routing,
   handoff table, human-boundary hard stop).
 - `read-authoring-contract` — stage 0: guide read, SDK types, resume check.
-- `build-and-test` — stages 3–5, 9–10: upload dance, build, draft test.
+- `build-and-test` — stages 2–5, 9–10: upload dance, build, draft test.
 - `deploy-and-activate` — stages 6–8, 11: app, provision, configure, deploy,
   mint, handoff.
 

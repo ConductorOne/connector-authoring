@@ -12,12 +12,7 @@ the exact tenant MCP titles; the served guide abbreviates them.
 
 ## Checklist
 
-1. Pre-build gate: call `c1_connector_authoring_get_draft` and confirm
-   `required_source_files` - all four entries (connector.ts,
-   config-schema.json, runtime-schema.json, capabilities.json) true - BEFORE
-   building. GATE: all 4 true. STOP if any is false; fix the source set
-   first.
-2. Upload dance (out-of-band path): run `wc -c <file>` for each source file,
+1. Upload dance (out-of-band path): run `wc -c <file>` for each source file,
    then call `c1_connector_authoring_create_draft_source_upload` declaring
    every file the build needs (path + size_bytes), then PUT each file to its
    `upload_targets[path].url` sending `required_headers` verbatim, then call
@@ -26,6 +21,11 @@ the exact tenant MCP titles; the served guide abbreviates them.
    GATE: every PUT returns 200. STOP if any PUT is not 200 - bare URLs
    without the signed headers fail signature validation. Caps: total <=
    16 MiB, per file <= 12 MiB, <= 256 files.
+2. Pre-build gate: call `c1_connector_authoring_get_draft` and confirm
+   `required_source_files` - all four entries (connector.ts,
+   config-schema.json, runtime-schema.json, capabilities.json) true - BEFORE
+   building. GATE: all 4 true. STOP if any is false; fix the source set
+   first.
 3. Build: call `c1_connector_authoring_build_bundle`, capture `run_id`, then
    poll `c1_connector_authoring_get_run` with `run_id` until the build
    reaches a terminal state (poll with backoff, e.g. every 5-10s; if no

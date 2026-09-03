@@ -38,12 +38,13 @@ abbreviates them (e.g. `get_authoring_guide` for
    `c1_connector_authoring_list_authored_catalog_entries` and
    `c1_connector_authoring_list_drafts` are present, call them (list_drafts
    with the returned `catalog_id`). GATE: if an existing `catalog_id` +
-   `draft_id` is found, reuse it; call
-   `c1_connector_authoring_create_draft` only when none exists. Record every
-   returned ID. STOP if the listing calls error. If the tools are absent,
-   proceed - the served guide is the contract. In a fresh tenant the resume
-   check finds nothing, so `create_draft` is the next step; the reuse path
-   is for real resumed sessions only.
+   `draft_id` is found, reuse it and report it to the orchestrator; if none
+   exists, report "no existing draft - return to the orchestrator for S1"
+   (`create_draft` is orchestrator-owned). Record every returned ID. STOP
+   if the listing calls error. If the tools are absent, proceed - the served
+   guide is the contract. In a fresh tenant the resume check finds nothing,
+   so the orchestrator runs S1; the reuse path is for real resumed sessions
+   only.
 
 ## Exit criteria
 
