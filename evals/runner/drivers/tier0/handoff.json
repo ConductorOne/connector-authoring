@@ -1,0 +1,12 @@
+{
+  "catalog_id": "cat-1",
+  "draft_id": "draft-1",
+  "upload_id": "up-1",
+  "run_id": "run-1",
+  "revision_id": "rev-1",
+  "app_id": "app-1",
+  "connector_id": "conn-1",
+  "test_run_id": "test-1",
+  "deployment_instance_id": "dep-1",
+  "activation_url": "https://activate.example/1"
+}

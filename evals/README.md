@@ -2,19 +2,20 @@
 
 A scenario-driven eval runner that scores the in-app authoring funnel
 **deterministically** (no LLM judge for ~90% of stages), plus a deterministic
-fixture provider for the agent to sync against. This is CXF-216 PR 1: the
-measurement loop. A Tier-1 scenario runs end-to-end against a fresh c1-image
-Squire env and produces a scored JSONL record with the full S0–S11 stage
-funnel.
+fixture provider for the agent to sync against. The runner consumes
+`Provisioner`/`AgentDriver` interfaces; the public repo ships the Tier-0
+local/static driver, which runs a scenario end-to-end against the local
+fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
 | `evals/fixture/` | Deterministic Directory API fixture (zero-dependency `node:http`) |
-| `evals/runner/` | Runner + scorer (`run.ts` CLI, squire-tool client, stage gates) |
+| `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
+| `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (plumbing only this PR — no skills yet) |
+| `evals/skills-bundle/` | Skill-bundle mount point (plumbing only — no skills yet) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) |
 
 ## How to run
@@ -26,30 +27,26 @@ npm run eval:fixture
 # verify the fixture (all 16 assertions, port 18081; requires curl + jq)
 npm run eval:verify
 
-# run the committed unit smokes (scorer/parser/stages/record/scenario)
+# run the committed unit smokes (scorer/parser/stages/record/scenario/driver)
 npm run eval:test
 
-# run a scenario end-to-end (provisions a fresh c1-image env per run)
-npm run eval:run -- --scenario evals/scenarios/tier1-directory.json --ref <branch>
+# run a scenario end-to-end with the Tier-0 driver (no credentials, no
+# network beyond localhost — replays committed artifacts)
+npm run eval:run -- --scenario evals/scenarios/tier1-directory.json --driver tier0
 ```
 
 Runner CLI:
 
 ```
-node evals/runner/run.ts --scenario <path> --ref <git-ref>
-  [--task-id <id>] [--env <env-id>] [--keep-env] [--out <dir>] [--max-agent-minutes <n>]
+node evals/runner/run.ts --scenario <path> [--ref <git-ref>] [--driver <name>] [--out <dir>] [--max-agent-minutes <n>]
 ```
 
-- `--scenario`, `--ref` required. `--ref` is the git ref the eval env clones
-  and checks out (the branch/SHA under test — must be pushed to origin).
-- `--task-id` overrides `SQUIRE_TASK_ID` for task-scoped squire-tool calls.
-- `--env` skips provisioning and targets an existing env (readiness negative
-  test + debugging; never tears down an env it did not create, and never
-  retries readiness).
-- `--keep-env` skips teardown. `--out` overrides the results dir (default
-  `evals/results`). `--max-agent-minutes` bounds the agent-task wait (default
-  60); on timeout the runner parses the PARTIAL stream and scores unreached
-  stages as fail rows — a legitimate scored outcome, never a hung runner.
+- `--scenario` required. `--ref` optional and driver-interpreted (Tier-0
+  ignores it). `--driver` selects the driver (default `tier0`). `--out`
+  overrides the results dir (default `evals/results`). `--max-agent-minutes`
+  bounds the agent-run wait (default 60); on timeout the runner scores the
+  PARTIAL stream and unreached stages as fail rows — a legitimate scored
+  outcome, never a hung runner.
 
 ### Exit codes
 
@@ -57,27 +54,24 @@ node evals/runner/run.ts --scenario <path> --ref <git-ref>
 |---|---|
 | 0 | Record written — a scored outcome, even if the agent failed stages, timed out, or never wrote the handoff |
 | 2 | Readiness failure (distinct `READINESS FAILURE:` message; NO record written) |
-| 1 | Any other error (bad args, invalid scenario, model absent, collector failure) |
+| 1 | Any other error (bad args, invalid scenario, collector failure) |
 
 ## Readiness gate
 
-Before the agent task is created or any metric is collected: (a) env status
-`running`; (b) `squire.wait_for_services` settled; (c) a readiness probe task
-in the eval env confirms all five core authoring tools are present
-(`get_authoring_guide`, `create_draft`, `build_bundle`,
-`run_draft_test_sync`, `get_test_run_evidence`). Failure → teardown, abort,
-retry with a fresh env (max 2 retries); an unready run is NEVER scored. The
-run meta records `funnel_tools_present` (the full 14-tool funnel surface) so
-late-stage failures are explainable.
+The driver's `checkReadiness` proves the tenant surface is reachable; the
+runner then verifies the scenario's five readiness tools are present in the
+driver's declared tool surface. Failure → teardown, abort, retry with a fresh
+provision (max 2 retries); an unready run is NEVER scored. The run meta
+records `funnel_tools_present`.
 
 ## Handoff contract
 
 The agent must write `handoff.json` (all 10 fields: `catalog_id`, `draft_id`,
 `upload_id`, `run_id`, `revision_id`, `app_id`, `connector_id`,
-`test_run_id`, `deployment_instance_id`, `activation_url`) to the arena FS at
-`/current-tasks/evals/<run-id>/handoff.json` via `squire.fs.write`, then
-STOP. It never redeems the approval token, never polls
-`REVISION_STATUS_ACTIVE`, never calls `c1_connector_service_force_sync`
+`test_run_id`, `deployment_instance_id`, `activation_url`) to the run
+channel's `handoffPath` (`<out>/<run-id>/handoff.json` for Tier-0) via the
+driver's transport, then STOP. It never redeems the approval token, never
+polls `REVISION_STATUS_ACTIVE`, never calls `c1_connector_service_force_sync`
 (activation is human-only; `REVISION_STATUS_ACTIVE` and `SYNC_STATUS_DONE`
 are recorded as `skipped_human_boundary`).
 
@@ -93,14 +87,14 @@ are recorded as `skipped_human_boundary`).
 Example lines:
 
 ```json
-{"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"omp","reasoning_effort":"inherit","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
+{"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"n/a","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
 {"stage":"S0","gate":"guide read","pass":true,"first_pass":true,"attempts":1,"evidence":"transcript has 1 successful get_authoring_guide call(s)"}
 {"stage":"S11b","gate":"REVISION_STATUS_ACTIVE","pass":"skipped_human_boundary"}
 {"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
 ```
 
-`tokens_in`/`tokens_out` are `null` when the harness stream carries no usage
-events — never invented.
+`tokens_in`/`tokens_out` are `null` when the stream carries no usage events —
+never invented.
 
 ## Stage table (S0–S11)
 
@@ -147,7 +141,7 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   (tenant counts 0) — parity measured statically from source");
   `parity_evidence` always carries the static source-check evidence, so a
   `parity_verdict: "FAIL"` is diagnosable from the record alone. Full-sync
-  parity after activation is a later CXF-70 concern.
+  parity after activation is out of scope for the public repo.
 - **`hygiene_verdict`** PASS iff: all 4 required source files present;
   `config-schema.json` and `runtime-schema.json` declare the same field names
   (dual-schema parity); `api-token` is `is_secret`/`isSecret` in both
@@ -188,12 +182,12 @@ consumption rule is the reference.
 **Halt-path status.** The E2E runs that would produce the six records are
 blocked (see E2E status below), so no scored runs exist and no
 `baseline.json` is committed. The generator is covered by unit smokes
-(`evals/runner/baseline.test.ts`); the reference will be published once the
-tool surface is available.
+(`evals/runner/baseline.test.ts`); the reference will be published once a
+real-tenant driver and the tool surface are available.
 
-## Non-goals (this PR)
+## Non-goals
 
-- The skills themselves (orchestrator/stage/diagnose) — later CXF-70 PRs.
+- The skills themselves (orchestrator/stage/diagnose) — later PRs.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.
@@ -201,6 +195,8 @@ tool surface is available.
   E2E tool surface (halt path); no `baseline.json` is committed in this PR.
 - The `/v2` fixture surface (bearer + link pagination) is fixture capability
   asserted by `verify.sh` only; the Tier-1 agent uses `/v1` (basic + offset).
+- Tier-1+ end-to-end runs require a private driver (credentials + a real
+  agent transport); that driver is out of scope for the public repo.
 
 ## Implementation notes
 
@@ -212,19 +208,19 @@ tool surface is available.
   leak into the repo-wide type environment. `npm run typecheck` runs both
   configs; the CI workflow is unmodified.
 - **E2E status.** The Tier-1 end-to-end run (done-definition 4) is BLOCKED.
-  Fresh c1-image eval envs in this region expose no `c1_connector_authoring_*`
-  tools, so the readiness gate aborts exit 2 and an unready run is never
-  scored. The tenant-setup unblock (`evals/runner/tenant-setup.ts`) was
-  implemented and verified working — the eval tenant is bootstrapped and
-  `CONNECTOR_AUTHORING` is effective — but the authoring tools remain absent
-  from the eval env's MCP surface: the `c1.api.*` surface is not mounted in
-  this region's c1 envs at all. The batch halted per done-definition 7 with
-  evidence at `/current-tasks/src-tu2rs/results/BLOCKER.md`; the runner,
-  scorer, and stage gates are covered by the committed unit smokes
-  (`npm run eval:test`), and the E2E must run once the tool surface is
-  available.
-- **Score-input boundary.** `score-input.json` is written by an LLM collector
-  task that transcribes tenant tool responses; the scorer type-validates but
+  The public repo ships only the Tier-0 local driver (canned transcript); a
+  Tier-1+ run needs a private driver with real tenant credentials and an
+  agent transport, which is out of scope for the public repo. The CXF-217
+  preflight (on the Squire-based harness) also established a structural
+  blocker on the c1 side: fresh c1-image eval envs expose no
+  `c1_connector_authoring_*` tools even with `CONNECTOR_AUTHORING` effective
+  (the `c1.api.*` MCP surface is not mounted in this region's envs) —
+  evidence at `/current-tasks/src-tu2rs/results/BLOCKER.md`. The batch halted
+  per done-definition 7; the runner, scorer, and stage gates are covered by
+  the committed unit smokes (`npm run eval:test`), and the E2E must run once
+  a real-tenant driver and the tool surface are available.
+- **Score-input boundary.** `score-input.json` is written by a collector
+  agent that transcribes tenant tool responses; the scorer type-validates but
   cannot verify truthfulness. The collector reads the agent-written handoff
-  from the arena FS itself (values are never interpolated into its prompt), so
-  an untrusted handoff cannot inject instructions into the collector.
+  from the run channel itself (values are never interpolated into its prompt),
+  so an untrusted handoff cannot inject instructions into the collector.

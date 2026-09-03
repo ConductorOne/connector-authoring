@@ -25,10 +25,9 @@ test("loadScenario loads the real tier1-directory.json", () => {
   assert.equal(s.expected.memberships, 23)
   assert.equal(s.skillBundle.mode, "none")
   assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4-Flash-0731")
-  assert.equal(s.reasoningEffort, "high")
+assert.equal(s.reasoningEffort, "high")
   assert.equal(s.requiredSourceFiles.length, 4)
   assert.equal(s.readinessTools.length, 5)
-  assert.ok(s.handoffPath.includes("<run-id>"))
 })
 
 test("loadScenario loads the real tier1-directory-guide-only.json", () => {

@@ -34,7 +34,6 @@ const SCENARIO: Scenario = {
     "c1_connector_authoring_run_draft_test_sync",
     "c1_connector_authoring_get_test_run_evidence",
   ],
-  handoffPath: "/current-tasks/evals/<run-id>/handoff.json",
 }
 
 const META: RunMeta = {
@@ -43,7 +42,7 @@ const META: RunMeta = {
   skill_bundle_version: "0.0.0",
   skill_bundle_mode: "none",
   model_version: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
-  harness: "inherit",
+  harness: "tier0",
   reasoning_effort: "high",
   started_at: "2026-09-02T12:00:00.000Z",
   wall_time_ms: 123456,
