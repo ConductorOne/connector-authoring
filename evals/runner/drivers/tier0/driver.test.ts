@@ -65,7 +65,7 @@ test("tier0 agent driver replays a canned run that scores a schema-valid 16-line
       handoffInstructions: "",
       completionInstructions: "",
     }
-const result = await tier0.agentDriver.runAgent({kind: "agent", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m", ref: ""})
+    const result = await tier0.agentDriver.runAgent({kind: "agent", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m", ref: ""})
     assert.equal(result.timedOut, false)
     assert.equal(result.transcript.stageAttempts["S0"], 1)
     assert.equal(result.transcript.stageAttempts["S11"], 1)

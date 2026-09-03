@@ -38,7 +38,7 @@ export interface Scenario {
   expected: ExpectedConfig
   skillBundle: SkillBundleConfig
   model: string
-requiredSourceFiles: string[]
+  requiredSourceFiles: string[]
   readinessTools: string[]
 }
 

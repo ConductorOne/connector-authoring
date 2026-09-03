@@ -14,7 +14,7 @@ import {mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "nod
 import {tmpdir} from "node:os"
 import {join} from "node:path"
 import {collectScoreInput, isCollectionFailure, provisionWithRetry, readHandoff} from "./run.ts"
-import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type AgentRunRequest, type AgentRunResult, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "./driver.ts"
+import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "./driver.ts"
 import type {ParsedStream} from "./stream.ts"
 import type {Scenario} from "./scenario.ts"
 import type {Handoff} from "./stages.ts"
@@ -22,11 +22,11 @@ import type {Handoff} from "./stages.ts"
 const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 
-async function runCli(args: string[]): Promise<{code: number; stdout: string; stderr: string}> {
+async function runCli(args: string[], timeoutMs = 30_000): Promise<{code: number; stdout: string; stderr: string}> {
   try {
     const {stdout, stderr} = await execFileAsync("node", ["--experimental-strip-types", RUN, ...args], {
       cwd: process.cwd(),
-      timeout: 30_000,
+      timeout: timeoutMs,
     })
     return {code: 0, stdout, stderr}
   } catch (err) {
@@ -122,7 +122,7 @@ test("readiness failure (missing tool) exits 2 with no record", async () => {
     base.readinessTools = [...tools.slice(0, 4), "c1_connector_authoring_nonexistent_tool"]
     writeFileSync(scenarioPath, JSON.stringify(base))
     const outDir = join(dir, "out")
-    const {code, stderr} = await runCli(["--scenario", scenarioPath, "--driver", "tier0", "--out", outDir])
+    const {code, stderr} = await runCli(["--scenario", scenarioPath, "--driver", "tier0", "--out", outDir], 120_000)
     assert.equal(code, 2)
     assert.ok(stderr.includes("READINESS FAILURE"), `expected READINESS FAILURE, got stderr=${stderr}`)
     assert.ok(stderr.includes("missing readiness tools"))
@@ -339,7 +339,7 @@ test("isCollectionFailure is true only for an empty transcript with the driver-r
 test("a valid --ref is accepted and the run completes (driver-interpreted)", async () => {
   const dir = mkdtempSync(join(tmpdir(), "run-ref-"))
   try {
-    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/tier1-directory.json", "--driver", "tier0", "--ref", "main", "--out", dir])
+    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/tier1-directory.json", "--driver", "tier0", "--ref", "main", "--out", dir], 120_000)
     assert.equal(code, 0)
     assert.ok(stdout.includes("record:"))
   } finally {

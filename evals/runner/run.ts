@@ -3,7 +3,7 @@
 // Exit codes: 0 = record written (a scored outcome, even if the agent failed
 // stages, timed out, or never wrote the handoff); 2 = readiness failure
 // (distinct; NO record written); 1 = any other error.
-import {mkdirSync, readFileSync, writeFileSync} from "node:fs"
+import {mkdirSync, readFileSync, realpathSync, writeFileSync} from "node:fs"
 import {join, resolve} from "node:path"
 import {argv, exit, stderr, stdout} from "node:process"
 import {pathToFileURL} from "node:url"
@@ -85,8 +85,8 @@ function parseArgs(args: string[]): CliArgs {
   }
   // --ref is driver-interpreted; restrict to a safe charset (branch/SHA/tag)
   // to prevent shell injection when a driver interpolates it.
-  if (out.ref !== "" && !/^[A-Za-z0-9._/-]+$/.test(out.ref)) {
-    stderr.write(`ERROR: invalid --ref: ${out.ref} (must match [A-Za-z0-9._/-]+)\n`)
+  if (out.ref !== "" && !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(out.ref)) {
+    stderr.write(`ERROR: invalid --ref: ${out.ref} (must start with a letter or digit, then [A-Za-z0-9._/-]*)\n`)
     exit(1)
   }
   return out
@@ -111,7 +111,8 @@ function isPlaceholder(v: string): boolean {
 
 export async function readHandoff(handoffPath: string): Promise<Handoff | null> {
   // Bounded retry: a transient read failure must not be misread as a stalled
-  // agent (locked L18). A clean absent/empty result is a genuine stall.
+  // agent (locked L18). A written-but-empty file is a genuine stall; a
+  // missing file is retried (a private driver's transport may lag the write).
   let lastErr: unknown
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -124,7 +125,10 @@ export async function readHandoff(handoffPath: string): Promise<Handoff | null> 
         // A malformed handoff is a genuine stall (the agent wrote garbage) —
         // return null immediately. Never surface the parse error: JSON.parse
         // messages embed a snippet of the offending content, which can carry
-        // agent-written values.
+        // agent-written values. The warning is content-free so an operator
+        // can still distinguish "agent wrote garbage" from "agent never
+        // wrote the handoff".
+        stderr.write(`WARNING: handoff at ${handoffPath} is not valid JSON — scoring as stalled\n`)
         return null
       }
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
@@ -165,10 +169,10 @@ function buildChannel(out: string, runId: string): RunChannel {
 }
 
   // Provision + readiness retry loop: 3 attempts, teardown between. The
-// generic tools-present gate (D13) lives here: the scenario's readiness
-// tools must all be in the driver's declared surface, and the record's
-// funnel_tools_present is derived from that surface against FUNNEL_TOOLS —
-// never from a driver assertion.
+  // generic tools-present gate (D13) lives here: the scenario's readiness
+  // tools must all be in the driver's declared surface, and the record's
+  // funnel_tools_present is derived from that surface against FUNNEL_TOOLS —
+  // never from a driver assertion.
 export async function provisionWithRetry(
   driver: Driver,
   scenario: Scenario,
@@ -230,12 +234,16 @@ export async function collectScoreInput(
         model: scenario.model,
         ref,
       })
+      // Read the file OUTSIDE the redacting try: an ENOENT (the collector
+      // never wrote score-input.json) is an infrastructure failure whose
+      // message carries only a path — surface it. Only JSON.parse errors are
+      // redacted: their messages embed a snippet of the offending content,
+      // which can carry connector secrets.
+      const rawText = readFileSync(channel.scoreInputPath, "utf8")
       let raw: unknown
       try {
-        raw = JSON.parse(readFileSync(channel.scoreInputPath, "utf8"))
+        raw = JSON.parse(rawText)
       } catch {
-        // Never surface the parse error: JSON.parse messages embed a snippet
-        // of the offending content, which can carry connector secrets.
         throw new Error("collector produced an unreadable score-input")
       }
       const normalized = normalizeScoreInput(raw)
@@ -276,7 +284,7 @@ export function isCollectionFailure(result: AgentRunResult): boolean {
 async function main(): Promise<number> {
   const cli = parseArgs(argv.slice(2))
   const scenario = loadScenario(cli.scenario)
-  const driver = DRIVERS[cli.driver]
+  const driver = Object.hasOwn(DRIVERS, cli.driver) ? DRIVERS[cli.driver] : undefined
   if (driver === undefined) {
     stderr.write(`ERROR: unknown driver: ${cli.driver} (available: ${Object.keys(DRIVERS).join(", ")})\n`)
     exit(1)
@@ -308,7 +316,7 @@ async function main(): Promise<number> {
     if (timedOut) {
       stderr.write(`WARNING: agent run did not complete within ${cli.maxAgentMinutes} min — scoring the partial stream\n`)
     }
-// A driver-reported collection failure with an empty stream is an
+    // A driver-reported collection failure with an empty stream is an
     // infrastructure outage, not an agent outcome — fail loudly with no
     // record rather than scoring an all-fail funnel. A genuine zero-tool-call
     // stall (no collectionFailed signal) stays a scored exit-0 outcome.
@@ -336,7 +344,7 @@ async function main(): Promise<number> {
     // recorded as an agent outcome. Rethrow -> exit 1, no record.
     writeFileSync(sanitizedHandoffPath, JSON.stringify(sanitizedHandoff))
 
-  // Collect. On the stalled path (no handoff at all), a collector failure
+    // Collect. On the stalled path (no handoff at all), a collector failure
     // must still produce a scored record (exit 0) — the plan's exit-0
     // contract for stalled agents; on a real run, collector failure is an
     // infrastructure error (exit 1, documented). The bounded retry + the
@@ -403,7 +411,7 @@ async function main(): Promise<number> {
 // Only run the CLI when this file is the entry point — importing run.ts from
 // tests must not execute main() (the registry stays private; the exported
 // helpers are exercised directly).
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   main()
     .then((code) => exit(code))
     .catch((err: unknown) => {

@@ -16,7 +16,9 @@ through its registry (`--driver <name>`, default `tier0`).
   the tenant and returns an `AgentRunResult` carrying the parsed transcript,
   the timeout flag, wall time, and — when the driver knows the stream
   collection failed — `collectionFailed: true` (the runner then refuses to
-  score an empty transcript as an all-fail outcome). `req.ref` is the git ref
+  score an empty transcript as an all-fail outcome). The driver MUST honor
+  `req.timeoutMs` and return `timedOut: true` when the run exceeds it (the
+  runner scores the partial stream on timeout). `req.ref` is the git ref
   under test, driver-interpreted.
 - **RunChannel** — the runner-owned local file contract: `runDir`,
   `handoffPath`, `scoreInputPath`, `transcriptPath`, plus the driver-supplied
