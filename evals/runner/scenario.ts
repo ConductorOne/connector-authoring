@@ -138,6 +138,17 @@ const id = requireString(data, "id", "scenario")
     mode: mode as "none" | "guide-only" | "full",
     version: requireString(data.skillBundle, "version", "skillBundle"),
   }
+  if (skillBundle.mode === "full") {
+    // Fail fast when the scenario's bundle version drifts from the mounted
+    // bundle: run records must never be stamped with a version that does not
+    // match the skills actually mounted (bundle.json is the single source).
+    const bundle = JSON.parse(readFileSync("evals/skills-bundle/bundle.json", "utf8")) as {version?: unknown}
+    if (typeof bundle.version !== "string" || bundle.version !== skillBundle.version) {
+      throw new Error(
+        `scenario skillBundle.version ${skillBundle.version} does not match evals/skills-bundle/bundle.json version ${bundle.version}`,
+      )
+    }
+  }
 
   const reasoningEffort = data.reasoningEffort
   if (reasoningEffort !== "high" && reasoningEffort !== "medium" && reasoningEffort !== "low") {
