@@ -4,10 +4,11 @@
 // stages, timed out, or never wrote the handoff); 2 = readiness failure
 // (distinct; NO record written); 1 = any other error.
 import {mkdirSync, readFileSync, writeFileSync} from "node:fs"
-import {join} from "node:path"
+import {join, resolve} from "node:path"
 import {argv, exit, stderr, stdout} from "node:process"
+import {pathToFileURL} from "node:url"
 import {loadScenario, type Scenario} from "./scenario.ts"
-import {ReadinessError, type Driver, type RunChannel, type TenantHandle} from "./driver.ts"
+import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type Driver, type RunChannel, type TenantHandle} from "./driver.ts"
 import {buildPrompt} from "./agent.ts"
 import {buildCollectorPrompt, normalizeScoreInput} from "./collect.ts"
 import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
@@ -125,7 +126,9 @@ async function readHandoff(handoffPath: string): Promise<Handoff | null> {
       }
       return handoff
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null
+      // ENOENT is retried too: a private driver's transport may lag the
+      // handoff write (the old read retried every failure). Only a
+      // written-but-empty file is an immediate stall.
       lastErr = err
       if (attempt < 3) {
         await new Promise<void>((resolve) => setTimeout(resolve, 2000))
@@ -152,34 +155,27 @@ function buildChannel(out: string, runId: string): RunChannel {
   }
 }
 
-async function main(): Promise<number> {
-  const cli = parseArgs(argv.slice(2))
-  const scenario = loadScenario(cli.scenario)
-  const driver = DRIVERS[cli.driver]
-  if (driver === undefined) {
-    stderr.write(`ERROR: unknown driver: ${cli.driver} (available: tier0)\n`)
-    exit(1)
-  }
-
-  const runId = runIdFor(scenario, new Date())
-  const startedAt = new Date().toISOString()
-  const channel = buildChannel(cli.out, runId)
-  const {handoffInstructions, completionInstructions} = driver.channelInstructions(channel)
-  channel.handoffInstructions = handoffInstructions
-  channel.completionInstructions = completionInstructions
-  mkdirSync(channel.runDir, {recursive: true})
-
-  // Provision + readiness retry loop: 3 attempts, teardown between.
+  // Provision + readiness retry loop: 3 attempts, teardown between. The
+// generic tools-present gate (D13) lives here: the scenario's readiness
+// tools must all be in the driver's declared surface, and the record's
+// funnel_tools_present is derived from that surface against FUNNEL_TOOLS —
+// never from a driver assertion.
+export async function provisionWithRetry(
+  driver: Driver,
+  scenario: Scenario,
+  runId: string,
+  ref: string,
+): Promise<{handle: TenantHandle; funnelToolsPresent: boolean}> {
   let handle: TenantHandle | null = null
-  let funnelToolsPresent = false
   for (let i = 0; i < 3; i++) {
     try {
-      handle = await driver.provisioner.provision({scenario, runId})
-      const ready = await driver.provisioner.checkReadiness(handle)
-      const missing = scenario.readinessTools.filter((t) => !handle!.toolSurface.includes(t))
+      const h = await driver.provisioner.provision({scenario, runId, ref})
+      handle = h
+      await driver.provisioner.checkReadiness(h)
+      const missing = scenario.readinessTools.filter((t) => !h.toolSurface.includes(t))
       if (missing.length > 0) throw new ReadinessError("missing readiness tools: " + missing.join(", "))
-      funnelToolsPresent = ready.funnelToolsPresent
-      break
+      const funnelToolsPresent = FUNNEL_TOOLS.every((t) => h.toolSurface.includes(t))
+      return {handle: h, funnelToolsPresent}
     } catch (err) {
       if (handle) {
         try {
@@ -193,20 +189,105 @@ async function main(): Promise<number> {
       console.error(`attempt ${i + 1}/3 failed: ${(err as Error).message}`)
     }
   }
+  throw new Error("unreachable")
+}
+
+// Collect the score-input through the driver, with a bounded 2-attempt retry
+// (a transient collector failure must not discard a full run). On the
+// stalled path (handoff COMPLETELY absent) a final collector failure still
+// produces a null score-input record (exit 0); a partial handoff + collector
+// failure is a real infrastructure failure and rethrows (exit 1, no record).
+export async function collectScoreInput(
+  driver: AgentDriver,
+  scenario: Scenario,
+  runId: string,
+  channel: RunChannel,
+  handoffPath: string,
+  handoff: Handoff,
+  toolSurface: string[],
+  handoffOk: boolean,
+  ref: string,
+): Promise<{scoreInput: ScoreInput; notes: string[]}> {
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await driver.runAgent({
+        kind: "collector",
+        prompt: buildCollectorPrompt(scenario, runId, handoffPath, channel.scoreInputPath, handoff, toolSurface),
+        toolSurface,
+        channel,
+        timeoutMs: COLLECTOR_TIMEOUT_MS,
+        model: scenario.model,
+        ref,
+      })
+      const raw = JSON.parse(readFileSync(channel.scoreInputPath, "utf8")) as unknown
+      const normalized = normalizeScoreInput(raw)
+      return {scoreInput: normalized.scoreInput, notes: normalized.notes}
+    } catch (err) {
+      lastErr = err
+      if (attempt < 2) {
+        console.warn(`WARNING: collector attempt ${attempt}/2 failed (${(err as Error).message}) — retrying`)
+        await new Promise<void>((resolve) => setTimeout(resolve, 5000))
+      }
+    }
+  }
+  if (handoffOk || !handoffEmpty(handoff)) throw lastErr
+  stderr.write(`WARNING: collector failed on the stalled path (${(lastErr as Error).message}) — writing a null score-input record\n`)
+  return {
+    scoreInput: {
+      run_id: runId,
+      draft: {required_source_files: {}, source_files: [], config_schema: {fields: []}, runtime_schema: {fields: []}},
+      connector_config: {},
+      evidence: {},
+      build_run: {},
+      tenant_counts: {users: null, groups: null, memberships: null},
+      resource_ids: {users: [], groups: []},
+    },
+    notes: [],
+  }
+}
+
+async function main(): Promise<number> {
+  const cli = parseArgs(argv.slice(2))
+  const scenario = loadScenario(cli.scenario)
+  const driver = DRIVERS[cli.driver]
+  if (driver === undefined) {
+    stderr.write(`ERROR: unknown driver: ${cli.driver} (available: ${Object.keys(DRIVERS).join(", ")})\n`)
+    exit(1)
+  }
+
+  const runId = runIdFor(scenario, new Date())
+  const startedAt = new Date().toISOString()
+  const channel = buildChannel(cli.out, runId)
+  const {handoffInstructions, completionInstructions} = driver.channelInstructions(channel)
+  channel.handoffInstructions = handoffInstructions
+  channel.completionInstructions = completionInstructions
+  mkdirSync(channel.runDir, {recursive: true})
+
+  // Provision + readiness retry loop: 3 attempts, teardown between.
+  const {handle, funnelToolsPresent} = await provisionWithRetry(driver, scenario, runId, cli.ref)
 
   try {
-    const prompt = buildPrompt(scenario, runId, handle!.baseUrl, channel)
+    const prompt = buildPrompt(scenario, runId, handle.baseUrl, channel)
     const result = await driver.agentDriver.runAgent({
       kind: "agent",
       prompt,
-      toolSurface: handle!.toolSurface,
+      toolSurface: handle.toolSurface,
       channel,
       timeoutMs: cli.maxAgentMinutes * 60 * 1000,
       model: scenario.model,
+      ref: cli.ref,
     })
     const {transcript, timedOut, wallTimeMs} = result
     if (timedOut) {
       stderr.write(`WARNING: agent run did not complete within ${cli.maxAgentMinutes} min — scoring the partial stream\n`)
+    }
+    // An empty transcript from a driver that did NOT time out is a stream
+    // collection failure, not an agent outcome — fail loudly with no record
+    // rather than scoring an all-fail funnel (a genuinely stalled agent still
+    // produces tool calls; an empty stream means the driver lost it).
+    if (transcript.toolCalls.length === 0 && !timedOut) {
+      throw new Error("agent driver returned an empty transcript without timing out — stream collection failure, no record written")
     }
 
     // Handoff: missing/incomplete -> L18 stalled-agent path.
@@ -229,41 +310,14 @@ async function main(): Promise<number> {
     // recorded as an agent outcome. Rethrow -> exit 1, no record.
     writeFileSync(sanitizedHandoffPath, JSON.stringify(sanitizedHandoff))
 
-    // Collect. On the stalled path (no handoff at all), a collector failure
+  // Collect. On the stalled path (no handoff at all), a collector failure
     // must still produce a scored record (exit 0) — the plan's exit-0
     // contract for stalled agents; on a real run, collector failure is an
-    // infrastructure error (exit 1, documented).
-    let scoreInput: ScoreInput
-    let collectNotes: string[] = []
-    try {
-      await driver.agentDriver.runAgent({
-        kind: "collector",
-        prompt: buildCollectorPrompt(scenario, runId, sanitizedHandoffPath, channel.scoreInputPath, handoff, handle!.toolSurface),
-        toolSurface: handle!.toolSurface,
-        channel,
-        timeoutMs: COLLECTOR_TIMEOUT_MS,
-        model: scenario.model,
-      })
-      const raw = JSON.parse(readFileSync(channel.scoreInputPath, "utf8")) as unknown
-      const normalized = normalizeScoreInput(raw)
-      scoreInput = normalized.scoreInput
-      collectNotes = normalized.notes
-    } catch (err) {
-      // The exit-0 contract for stalled agents applies only when the handoff
-      // is COMPLETELY absent; a partial handoff + collector failure is a real
-      // infrastructure failure and must not be masked by a null record.
-      if (handoffOk || !handoffEmpty(handoff)) throw err
-      stderr.write(`WARNING: collector failed on the stalled path (${(err as Error).message}) — writing a null score-input record\n`)
-      scoreInput = {
-        run_id: runId,
-        draft: {required_source_files: {}, source_files: [], config_schema: {fields: []}, runtime_schema: {fields: []}},
-        connector_config: {},
-        evidence: {},
-        build_run: {},
-        tenant_counts: {users: null, groups: null, memberships: null},
-        resource_ids: {users: [], groups: []},
-      }
-    }
+    // infrastructure error (exit 1, documented). The bounded retry + the
+    // stalled-path fallback live in collectScoreInput.
+    const collected = await collectScoreInput(driver.agentDriver, scenario, runId, channel, sanitizedHandoffPath, handoff, handle.toolSurface, handoffOk, cli.ref)
+    const scoreInput = collected.scoreInput
+    const collectNotes = collected.notes
 
     const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath: channel.handoffPath}
     const scored = scoreRun(ctx)
@@ -320,13 +374,18 @@ async function main(): Promise<number> {
   }
 }
 
-main()
-  .then((code) => exit(code))
-  .catch((err: unknown) => {
-    if (err instanceof ReadinessError) {
-      stderr.write(`${err.message}\n`)
-      exit(2)
-    }
-    stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`)
-    exit(1)
-  })
+// Only run the CLI when this file is the entry point — importing run.ts from
+// tests must not execute main() (the registry stays private; the exported
+// helpers are exercised directly).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main()
+    .then((code) => exit(code))
+    .catch((err: unknown) => {
+      if (err instanceof ReadinessError) {
+        stderr.write(`${err.message}\n`)
+        exit(2)
+      }
+      stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`)
+      exit(1)
+    })
+}

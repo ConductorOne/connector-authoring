@@ -46,7 +46,10 @@ The driver must:
 The driver's `checkReadiness` performs ONLY the concrete tenant-reachability
 check. The runner then verifies the scenario's `readinessTools` are all
 present in the handle's declared `toolSurface`; a missing tool is a
-`ReadinessError` (exit 2, no record).
+`ReadinessError` (exit 2, no record). The record's `funnel_tools_present` is
+derived by the runner from the declared surface against the full funnel list
+(`FUNNEL_TOOLS` in `driver.ts`) — never from a driver assertion, so a driver
+that declares a partial surface is recorded honestly.
 
 ## Recovering the original implementation
 

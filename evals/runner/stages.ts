@@ -99,15 +99,6 @@ function bashCommand(call: ToolCallRecord): string | null {
   return null
 }
 
-function fsWritePath(call: ToolCallRecord): string | null {
-  if (call.name !== "driver.write_file") return null
-  if (typeof call.args === "object" && call.args !== null) {
-    const path = (call.args as Record<string, unknown>).path
-    return typeof path === "string" ? path : null
-  }
-  return null
-}
-
 // A call is successful only when a tool_result was captured AND it carried no
 // error — a call with no observed result (dropped stream event) must not
 // count as success (silent false-green on S0/S2).

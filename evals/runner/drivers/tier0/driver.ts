@@ -5,7 +5,7 @@ import {createServer, type AddressInfo} from "node:net"
 import {join} from "node:path"
 import {cwd} from "node:process"
 import {fileURLToPath} from "node:url"
-import {ReadinessError, type AgentDriver, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "../../driver.ts"
+import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "../../driver.ts"
 import {parseStream, type ParsedStream} from "../../stream.ts"
 
 const FIXTURE_SCRIPT = fileURLToPath(new URL("../../../fixture/server.ts", import.meta.url))
@@ -15,22 +15,9 @@ const readCanned = (name: string) => readFileSync(join(CANNED_DIR, name), "utf8"
 // The full 14-tool funnel PLUS the two remaining core readiness tools
 // (get_authoring_guide, create_draft) — 16 unique names; the scenario's five
 // readinessTools are a subset, so the runner's generic tools-present gate
-// passes and funnelToolsPresent is true.
+// passes and funnel_tools_present is true.
 export const TIER0_TOOL_SURFACE: string[] = [
-  "c1_connector_authoring_create_draft_source_upload",
-  "c1_connector_authoring_finalize_draft_source_upload",
-  "c1_connector_authoring_get_draft",
-  "c1_connector_authoring_build_bundle",
-  "c1_connector_authoring_get_run",
-  "c1_apps_create",
-  "c1_connector_authoring_provision_connector",
-  "c1_connector_service_get",
-  "c1_connector_service_update",
-  "c1_connector_authoring_run_draft_test_sync",
-  "c1_connector_authoring_get_test_run_evidence",
-  "c1_connector_authoring_deploy_connector_instance",
-  "c1_connector_authoring_mint_approval_token",
-  "c1_connector_authoring_list_revision_summaries",
+  ...FUNNEL_TOOLS,
   "c1_connector_authoring_get_authoring_guide",
   "c1_connector_authoring_create_draft",
 ]
@@ -64,16 +51,27 @@ const provisioner: Provisioner = {
   provision: async (ctx) => {
     const port = await findFreePort()
     const child = spawn(process.execPath, ["--experimental-strip-types", FIXTURE_SCRIPT, "--port", String(port), "--host", "127.0.0.1"], {cwd: cwd(), stdio: "ignore"})
+    // A spawn failure (e.g. ENOENT on the node binary) emits 'error' on the
+    // child; without a listener it would crash the runner. Log it — the
+    // readiness poll fails closed with a ReadinessError either way.
+    child.on("error", (err) => {
+      console.error(`WARNING: fixture spawn failed: ${err.message}`)
+    })
     const baseUrl = "http://127.0.0.1:" + port
     return {baseUrl, credentials: {username: "connector@example.com", password: "fixture-token"}, toolSurface: TIER0_TOOL_SURFACE, meta: {child, port}}
   },
   checkReadiness: async (handle) => {
+    // Fail fast if the fixture child already exited (spawn error or crash) —
+    // a specific error beats a generic 30 s timeout.
+    const child = (handle.meta?.child as ChildProcess | undefined)
+    if (child && (child.exitCode !== null || child.signalCode !== null)) {
+      throw new ReadinessError(`fixture exited before readiness (code ${child.exitCode ?? "signal " + child.signalCode})`)
+    }
     await waitForFixture(handle.baseUrl)
-    return {funnelToolsPresent: true}
   },
   teardown: async (handle) => {
     const child = (handle.meta?.child as ChildProcess | undefined)
-    if (child && child.exitCode === null) {
+    if (child && child.exitCode === null && child.signalCode === null) {
       child.kill()
       await Promise.race([new Promise((r) => child.once("exit", r)), new Promise((r) => setTimeout(r, 2000))])
     }

@@ -10,7 +10,7 @@ import {tier0, TIER0_TOOL_SURFACE} from "./driver.ts"
 import {scoreRun} from "../../score.ts"
 import {writeRecord, type RunMeta, type SummaryLine} from "../../record.ts"
 import {SKIPPED_STAGES, type ScoreInput, type StageCtx} from "../../stages.ts"
-import type {RunChannel} from "../../driver.ts"
+import {FUNNEL_TOOLS, type RunChannel} from "../../driver.ts"
 import type {Scenario} from "../../scenario.ts"
 
 const execFileAsync = promisify(execFile)
@@ -41,12 +41,14 @@ const SCENARIO: Scenario = {
 }
 
 test("tier0 provisioner readiness passes against the live local fixture", async () => {
-  const handle = await tier0.provisioner.provision({scenario: SCENARIO, runId: "tier0-test"})
+  const handle = await tier0.provisioner.provision({scenario: SCENARIO, runId: "tier0-test", ref: ""})
   try {
-    const ready = await tier0.provisioner.checkReadiness(handle)
-    assert.equal(ready.funnelToolsPresent, true)
+    await tier0.provisioner.checkReadiness(handle)
     assert.ok(handle.toolSurface.length >= 16)
     assert.ok(SCENARIO.readinessTools.every((t) => handle.toolSurface.includes(t)))
+    // The declared surface carries the full funnel, so the runner's
+    // funnel_tools_present derivation (FUNNEL_TOOLS ⊆ toolSurface) is true.
+    assert.ok(FUNNEL_TOOLS.every((t) => handle.toolSurface.includes(t)))
   } finally {
     await tier0.provisioner.teardown(handle)
   }
@@ -63,18 +65,23 @@ test("tier0 agent driver replays a canned run that scores a schema-valid 16-line
       handoffInstructions: "",
       completionInstructions: "",
     }
-    const result = await tier0.agentDriver.runAgent({kind: "agent", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m"})
+const result = await tier0.agentDriver.runAgent({kind: "agent", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m", ref: ""})
     assert.equal(result.timedOut, false)
     assert.equal(result.transcript.stageAttempts["S0"], 1)
     assert.equal(result.transcript.stageAttempts["S11"], 1)
-const handoff = JSON.parse(readFileSync(channel.handoffPath, "utf8")) as Record<string, unknown>
+    const handoff = JSON.parse(readFileSync(channel.handoffPath, "utf8")) as Record<string, unknown>
     assert.equal(Object.keys(handoff).length, 10)
     // The collector leg writes score-input.json into the run channel.
-    await tier0.agentDriver.runAgent({kind: "collector", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m"})
+    await tier0.agentDriver.runAgent({kind: "collector", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m", ref: ""})
     const scoreInput = JSON.parse(readFileSync(channel.scoreInputPath, "utf8")) as ScoreInput
     const ctx: StageCtx = {transcript: result.transcript, handoff, scoreInput, handoffPath: channel.handoffPath}
     const scored = scoreRun(ctx)
     assert.ok(scored.stageRows.every((r) => r.pass))
+    // The canned artifacts must produce the full compliant funnel — parity
+    // and hygiene verdicts are part of the intent (decision 8), not just the
+    // stage rows.
+    assert.equal(scored.parity_verdict, "PASS")
+    assert.equal(scored.hygiene_verdict, "PASS")
     const meta: RunMeta = {
       run_id: "tier0-test",
       scenario: "tier1-directory",
