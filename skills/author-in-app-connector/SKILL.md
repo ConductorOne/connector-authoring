@@ -19,6 +19,10 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    arguments) and read the served guide. STOP if it errors.
 1. S1 draft: call `c1_connector_authoring_create_draft`; extract `catalog_id`
    and `draft_id`. STOP if either is empty.
+   Before S2: author the four source files (connector.ts,
+   config-schema.json, runtime-schema.json, capabilities.json) per the
+   served guide - the write stage skill is not yet shipped, so follow the
+   served guide.
 2. S2 upload: `wc -c` each source file, call
    `c1_connector_authoring_create_draft_source_upload` with the file list,
    PUT each file to its `upload_targets` URL with `required_headers`
@@ -28,6 +32,12 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    four `required_source_files` (connector.ts, config-schema.json,
    runtime-schema.json, capabilities.json) must be true. STOP if any is
    false.
+   Step-boundary note: the served 12-step contract (agent prompt) splits
+   this differently - its step 2 is upload+PUTs and its step 3 is
+   finalize+get_draft. The call sets are identical; only the boundary
+   differs. In this skill S2 is the full upload dance
+   (create_draft_source_upload + PUTs + finalize) and S3 is the get_draft
+   gate; "re-run from S2" always means the full upload dance.
 4. S4 build: call `c1_connector_authoring_build_bundle`; extract `run_id`.
    STOP if empty.
 5. S5 build result: poll `c1_connector_authoring_get_run` with `run_id` until

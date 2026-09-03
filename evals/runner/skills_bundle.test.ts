@@ -8,7 +8,7 @@ import {execFile} from "node:child_process"
 import {promisify} from "node:util"
 import {existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
-import {join, resolve} from "node:path"
+import {join, resolve, sep} from "node:path"
 import {loadScenario} from "./scenario.ts"
 
 const execFileAsync = promisify(execFile)
@@ -53,9 +53,11 @@ test("(b) every bundle.json path resolves to an existing file", () => {
   assert.equal(bundle.version, VERSION)
   assert.equal(bundle.skills.length, 4)
   assert.deepEqual(bundle.skills.map((s) => s.name), SKILLS)
+  const repoRoot = resolve(".")
   for (const skill of bundle.skills) {
     const target = resolve("evals/skills-bundle", skill.path)
     assert.ok(target.includes(`/${skill.name}/SKILL.md`), `bundle entry ${skill.name} must point at its own SKILL.md: ${skill.path}`)
+    assert.ok(target.startsWith(repoRoot + sep), `bundle path escapes the repo root: ${skill.path}`)
     assert.ok(existsSync(target), `bundle path does not resolve: ${skill.path}`)
     assert.ok(readFileSync(target, "utf8").length > 0, `bundle path is empty: ${skill.path}`)
   }
