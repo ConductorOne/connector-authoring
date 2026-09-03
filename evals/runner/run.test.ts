@@ -13,7 +13,7 @@ import {promisify} from "node:util"
 import {mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join} from "node:path"
-import {collectScoreInput, isCollectionFailure, provisionWithRetry} from "./run.ts"
+import {collectScoreInput, isCollectionFailure, provisionWithRetry, readHandoff} from "./run.ts"
 import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type AgentRunRequest, type AgentRunResult, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "./driver.ts"
 import type {ParsedStream} from "./stream.ts"
 import type {Scenario} from "./scenario.ts"
@@ -342,6 +342,51 @@ test("a valid --ref is accepted and the run completes (driver-interpreted)", asy
     const {code, stdout} = await runCli(["--scenario", "evals/scenarios/tier1-directory.json", "--driver", "tier0", "--ref", "main", "--out", dir])
     assert.equal(code, 0)
     assert.ok(stdout.includes("record:"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("readHandoff treats a malformed handoff as a stall without surfacing the parse error", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "handoff-"))
+  try {
+    const path = join(dir, "handoff.json")
+    // Malformed JSON whose content carries a secret-like value — the parse
+    // error must never reach stderr (JSON.parse messages embed a snippet).
+    writeFileSync(path, '{"catalog_id": "cat-1", "activation_url": "https://secret-token.example/abc123",')
+    const handoff = await readHandoff(path)
+    assert.equal(handoff, null)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("collectScoreInput redacts a malformed score-input parse error", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "collect-"))
+  try {
+    const channel = makeChannel(dir)
+    const driver: AgentDriver = {
+      runAgent: async (req) => {
+        writeFileSync(req.channel.scoreInputPath, '{"connector_config": {"api-token": "super-secret-value",')
+        return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
+      },
+    }
+    const fullHandoff: Handoff = {
+      catalog_id: "c",
+      draft_id: "d",
+      upload_id: "u",
+      run_id: "r",
+      revision_id: "rv",
+      app_id: "a",
+      connector_id: "cn",
+      test_run_id: "t",
+      deployment_instance_id: "di",
+      activation_url: "https://x",
+    }
+    await assert.rejects(
+      collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, "", 1),
+      (err: unknown) => err instanceof Error && err.message.includes("unreadable score-input") && !err.message.includes("super-secret-value"),
+    )
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

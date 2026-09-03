@@ -109,7 +109,7 @@ function isPlaceholder(v: string): boolean {
   return v.length >= 3 && v.startsWith("<") && v.endsWith(">")
 }
 
-async function readHandoff(handoffPath: string): Promise<Handoff | null> {
+export async function readHandoff(handoffPath: string): Promise<Handoff | null> {
   // Bounded retry: a transient read failure must not be misread as a stalled
   // agent (locked L18). A clean absent/empty result is a genuine stall.
   let lastErr: unknown
@@ -117,7 +117,16 @@ async function readHandoff(handoffPath: string): Promise<Handoff | null> {
     try {
       const content = readFileSync(handoffPath, "utf8")
       if (content.length === 0) return null
-      const parsed = JSON.parse(content) as unknown
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(content)
+      } catch {
+        // A malformed handoff is a genuine stall (the agent wrote garbage) —
+        // return null immediately. Never surface the parse error: JSON.parse
+        // messages embed a snippet of the offending content, which can carry
+        // agent-written values.
+        return null
+      }
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
       const handoff = parsed as Handoff
       for (const f of HANDOFF_FIELDS) {
