@@ -18,6 +18,12 @@ function isTerminal(state: unknown): boolean {
 export function buildTenantSetupPrompt(runId: string): string {
   return `You are the tenant-setup task for eval run ${runId}. Run this exact sequence and report the result:
 
+0. Source the c1 dev shell env, put dev-util on PATH, and bootstrap the eval tenant (idempotent):
+   set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a
+   export PATH="/data/squire/src/c1/build/$(go env GOOS)_$(go env GOARCH):$PATH"
+   dev-util ensure
+   If ensure fails, print "SETUP FAIL: ensure failed" and stop.
+
 1. TENANT=$(dev-util list-tenants --format=json | jq -r '.[] | select(.tenant_domain=="c1dev") | .tenant_id' | head -1)
    if [ -z "$TENANT" ]; then TENANT=$(dev-util list-tenants --format=json | jq -r '.[0].tenant_id // empty'); fi
    if [ -z "$TENANT" ]; then echo "SETUP FAIL: no tenants"; exit 1; fi
