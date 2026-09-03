@@ -201,6 +201,18 @@ function main(): void {
     list.push(r)
     byMode.set(r.mode, list)
   }
+  // A mode group must contain exactly one distinct scenario: modes.<mode> is
+  // the regression gate's key, so a stray same-mode record from another
+  // scenario would silently move the reference.
+  for (const [mode, list] of byMode) {
+    const scenarios = [...new Set(list.map((r) => r.scenario))]
+    if (scenarios.length > 1) {
+      console.error(
+        `ERROR: mode ${mode} mixes scenarios ${scenarios.join(", ")} (files: ${list.map((r) => r.file).join(", ")})`,
+      )
+      exit(1)
+    }
+  }
   const modes: Record<string, unknown> = {}
   for (const mode of [...byMode.keys()].sort()) {
     const list = byMode.get(mode) as RunRecord[]

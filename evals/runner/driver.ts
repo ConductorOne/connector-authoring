@@ -71,6 +71,9 @@ export interface AgentRunRequest {
   channel: RunChannel
   timeoutMs: number
   model: string
+  // Declared scenario reasoning-effort pin; driver-interpreted — a driver
+  // that can set agent reasoning effort applies it. Tier-0 ignores it.
+  reasoningEffort?: "high" | "medium" | "low"
   // The git ref under test (--ref); driver-interpreted — a driver may use it
   // to set up the agent's environment. Tier-0 ignores it.
   ref: string

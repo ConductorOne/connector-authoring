@@ -87,7 +87,7 @@ are recorded as `skipped_human_boundary`).
 Example lines:
 
 ```json
-{"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"n/a","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
+{"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"high","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
 {"stage":"S0","gate":"guide read","pass":true,"first_pass":true,"attempts":1,"evidence":"transcript has 1 successful get_authoring_guide call(s)"}
 {"stage":"S11b","gate":"REVISION_STATUS_ACTIVE","pass":"skipped_human_boundary"}
 {"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
@@ -177,7 +177,10 @@ ascending) passes, 0 when none do, and `null` when the mode has fewer than 3
 runs. Records whose `skill_bundle_mode` is outside the {`none`, `guide-only`}
 matrix (e.g. a `full`-mode run) are skipped with a one-line stderr warning,
 never validated or fatal; the generator exits 1 only when no matrix records
-remain.
+remain. `generated_at` is the newest record's `started_at` (not the wall-clock
+generation time) so identical inputs produce an identical file. Each mode
+group must contain exactly one distinct scenario id — a mixed-scenario mode
+is an error naming the conflicting files.
 
 **Regression-gate contract.** The CI regression gate (a later PR) reruns the
 pinned scenarios on a skill PR and fails if the measured pass rate drops below

@@ -287,6 +287,25 @@ test("(i3) pass_at_3 is null when a mode has fewer than 3 runs", async () => {
   }
 })
 
+test("(i4) a mode mixing scenarios exits 1 naming the files", async () => {
+  const dir = tmpDir()
+  try {
+    writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "none"))
+    // Same mode, different scenario id (metaLine derives scenario from mode,
+    // so hand-build a record with a foreign scenario).
+    const lines = allPassRecord("evals-tier1-directory-20260902-120000-001", "none").trim().split("\n")
+    lines[0] = lines[0].replace('"scenario":"tier1-directory"', '"scenario":"tier1-other"')
+    writeFileSync(join(dir, "b.jsonl"), lines.join("\n") + "\n")
+    const {code, stderr} = await runBaseline(dir)
+    assert.equal(code, 1)
+    assert.ok(stderr.includes("mixes scenarios"))
+    assert.ok(stderr.includes("a.jsonl"))
+    assert.ok(stderr.includes("b.jsonl"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
 test("(j) duplicate stage row exits 1", async () => {
   const dir = tmpDir()
   try {

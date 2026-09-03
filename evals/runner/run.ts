@@ -245,6 +245,7 @@ export async function collectScoreInput(
         channel,
         timeoutMs: COLLECTOR_TIMEOUT_MS,
         model: scenario.model,
+        reasoningEffort: scenario.reasoningEffort,
         ref,
       })
       // A driver-reported timeout or collection failure on the collector leg
@@ -333,6 +334,7 @@ async function main(): Promise<number> {
       channel,
       timeoutMs: cli.maxAgentMinutes * 60 * 1000,
       model: scenario.model,
+      reasoningEffort: scenario.reasoningEffort,
       ref: cli.ref,
     })
     const {transcript, timedOut, wallTimeMs} = result
