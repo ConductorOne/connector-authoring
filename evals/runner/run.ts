@@ -301,7 +301,7 @@ const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath}
     const scored = scoreRun(ctx)
     const stageRows = scored.stageRows
 
-    // Run meta: harness/reasoning_effort are inherited (no override).
+    // Run meta: harness is inherited (no override); reasoning_effort comes from the scenario pin.
     let harness = "inherit"
     try {
       const identity = (await call("squire.identity", {}, opts)) as Record<string, unknown>
@@ -316,7 +316,7 @@ const ctx: StageCtx = {transcript, handoff, scoreInput, handoffPath}
       skill_bundle_mode: scenario.skillBundle.mode,
       model_version: scenario.model,
       harness,
-      reasoning_effort: "inherit",
+      reasoning_effort: scenario.reasoningEffort,
       started_at: startedAt,
       wall_time_ms: wallTimeMs,
       funnel_tools_present: funnelToolsPresent,

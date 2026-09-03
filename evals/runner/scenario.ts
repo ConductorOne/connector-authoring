@@ -38,6 +38,7 @@ export interface Scenario {
   expected: ExpectedConfig
   skillBundle: SkillBundleConfig
   model: string
+  reasoningEffort: "high" | "medium" | "low"
   requiredSourceFiles: string[]
   readinessTools: string[]
   handoffPath: string
@@ -88,7 +89,7 @@ export function loadScenario(path: string): Scenario {
   }
   if (!isRecord(data)) throw new Error(`scenario ${path} must be a JSON object`)
 
-const id = requireString(data, "id", "scenario")
+  const id = requireString(data, "id", "scenario")
   // scenario.id flows into arena-FS paths and the output filename — restrict
   // to a safe charset (path traversal via a malicious scenario file).
   if (!/^[A-Za-z0-9._-]+$/.test(id)) {
@@ -139,6 +140,11 @@ const id = requireString(data, "id", "scenario")
     version: requireString(data.skillBundle, "version", "skillBundle"),
   }
 
+  const reasoningEffort = data.reasoningEffort
+  if (reasoningEffort !== "high" && reasoningEffort !== "medium" && reasoningEffort !== "low") {
+    throw new Error('scenario field reasoningEffort must be "high", "medium", or "low"')
+  }
+
   const model = requireString(data, "model", "scenario")
   const requiredSourceFiles = requireStringArray(data, "requiredSourceFiles", "scenario")
   if (requiredSourceFiles.length !== 4) {
@@ -167,6 +173,7 @@ const id = requireString(data, "id", "scenario")
     expected,
     skillBundle,
     model,
+    reasoningEffort: reasoningEffort as "high" | "medium" | "low",
     requiredSourceFiles,
     readinessTools,
     handoffPath,
