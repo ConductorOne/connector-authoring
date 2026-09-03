@@ -50,6 +50,14 @@ use direct `fetch` calls or hand-written pagination loops in authored code.
 
 Neither example calls a live service as part of this repository's checks.
 
+## Agent skills
+
+The [`skills`](./skills) directory ships agent skills for the in-app
+connector authoring funnel: `author-in-app-connector` (the S0–S11
+orchestrator), `read-authoring-contract`, `build-and-test`, and
+`deploy-and-activate`. Each skill's `SOURCES.md` names the pinned contract
+sources it was authored against.
+
 ## Typechecking
 
 Install the pinned development dependency and typecheck the examples against

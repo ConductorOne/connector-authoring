@@ -1,0 +1,113 @@
+// skills_bundle.test.ts — unit smoke for the skill bundle (locked D10/E1).
+// Covers: frontmatter contract of the four SKILL.md files, bundle.json path
+// resolution, section markers + line bound, the full-mode scenario parse,
+// and the CLI end-to-end record meta for the full-mode Tier-0 run.
+import {test} from "node:test"
+import assert from "node:assert/strict"
+import {execFile} from "node:child_process"
+import {promisify} from "node:util"
+import {mkdtempSync, readFileSync, readdirSync, rmSync} from "node:fs"
+import {tmpdir} from "node:os"
+import {join, resolve} from "node:path"
+import {loadScenario} from "./scenario.ts"
+
+const execFileAsync = promisify(execFile)
+const RUN = "evals/runner/run.ts"
+const BUNDLE = "evals/skills-bundle/bundle.json"
+const SKILLS = ["author-in-app-connector", "read-authoring-contract", "build-and-test", "deploy-and-activate"]
+const VERSION = "0.1.0"
+
+function readBundle(): {version: string; skills: {name: string; path: string}[]} {
+  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; path: string}[]}
+}
+
+// The repo has no YAML dependency: parse the frontmatter block (between the
+// first two `---` lines) line by line.
+function parseFrontmatter(file: string): Record<string, string> {
+  const parts = file.split("---")
+  assert.ok(parts.length >= 3, "frontmatter delimiters missing")
+  const out: Record<string, string> = {}
+  for (const line of parts[1].split("\n")) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$/.exec(line)
+    if (m) out[m[1]] = m[2]
+  }
+  return out
+}
+
+test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
+  const bundle = readBundle()
+  for (const name of SKILLS) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    const fm = parseFrontmatter(file)
+    assert.equal(fm.name, name, `${name}: frontmatter name must equal the directory name`)
+    assert.ok(fm.description.includes("Use when"), `${name}: description must carry the trigger sentence`)
+    assert.ok(fm.description.includes("Do not use when"), `${name}: description must carry the anti-trigger sentence`)
+    assert.equal(fm.version, bundle.version, `${name}: frontmatter version must equal bundle.json version`)
+    assert.equal(fm.version, VERSION)
+  }
+})
+
+test("(b) every bundle.json path resolves to an existing file", () => {
+  const bundle = readBundle()
+  assert.equal(bundle.version, VERSION)
+  assert.equal(bundle.skills.length, 4)
+  for (const skill of bundle.skills) {
+    const target = resolve("evals/skills-bundle", skill.path)
+    assert.ok(readFileSync(target, "utf8").length > 0, `bundle path does not resolve: ${skill.path}`)
+  }
+})
+
+test("(c) each SKILL.md carries the locked section markers and stays <= 200 lines", () => {
+  for (const name of SKILLS) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    for (const marker of ["## Exit criteria", "## Anti-patterns", "## Blocker protocol"]) {
+      assert.ok(file.includes(marker), `${name}: missing section marker ${marker}`)
+    }
+    assert.ok(file.split("\n").length <= 200, `${name}: exceeds the 200-line bound`)
+  }
+})
+
+test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
+  const full = loadScenario("evals/scenarios/tier1-directory-full.json")
+  assert.equal(full.skillBundle.mode, "full")
+  assert.equal(full.skillBundle.version, "0.1.0")
+  assert.equal(full.id, "tier1-directory-full")
+  const none = loadScenario("evals/scenarios/tier1-directory.json")
+  assert.equal(none.skillBundle.mode, "none")
+  const guideOnly = loadScenario("evals/scenarios/tier1-directory-guide-only.json")
+  assert.equal(guideOnly.skillBundle.mode, "guide-only")
+})
+
+test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carries the bundle mode", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "skills-bundle-"))
+  try {
+    let code: number
+    let stdout: string
+    let stderr: string
+    try {
+      const res = await execFileAsync(
+        "node",
+        ["--experimental-strip-types", RUN, "--scenario", "evals/scenarios/tier1-directory-full.json", "--driver", "tier0", "--out", dir],
+        {cwd: process.cwd(), timeout: 120_000},
+      )
+      code = 0
+      stdout = res.stdout
+      stderr = res.stderr
+    } catch (err) {
+      const e = err as {code?: number; stdout?: string; stderr?: string}
+      code = e.code ?? 1
+      stdout = e.stdout ?? ""
+      stderr = e.stderr ?? ""
+    }
+    assert.equal(code, 0, `run.ts exited ${code}; stderr=${stderr}`)
+    assert.ok(stdout.includes("record:"), `expected a record line, got stdout=${stdout}`)
+    const records = readdirSync(dir).filter((f) => f.endsWith(".jsonl"))
+    assert.equal(records.length, 1, `expected exactly one record, got ${records.join(", ")}`)
+    const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
+    const meta = JSON.parse(lines[0]) as Record<string, unknown>
+    assert.equal(meta.skill_bundle_mode, "full")
+    assert.equal(meta.skill_bundle_version, "0.1.0")
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})

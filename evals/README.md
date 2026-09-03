@@ -14,8 +14,8 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/fixture/` | Deterministic Directory API fixture (zero-dependency `node:http`) |
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
-| `evals/scenarios/` | Scenario definitions (`tier1-directory.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (plumbing only — no skills yet) |
+| `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.1.0 manifest — four mechanical skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) |
 
 ## How to run
@@ -196,7 +196,7 @@ real-tenant driver and the tool surface are available.
 
 ## Non-goals
 
-- The skills themselves (orchestrator/stage/diagnose) — later PRs.
+- The remaining six skills (design-access-model, source-openapi-spec, write-connector-source, verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs; the four mechanical skills ship in this PR.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.

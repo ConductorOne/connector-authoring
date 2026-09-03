@@ -1,0 +1,13 @@
+# Sources — read-authoring-contract
+
+Authored against the pinned sources below (decision 8: nothing written from
+model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
+`authoring.proto`, (c) lifecycle doc, (d) in-repo `baton/*.d.ts` +
+`examples/http`.
+
+| Source | Path | Pin / SHA | What this skill quotes |
+|---|---|---|---|
+| MCP-served guide | `pkg/api/connector_authoring/authoring_guide.md` | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | The "SDK declarations and examples" paragraph (`list_sdk_types_versions`, `runtime_pin_matched`, `get_sdk_types` with `default_tag`); the "Recovery and iteration" paragraph (resume check before `create_draft`); the served-guide-wins rule. |
+| Authoring proto | `protos/c1api/c1/api/connector_authoring/v1/authoring.proto` | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | RPC titles `connector_authoring_get_authoring_guide`, `connector_authoring_list_sdk_types_versions`, `connector_authoring_get_sdk_types`, `connector_authoring_list_authored_catalog_entries`, `connector_authoring_list_drafts`, `connector_authoring_create_draft`; `ListSDKTypesVersionsResponse` fields `default_tag` / `runtime_pin_matched`. |
+| Lifecycle doc | `docs/in-app-connector-authoring.md` | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | Step 0 (guide read) and the handoff-table discipline (record every returned ID). |
+| In-repo SDK declarations | `baton/*.d.ts` | connector-authoring `b7e8a616cbbb1e336b788f807a3810b08ae00bc7` | The `.d.ts` module surface (`@baton/runtime`, `@baton/helpers`, `@baton/types`) the tagged declarations cover. |
