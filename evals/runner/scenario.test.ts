@@ -23,8 +23,9 @@ test("loadScenario loads the real tier1-directory.json", () => {
   assert.equal(s.expected.users, 23)
   assert.equal(s.expected.groups, 5)
   assert.equal(s.expected.memberships, 23)
-  assert.equal(s.skillBundle.mode, "none")
+assert.equal(s.skillBundle.mode, "none")
   assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4-Flash-0731")
+  assert.equal(s.reasoningEffort, "high")
   assert.equal(s.requiredSourceFiles.length, 4)
   assert.equal(s.readinessTools.length, 5)
   assert.ok(s.handoffPath.includes("<run-id>"))
@@ -40,6 +41,37 @@ test("loadScenario rejects an unsafe scenario id (path traversal)", () => {
     const bad = join(dir, "bad.json")
     writeFileSync(bad, JSON.stringify({...JSON.parse(readFileSync("evals/scenarios/tier1-directory.json", "utf8")), id: "../../etc/passwd"}))
     assert.throws(() => loadScenario(bad), /scenario.id invalid/)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("loadScenario loads the guide-only scenario file", () => {
+  const s = loadScenario("evals/scenarios/tier1-directory-guide-only.json")
+  assert.equal(s.id, "tier1-directory-guide-only")
+  assert.equal(s.skillBundle.mode, "guide-only")
+  assert.equal(s.reasoningEffort, "high")
+})
+
+test("loadScenario rejects an out-of-enum reasoningEffort", () => {
+  const dir = mkdtempSync(join(tmpdir(), "evals-scenario-"))
+  try {
+    const bad = join(dir, "bad.json")
+    writeFileSync(bad, JSON.stringify({...JSON.parse(readFileSync("evals/scenarios/tier1-directory.json", "utf8")), reasoningEffort: "ultra"}))
+    assert.throws(() => loadScenario(bad), /reasoningEffort/)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("loadScenario rejects a missing reasoningEffort field", () => {
+  const dir = mkdtempSync(join(tmpdir(), "evals-scenario-"))
+  try {
+    const bad = join(dir, "bad.json")
+    const parsed = JSON.parse(readFileSync("evals/scenarios/tier1-directory.json", "utf8")) as Record<string, unknown>
+    delete parsed.reasoningEffort
+    writeFileSync(bad, JSON.stringify(parsed))
+    assert.throws(() => loadScenario(bad), /reasoningEffort/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

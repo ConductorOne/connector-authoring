@@ -2,20 +2,25 @@
 import {createEnv, stopEnv, type CallOpts} from "./squire.ts"
 import type {Scenario} from "./scenario.ts"
 
+// Pure builder for the create_env args — the reasoning-effort pin is an
+// ENV-level field (squire.create_env.omp_reasoning_effort), not a
+// task.create field (locked D14).
+export function provisionEnvArgs(scenario: Scenario, runId: string): Record<string, unknown> {
+  return {
+    image: "c1",
+    idle_timeout_minutes: 60,
+    auto_delete_minutes: 360,
+    initial_prompt: `Eval environment for connector-authoring scenario ${scenario.id}. Await task instructions.`,
+    omp_reasoning_effort: scenario.reasoningEffort,
+  }
+}
+
 export async function provisionEnv(
   scenario: Scenario,
   runId: string,
   opts: CallOpts = {},
 ): Promise<{envId: string}> {
-  const res = await createEnv(
-    {
-      image: "c1",
-      idle_timeout_minutes: 60,
-      auto_delete_minutes: 360,
-      initial_prompt: `Eval environment for connector-authoring scenario ${scenario.id}. Await task instructions.`,
-    },
-    opts,
-  )
+  const res = await createEnv(provisionEnvArgs(scenario, runId), opts)
   const envId = (res.env_id ?? res.id) as string | undefined
   if (!envId) {
     throw new Error(`create_env returned no env id: ${JSON.stringify(res)}`)

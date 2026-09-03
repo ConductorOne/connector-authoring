@@ -1,6 +1,6 @@
 {
-  "id": "tier1-directory",
-  "name": "Tier 1: Directory API sync funnel",
+  "id": "tier1-directory-guide-only",
+  "name": "Tier 1: Directory API sync funnel (guide-only)",
   "fixture": {
     "port": 18080,
     "baseUrl": "http://127.0.0.1:18080",
@@ -26,7 +26,7 @@
     "memberships": 23
   },
   "skillBundle": {
-    "mode": "none",
+    "mode": "guide-only",
     "version": "0.0.0"
   },
   "model": "together/deepseek-ai/DeepSeek-V4-Flash-0731",
