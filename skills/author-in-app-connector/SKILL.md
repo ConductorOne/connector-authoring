@@ -44,7 +44,8 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    `test_run_id`. STOP if empty.
 10. S10 evidence: poll `c1_connector_authoring_get_test_run_evidence` with
     `(catalog_id, revision_id, test_run_id)` until the durable row exists.
-    GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS`. STOP if FAIL - fix
+    GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value;
+    the eval fixture records the string `"PASS"`). STOP if FAIL - fix
     source; if the source changed, re-run from S2 (re-upload) with a FRESH
     `test_run_id`, otherwise re-run from the failing step per build-and-test.
 11. S11 handoff discipline: call

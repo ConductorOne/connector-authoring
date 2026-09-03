@@ -58,11 +58,15 @@ test("(b) every bundle.json path resolves to an existing file", () => {
 })
 
 // Locked content literals per skill (plan B1c/B3f/C1c/C3c string checks).
+// The security negations are asserted too: a regression stripping the
+// never-redeem / never-force_sync / never-list_revision_summaries
+// instructions while keeping the marker literals must fail the gate.
 const SKILL_LITERALS: Record<string, string[]> = {
   "author-in-app-connector": [
     "skipped_human_boundary",
     "catalog_id", "draft_id", "upload_id", "run_id", "revision_id",
     "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url",
+    "Do not redeem the approval token",
   ],
   "read-authoring-contract": [
     "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
@@ -74,6 +78,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
   "deploy-and-activate": [
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
     "SYNC_STATUS_DONE", "skipped_human_boundary",
+    "Do not redeem the approval token",
+    "Do not call `c1_connector_service_force_sync` during the funnel run",
+    "Do not call `c1_connector_authoring_list_revision_summaries` during the funnel run",
   ],
 }
 

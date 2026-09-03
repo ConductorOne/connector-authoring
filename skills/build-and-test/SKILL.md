@@ -38,7 +38,9 @@ the exact tenant MCP titles; the served guide abbreviates them.
    with the full key `(catalog_id, revision_id, test_run_id)` until the
    durable PASS/FAIL row exists (`NotFound` while pending; poll with backoff,
    e.g. every 5-10s, and STOP if no row after ~10 polls). GATE:
-   `result == CONNECTOR_TEST_RUN_RESULT_PASS`. STOP if the row reports FAIL -
+   `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value on the
+   real surface; the eval fixture records the string `"PASS"`). STOP if the
+   row reports FAIL -
    read the error field, fix, and re-run from the correct step with a FRESH
    `test_run_id`; never re-mint on a failed run.
 5. Re-run-from-correct-step rules: a failed build re-runs from the build
@@ -55,7 +57,8 @@ the exact tenant MCP titles; the served guide abbreviates them.
 - S5 passes: `RUN_STATE_SUCCEEDED` and `revision_id` non-empty.
 - S9 passes: `test_run_id` non-empty, at least one successful
   `c1_connector_authoring_run_draft_test_sync`.
-- S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`.
+- S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`
+  (the scorer's S10 gate checks the fixture's string `"PASS"`).
 - The body contains the literal `required_source_files`, `upload_targets`,
   `required_headers`, `RUN_STATE_SUCCEEDED`, and `test_run_id`.
 

@@ -34,7 +34,8 @@ abbreviates them (e.g. `get_authoring_guide` for
 
 5. Resume-existing-work check BEFORE creating anything: call
    `c1_connector_authoring_list_authored_catalog_entries`, then
-   `c1_connector_authoring_list_drafts`. GATE: if an existing `catalog_id` +
+   `c1_connector_authoring_list_drafts` with the returned `catalog_id`.
+   GATE: if an existing `catalog_id` +
    `draft_id` is found, reuse it; call
    `c1_connector_authoring_create_draft` only when none exists. Record every
    returned ID. STOP if the listing calls error. In a fresh tenant the resume

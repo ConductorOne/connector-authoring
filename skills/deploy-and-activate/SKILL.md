@@ -82,8 +82,7 @@ or the human/operator. Performing either in the funnel run fails the S11 gate
 - Do not call `c1_connector_service_force_sync` during the funnel run - the
   S11 gate fails any run containing it; the sync leg is post-activation
   reference only.
-- Do not call `c1_connector_authoring_list_revision_summaries` during the
-  funnel run - it is a non-handoff call after mint and fails the S11 gate.
+- Do not call `c1_connector_authoring_list_revision_summaries` during the funnel run - it is a non-handoff call after mint and fails the S11 gate.
 - Do not force-sync before activation.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
