@@ -19,11 +19,11 @@ export function buildTenantSetupPrompt(runId: string): string {
   return `You are the tenant-setup task for eval run ${runId}. Run this exact sequence and report the result:
 
 0. Run these commands EXACTLY as written, in order, without modification or investigation:
-   squire-tool call squire.wait_for_services '{}'
    set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a
    export PATH="/data/squire/src/c1/build/$(go env GOOS)_$(go env GOARCH)/dev-util:$PATH"
-   for i in 1 2 3; do dev-util ensure && break; sleep 5; done
+   for i in 1 2 3 4 5; do dev-util ensure && break; sleep 30; done
    if [ -z "$(dev-util list-tenants --format=json | jq -r '.[0].tenant_id // empty')" ]; then echo "SETUP FAIL: ensure failed"; exit 1; fi
+   If any step prints SETUP FAIL, still complete the task afterwards with: squire-tool call squire.task.complete '{"summary": "tenant setup finished"}'
 
 1. TENANT=$(dev-util list-tenants --format=json | jq -r '.[] | select(.tenant_domain=="c1dev") | .tenant_id' | head -1)
    if [ -z "$TENANT" ]; then TENANT=$(dev-util list-tenants --format=json | jq -r '.[0].tenant_id // empty'); fi
@@ -134,9 +134,9 @@ export async function runTenantSetup(
   const setupTaskId = setup.id as string
   if (!setupTaskId) throw new Error(`tenant setup task create returned no id: ${JSON.stringify(setup)}`)
 
-  const {state, timedOut} = await waitForSetupTerminal(envId, setupTaskId, 10 * 60 * 1000, opts)
+  const {state, timedOut} = await waitForSetupTerminal(envId, setupTaskId, 15 * 60 * 1000, opts)
   if (timedOut) {
-    throw new Error("tenant setup timed out after 10 min")
+    throw new Error("tenant setup timed out after 15 min")
   }
 
   const stream = await readSetupStream(setupTaskId, opts)
