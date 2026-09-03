@@ -32,9 +32,15 @@ async function waitForFixturePort(child: ChildProcess, spawnFailed: () => boolea
   // boundaries — matching each chunk in isolation would lose it.
   let buf = ""
   child.stdout?.on("data", (chunk) => {
-    buf += String(chunk)
-    const m = /fixture listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(buf)
-    if (m) port = Number(m[1])
+    // Only accumulate while the port is unknown: the fixture logs every
+    // request to stdout, so an unbounded buffer would retain the whole
+    // request log and re-scan it on each chunk. The listener stays attached
+    // to keep draining the pipe (the child is spawned with stdio pipe).
+    if (port === null) {
+      buf += String(chunk)
+      const m = /fixture listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(buf)
+      if (m) port = Number(m[1])
+    }
   })
   while (Date.now() < deadline && port === null) {
     if (spawnFailed()) {
