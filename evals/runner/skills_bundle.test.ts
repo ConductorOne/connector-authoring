@@ -6,7 +6,7 @@ import {test} from "node:test"
 import assert from "node:assert/strict"
 import {execFile} from "node:child_process"
 import {promisify} from "node:util"
-import {mkdtempSync, readFileSync, readdirSync, rmSync} from "node:fs"
+import {existsSync, mkdtempSync, readFileSync, readdirSync, rmSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join, resolve} from "node:path"
 import {loadScenario} from "./scenario.ts"
@@ -40,6 +40,7 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
     const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
     const fm = parseFrontmatter(file)
     assert.equal(fm.name, name, `${name}: frontmatter name must equal the directory name`)
+    assert.ok(fm.description, `${name}: frontmatter description missing`)
     assert.ok(fm.description.includes("Use when"), `${name}: description must carry the trigger sentence`)
     assert.ok(fm.description.includes("Do not use when"), `${name}: description must carry the anti-trigger sentence`)
     assert.equal(fm.version, bundle.version, `${name}: frontmatter version must equal bundle.json version`)
@@ -53,7 +54,8 @@ test("(b) every bundle.json path resolves to an existing file", () => {
   assert.equal(bundle.skills.length, 4)
   for (const skill of bundle.skills) {
     const target = resolve("evals/skills-bundle", skill.path)
-    assert.ok(readFileSync(target, "utf8").length > 0, `bundle path does not resolve: ${skill.path}`)
+    assert.ok(existsSync(target), `bundle path does not resolve: ${skill.path}`)
+    assert.ok(readFileSync(target, "utf8").length > 0, `bundle path is empty: ${skill.path}`)
   }
 })
 
