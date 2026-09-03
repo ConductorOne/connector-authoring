@@ -79,7 +79,7 @@ function deps(overrides: Partial<TenantSetupDeps> = {}): TenantSetupDeps {
   }
 }
 
-const FAST_TIMING = {timeoutMs: 50, pollMs: 1}
+const FAST_TIMING = {timeoutMs: 50, pollMs: 1, markerRetryMs: 1}
 
 test("runTenantSetup returns on completed + ok marker", async () => {
   const d = deps({

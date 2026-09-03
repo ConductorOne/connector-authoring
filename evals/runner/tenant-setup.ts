@@ -102,9 +102,10 @@ const defaultDeps: TenantSetupDeps = {taskCreate, getTask, taskStream, fsRead}
 export interface SetupTiming {
   timeoutMs: number
   pollMs: number
+  markerRetryMs: number
 }
 
-const DEFAULT_TIMING: SetupTiming = {timeoutMs: 15 * 60 * 1000, pollMs: 10_000}
+const DEFAULT_TIMING: SetupTiming = {timeoutMs: 15 * 60 * 1000, pollMs: 10_000, markerRetryMs: 2_000}
 
 // Pure decision: the outcome markers are the ONLY success signal; a
 // failed/canceled task state is failed even if an ok marker exists
@@ -146,6 +147,7 @@ async function waitForSetupTerminal(
 // fails closed after the retries.
 async function readMarker(
   path: string,
+  timing: SetupTiming,
   opts: CallOpts,
   deps: TenantSetupDeps,
 ): Promise<string | null> {
@@ -160,7 +162,7 @@ async function readMarker(
     } catch (err) {
       lastErr = err
     }
-    if (attempt < 3) await sleep(2_000)
+    if (attempt < 3) await sleep(timing.markerRetryMs)
   }
   if (lastErr !== undefined) {
     console.error(`WARNING: setup marker read failed after 3 attempts: ${(lastErr as Error).message}`)
@@ -234,8 +236,8 @@ export async function runTenantSetup(
     throw new Error(`tenant setup timed out after ${mins} min (env ${envId}, run ${runId}, task ${setupTaskId})`)
   }
 
-  const okMarker = await readMarker(setupOkPath(runId), opts, deps)
-  const failMarker = await readMarker(setupFailPath(runId), opts, deps)
+  const okMarker = await readMarker(setupOkPath(runId), timing, opts, deps)
+  const failMarker = await readMarker(setupFailPath(runId), timing, opts, deps)
   const outcome = setupOutcome(state, okMarker, failMarker)
   if (outcome === "success") return
   if (outcome === "failed") {
