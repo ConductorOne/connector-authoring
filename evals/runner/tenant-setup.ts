@@ -19,10 +19,11 @@ export function buildTenantSetupPrompt(runId: string): string {
   return `You are the tenant-setup task for eval run ${runId}. Run this exact sequence and report the result:
 
 0. Run these commands EXACTLY as written, in order, without modification or investigation:
+   squire-tool call squire.wait_for_services '{}'
    set -a; . /data/squire/src/c1/.dev/env/dev-shell.env; set +a
    export PATH="/data/squire/src/c1/build/$(go env GOOS)_$(go env GOARCH)/dev-util:$PATH"
-   dev-util ensure
-   If ensure fails, print "SETUP FAIL: ensure failed" and stop.
+   for i in 1 2 3; do dev-util ensure && break; sleep 5; done
+   if [ -z "$(dev-util list-tenants --format=json | jq -r '.[0].tenant_id // empty')" ]; then echo "SETUP FAIL: ensure failed"; exit 1; fi
 
 1. TENANT=$(dev-util list-tenants --format=json | jq -r '.[] | select(.tenant_domain=="c1dev") | .tenant_id' | head -1)
    if [ -z "$TENANT" ]; then TENANT=$(dev-util list-tenants --format=json | jq -r '.[0].tenant_id // empty'); fi
