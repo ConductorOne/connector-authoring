@@ -1,8 +1,9 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "skills": [
     {"name": "author-in-app-connector", "path": "../../skills/author-in-app-connector/SKILL.md"},
     {"name": "read-authoring-contract", "path": "../../skills/read-authoring-contract/SKILL.md"},
+    {"name": "write-connector-source", "path": "../../skills/write-connector-source/SKILL.md"},
     {"name": "build-and-test", "path": "../../skills/build-and-test/SKILL.md"},
     {"name": "deploy-and-activate", "path": "../../skills/deploy-and-activate/SKILL.md"}
   ]

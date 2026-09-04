@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.1.0 manifest — four mechanical skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.2.0 manifest — five funnel skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) |
 
 ## How to run
@@ -129,7 +129,13 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 - **`parity_verdict`** is computed STATICALLY from the uploaded `connector.ts`
   source (five literal-substring checks: `account_id`, `user.title`,
   `totalPath`, the three `config("...")` literals, `newUserResource` +
-  `user.id`). **Measurement boundary:** the draft test sync runs Validate +
+  `user.id`). **Bundle-arm comparability caveat:** the full skill bundle
+  teaches the scored literals (`totalPath`, `newUserResource` + `user.id`)
+  directly, while the `none`/`guide-only` arms must discover them from the
+  SDK declarations and examples every checkout exposes, so parity-stage
+  results are not comparable across bundle arms — a full-mode pass reflects
+  the skill's teaching, not a capability the other arms lack. **Measurement
+  boundary:** the draft test sync runs Validate +
   GetMetadata only and PASS requires "no write attempt" — synced resources
   appear in the tenant only after force sync, which the eval forbids
   (activation is human-only). Post-draft-test tenant counts are therefore
@@ -147,7 +153,12 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   (dual-schema parity); `api-token` is `is_secret`/`isSecret` in both
   schemas; the literal `fixture-token` appears in NO uploaded source file (no
   plaintext secrets); bundle caps respected (each file ≤ 12 MiB, total ≤
-  16 MiB, ≤ 256 files).
+  16 MiB, ≤ 256 files). **Bundle-arm comparability caveat:** the full skill
+  bundle teaches dual-schema parity directly, while the `none`/`guide-only`
+  arms must infer it from the paired example schemas every checkout exposes;
+  the no-fixture-credentials hygiene rule is genuinely bundle-only (`is_secret`
+  and the bundle caps come from the served guide every arm reads at step 0),
+  so hygiene-stage results are likewise not comparable across bundle arms.
 
 ## Baseline + regression gate
 
@@ -196,7 +207,7 @@ real-tenant driver and the tool surface are available.
 
 ## Non-goals
 
-- The remaining six skills (design-access-model, source-openapi-spec, write-connector-source, verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs; the four mechanical skills ship in this PR.
+- The remaining five skills (design-access-model, source-openapi-spec, verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs; the fifth funnel skill ships in this PR.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.

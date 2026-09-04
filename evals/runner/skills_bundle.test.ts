@@ -1,5 +1,5 @@
 // skills_bundle.test.ts — unit smoke for the skill bundle (locked D10/E1).
-// Covers: frontmatter contract of the four SKILL.md files, bundle.json path
+// Covers: frontmatter contract of the five SKILL.md files, bundle.json path
 // resolution, section markers + line bound, the full-mode scenario parse,
 // and the CLI end-to-end record meta for the full-mode Tier-0 run.
 import {test} from "node:test"
@@ -14,8 +14,8 @@ import {loadScenario} from "./scenario.ts"
 const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
-const SKILLS = ["author-in-app-connector", "read-authoring-contract", "build-and-test", "deploy-and-activate"]
-const VERSION = "0.1.0"
+const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate"]
+const VERSION = "0.2.0"
 
 function readBundle(): {version: string; skills: {name: string; path: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; path: string}[]}
@@ -51,7 +51,7 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
 test("(b) every bundle.json path resolves to an existing file", () => {
   const bundle = readBundle()
   assert.equal(bundle.version, VERSION)
-  assert.equal(bundle.skills.length, 4)
+  assert.equal(bundle.skills.length, 5)
   assert.deepEqual(bundle.skills.map((s) => s.name), SKILLS)
   const skillsRoot = resolve("skills")
   for (const skill of bundle.skills) {
@@ -73,6 +73,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "catalog_id", "draft_id", "upload_id", "run_id", "revision_id",
     "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url",
     "Do not redeem the approval token",
+    "write-connector-source",
   ],
   "read-authoring-contract": [
     "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
@@ -87,6 +88,25 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not call `c1_connector_service_force_sync` during the funnel run",
     "Do not call `c1_connector_authoring_list_revision_summaries` during the funnel run",
+  ],
+  "write-connector-source": [
+    "Do not call fetch",
+    "is_secret: true",
+    "Do not use the secret: spelling",
+    "WithExternalID is DEPRECATED",
+    "Do not write plaintext secrets into",
+    "Do not paste JSON Schema into",
+    "transports:",
+    "connector.js",
+    "CAPABILITY_SYNC",
+    "baton-axiomatic capabilities",
+    "ticketing.enabled",
+    "account_id",
+    "user.title",
+    "totalPath",
+    "newUserResource",
+    "user.id",
+    "config(\"base-url\")",
   ],
 }
 
@@ -107,7 +127,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.1.0")
+  assert.equal(full.skillBundle.version, "0.2.0")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -156,7 +176,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.1.0")
+    assert.equal(meta.skill_bundle_version, "0.2.0")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
