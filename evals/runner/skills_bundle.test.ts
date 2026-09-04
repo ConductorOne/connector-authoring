@@ -139,6 +139,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "SYNC_STATUS_RUNNING",
     "DONE/ERROR after ~10 polls, STOP and report",
     "data-anomaly auto-pause",
+    "SYNC_DISABLED_CATEGORY_DATA_ANOMALY",
     "sync_disabled",
     "every grant principal references an emitted resource",
     "entitlement ID references an emitted entitlement",
@@ -155,6 +156,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
+    "if no ACTIVE row after ~10 polls, STOP and report",
+    "Do not print, log, or otherwise expose the OWNER bearer token value",
   ],
   "diagnose-authoring-failure": [
     "262144 byte compile limit",

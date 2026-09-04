@@ -19,10 +19,12 @@ the exact tenant MCP titles.
    diagnose-authoring-failure. If `status.status` is `SYNC_STATUS_RUNNING`,
    poll with backoff (e.g. every 5-10s) until DONE or ERROR; if no
    DONE/ERROR after ~10 polls, STOP and report. `SYNC_STATUS_DISABLED` is
-   normal only for the post-activation `sync_disabled` state; a DISABLED
-   row with `status.lastError` set (e.g. a data-anomaly auto-pause) routes
-   through diagnose-authoring-failure. Any other unexpected status value
-   routes through diagnose-authoring-failure.
+   an error-classified outcome: read the connector's `sync_disabled_category`.
+   A data-anomaly auto-pause (`SYNC_DISABLED_CATEGORY_DATA_ANOMALY`) means
+   the sync was paused after repeated data drops - investigate the counts
+   below and the drop reason; a deliberate pause (customer opt-out, ops, or
+   deployment) is normal. Any other unexpected status value routes through
+   diagnose-authoring-failure.
 2. Counts: inspect the resource, entitlement, and grant counts for the
    intended scope. Assert count parity against the live tenant API, not
    against a seed list - the live product may own extra rows (default
