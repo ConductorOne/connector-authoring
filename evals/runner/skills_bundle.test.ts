@@ -136,6 +136,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
   "verify-connector-output": [
     "never invent data to make a demo appear complete",
     "SYNC_STATUS_DONE",
+    "SYNC_STATUS_RUNNING",
     "sync_disabled",
     "every grant principal references an emitted resource",
     "entitlement ID references an emitted entitlement",
@@ -151,6 +152,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "image digest",
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
+    "evidence is unsatisfied",
   ],
   "diagnose-authoring-failure": [
     "262144 byte compile limit",
@@ -164,6 +166,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Invalid token provided",
     "ConnectionOK",
     "HostCallOK",
+    "Poll with backoff",
     "c1_connector_service_get",
     "status.lastError",
   ],
