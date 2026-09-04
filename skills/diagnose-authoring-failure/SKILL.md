@@ -40,9 +40,10 @@ where logs live. Ports the taxonomy approach of baton-admin
 
 The evidence row is authoritative: poll
 `c1_connector_authoring_get_test_run_evidence` and read the `result` (PASS
-or FAIL) and the `error` field. The FAIL reason lives on the evidence row;
-it is not always logged when the read activity succeeds but the outcome
-evaluation returns FAIL. PASS requires all of:
+or FAIL) and the `error` field. Poll with backoff (e.g. every 5-10s); if no
+row after ~10 polls, stop and report `NotFound`/pending. The FAIL reason
+lives on the evidence row; it is not always logged when the read activity
+succeeds but the outcome evaluation returns FAIL. PASS requires all of:
 
 - `ConnectionOK` - Validate succeeded
 - `HostCallOK` - GetMetadata succeeded

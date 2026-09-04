@@ -150,6 +150,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "activation_epoch",
     "image digest",
     "Do not redeem the approval token",
+    "Do not clear runtime fields, call the provisioner directly, or mutate the",
   ],
   "diagnose-authoring-failure": [
     "262144 byte compile limit",
@@ -237,5 +238,22 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     assert.equal(meta.skill_bundle_version, "0.4.0")
   } finally {
     rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("(f) every skill ships a non-empty SOURCES.md naming its pinned sources", () => {
+  const skillsRoot = resolve("skills")
+  for (const name of SKILLS) {
+    const sourcesPath = join(skillsRoot, name, "SOURCES.md")
+    assert.ok(existsSync(sourcesPath), `missing SOURCES.md: ${name}`)
+    const content = readFileSync(sourcesPath, "utf8")
+    assert.ok(content.length > 0, `empty SOURCES.md: ${name}`)
+  }
+  // The three new skills must name the c1 pin (decision 5: nothing written
+  // from model memory) so a dropped or truncated pin fails the gate.
+  const c1Pin = "2e5f53eb441a93087d9754085ca17a5061e125ea"
+  for (const name of ["verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]) {
+    const content = readFileSync(join(skillsRoot, name, "SOURCES.md"), "utf8")
+    assert.ok(content.includes(c1Pin), `${name}: SOURCES.md does not name the c1 pin`)
   }
 })

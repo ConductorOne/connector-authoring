@@ -27,7 +27,10 @@ the exact tenant MCP titles.
 6. After the OWNER activates, poll
    `c1_connector_authoring_list_revision_summaries` until the target
    revision is `REVISION_STATUS_ACTIVE`; record its `activation_epoch`.
-   GATE: ACTIVE. STOP if not ACTIVE after ~10 polls.
+   GATE: ACTIVE. STOP if not ACTIVE - if approval reports `evidence is
+   unsatisfied`, return to the draft-test step and confirm a fresh PASS row
+   binds this revision before minting a new approval URL. Poll with backoff
+   (e.g. every 5-10s); if no ACTIVE row after ~10 polls, STOP and report.
 7. Call `c1_connector_service_force_sync`; verify via
    `c1_connector_service_get` that `status.status` is `SYNC_STATUS_DONE`.
 
@@ -90,6 +93,9 @@ serving.
   deployment or AWS resources on the rotation STOP.
 - Do not roll back via the activation endpoint - rollback is REST-only.
 - Do not force-sync before the target revision is ACTIVE.
+- Do not print, log, or otherwise expose the OWNER bearer token value -
+  reference it only by variable or placeholder in any command or
+  diagnostic output.
 
 ## Blocker protocol
 

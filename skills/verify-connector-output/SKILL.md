@@ -16,7 +16,9 @@ the exact tenant MCP titles.
    `status.status` is `SYNC_STATUS_DONE` (a subsequent `sync_disabled` is
    normal for authored connectors). GATE: DONE. STOP if the status row
    reports an error - read `status.lastError` and route through
-   diagnose-authoring-failure.
+   diagnose-authoring-failure. If `status.status` is `RUNNING`, poll with
+   backoff (e.g. every 5-10s) until DONE or ERROR; an unknown status value
+   routes through diagnose-authoring-failure.
 2. Counts: inspect the resource, entitlement, and grant counts for the
    intended scope. Assert count parity against the live tenant API, not
    against a seed list - the live product may own extra rows (default
