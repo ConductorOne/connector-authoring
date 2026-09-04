@@ -3,7 +3,7 @@ import {test} from "node:test"
 import assert from "node:assert/strict"
 import {execFile} from "node:child_process"
 import {promisify} from "node:util"
-import {mkdtempSync, readFileSync, readdirSync, rmSync} from "node:fs"
+import {existsSync, mkdtempSync, readFileSync, readdirSync, rmSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join} from "node:path"
 import {tier0, TIER0_TOOL_SURFACE} from "./driver.ts"
@@ -74,6 +74,9 @@ test("tier0 agent driver replays a canned run that scores a schema-valid 16-line
     assert.equal(result.transcript.stageAttempts["S11"], 1)
     const handoff = JSON.parse(readFileSync(channel.handoffPath, "utf8")) as Record<string, unknown>
     assert.equal(Object.keys(handoff).length, 10)
+    // The funnel agent leg must NOT pre-write score-input.json — collectScoreInput
+    // relies on the ENOENT to detect a collector that returned without writing.
+    assert.equal(existsSync(channel.scoreInputPath), false)
     // The collector leg writes score-input.json into the run channel.
     await tier0.agentDriver.runAgent({kind: "collector", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m", ref: ""})
     const scoreInput = JSON.parse(readFileSync(channel.scoreInputPath, "utf8")) as ScoreInput
@@ -205,6 +208,7 @@ async function replayPre1(scenarioPath: string, scenarioId: string): Promise<{sc
       model: "m",
       ref: "",
       scenarioId,
+      scenarioKind: "pre1",
     })
     assert.equal(result.timedOut, false)
     const pre1 = JSON.parse(readFileSync(channel.pre1Path, "utf8")) as Pre1Artifact
@@ -244,4 +248,27 @@ test("a pre1-noiam-park replay writes pre1.json and scores P0/P1/P4 pass", async
   assert.equal(scored.decision_verdict, "park")
   assert.deepEqual(scored.stageRows.map((r) => r.stage), ["P0", "P1", "P4"])
   assert.ok(scored.stageRows.every((r) => r.pass))
+})
+
+test("a pre1 run with no canned-<scenarioId> dir rejects loudly instead of replaying the funnel set", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "tier0-pre1-missing-"))
+  try {
+    const channel = pre1Channel(dir)
+    await assert.rejects(
+      tier0.agentDriver.runAgent({
+        kind: "agent",
+        prompt: "p",
+        toolSurface: TIER0_TOOL_SURFACE,
+        channel,
+        timeoutMs: 60_000,
+        model: "m",
+        ref: "",
+        scenarioId: "pre1-no-such-canned-dir",
+        scenarioKind: "pre1",
+      }),
+      /refusing to replay the funnel canned set/,
+    )
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
 })

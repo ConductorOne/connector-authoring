@@ -46,7 +46,6 @@ function parseFrontmatter(file: string): Record<string, string> {
 }
 
 test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
-  const bundle = readBundle()
   for (const name of SKILLS) {
     const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
     const fm = parseFrontmatter(file)

@@ -63,6 +63,10 @@ export interface RunChannel {
   pre1Path: string
   handoffInstructions: string
   completionInstructions: string
+  // Pre-1 runs: the driver-supplied instruction carrying BOTH the artifact
+  // write (with the pre1Path) and the complete_run termination verb — a
+  // driver must supply both halves or the pre-1 agent has no stop
+  // instruction.
   pre1Instructions: string
 }
 
