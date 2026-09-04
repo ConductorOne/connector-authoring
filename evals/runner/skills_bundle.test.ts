@@ -73,6 +73,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "catalog_id", "draft_id", "upload_id", "run_id", "revision_id",
     "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url",
     "Do not redeem the approval token",
+    "write-connector-source",
   ],
   "read-authoring-contract": [
     "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
@@ -90,9 +91,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
   ],
   "write-connector-source": [
     "Do not call fetch",
-    "is_secret",
+    "is_secret: true",
     "Do not use the secret: spelling",
-    "WithExternalID",
+    "WithExternalID is DEPRECATED",
     "transports:",
     "connector.js",
     "CAPABILITY_SYNC",

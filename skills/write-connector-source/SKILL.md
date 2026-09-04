@@ -118,6 +118,7 @@ NOT a placeholder. Generation path: compiled connector + image-baked
 Makefile pattern: `env BATON_BASE_URL=https://placeholder.myshopify.com
 BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
 baton_capabilities.json`; capability generation never makes network calls).
+Move the output to `capabilities.json` - the four-file contract name (shopify writes `baton_capabilities.json`).
 The in-app build today requires presence/non-empty only and does not
 schema-validate the file; the shipped `examples/{static,http}/capabilities.json` files carry this exact shape and are the quoted form:
 
@@ -159,6 +160,8 @@ common-failures table:
       every field.
 - [ ] No unregistered transport - every transport referenced by a `node` or
       `reuse` registered under `transports:`.
+- [ ] Every `config("...")` literal in `connector.ts` declared in BOTH
+      schemas (parity covers connector.ts config refs, not just the two schemas).
 - [ ] `ticketing.enabled` - no `ticketing` block the connector code does not back (`ticketing.enabled must be true when ticketing is configured`).
 
 ## Eval-alignment contract
