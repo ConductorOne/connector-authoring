@@ -19,10 +19,9 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    arguments) and read the served guide. STOP if it errors.
 1. S1 draft: call `c1_connector_authoring_create_draft`; extract `catalog_id`
    and `draft_id`. STOP if either is empty.
-   Before S2: author the four source files (connector.ts,
-   config-schema.json, runtime-schema.json, capabilities.json) per the
-   served guide - invoke `write-connector-source` to author the four source
-   files.
+   Before S2: invoke `write-connector-source` to author the four source
+   files (connector.ts, config-schema.json, runtime-schema.json,
+   capabilities.json).
 2. S2 upload: `wc -c` each source file, call
    `c1_connector_authoring_create_draft_source_upload` with the file list,
    PUT each file to its `upload_targets` URL with `required_headers`

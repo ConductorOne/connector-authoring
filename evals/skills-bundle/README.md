@@ -17,6 +17,11 @@ the 23-tool tenant MCP surface:
 - `deploy-and-activate` — stages 6–8, 11: app, provision, configure, deploy,
   mint, handoff.
 
+The four pre-existing skills pin the c1 contract sources at `2502b4cd…`;
+`write-connector-source` pins them at `92f1c2e5…` (the SHA at authoring
+time). The split is intentional: the new skill quotes the capabilities
+contract correction that landed after the earlier pin.
+
 ## Mount contract
 
 `bundle.json` is a **manifest**, not a directory copy: each `skills[]` entry

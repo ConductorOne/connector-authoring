@@ -120,7 +120,7 @@ BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
 baton_capabilities.json`; capability generation never makes network calls).
 Move the output to `capabilities.json` - the four-file contract name (shopify writes `baton_capabilities.json`).
 The in-app build today requires presence/non-empty only and does not
-schema-validate the file; the shipped `examples/{static,http}/capabilities.json` files carry this exact shape and are the quoted form:
+schema-validate the file; the shipped `examples/http/capabilities.json` file carries this exact shape and is the quoted form:
 
 ```json
 {

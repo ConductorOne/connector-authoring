@@ -1,5 +1,5 @@
 // skills_bundle.test.ts — unit smoke for the skill bundle (locked D10/E1).
-// Covers: frontmatter contract of the four SKILL.md files, bundle.json path
+// Covers: frontmatter contract of the five SKILL.md files, bundle.json path
 // resolution, section markers + line bound, the full-mode scenario parse,
 // and the CLI end-to-end record meta for the full-mode Tier-0 run.
 import {test} from "node:test"
