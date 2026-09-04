@@ -213,3 +213,102 @@ test("parity fails when the connector source is unavailable", () => {
   const result = scoreRun(ctx({scoreInput: noSource}))
   assert.equal(result.parity_verdict, "FAIL")
 })
+
+// --- pre-1 scoring ---
+
+import {PRE1_STAGES, type Pre1Artifact} from "./stages.ts"
+
+function pre1Artifact(overrides: Partial<Pre1Artifact>): Pre1Artifact {
+  return {
+    decision: "proceed",
+    access_model: {
+      resource_types: [
+        {id: "user", traits: ["TRAIT_USER"]},
+        {id: "group", traits: ["TRAIT_GROUP"]},
+      ],
+      entitlements: [{slug: "member"}],
+      grants: [{resource_type: "group", entitlement: "member", principal_type: "user"}],
+      id_compatibility: [{resource_type: "user", id_shape: "user:{id}", stable: true}],
+      provisioning: [
+        {resource_type: "user", provisionable: false, justification: "because the API lacks a user create/update endpoint"},
+      ],
+    },
+    sourcing: {
+      spec_url: "http://127.0.0.1:18080/openapi.json",
+      fetched_at: "2026-09-04T00:00:00.000Z",
+      authority_rung: "official published spec at a stable URL",
+      spec_bytes: 12297,
+    },
+    ...overrides,
+  }
+}
+
+function pre1Ctx(overrides: Partial<StageCtx>): StageCtx {
+  return {
+    transcript: cleanTranscript(),
+    handoff: {},
+    scoreInput: goodScoreInput(),
+    handoffPath: "/tmp/evals-run/pre1.json",
+    kind: "pre1",
+    pre1: pre1Artifact({}),
+    expected: {
+      decision: "proceed",
+      accessModel: {
+        resource_types: [
+          {id: "user", traits: ["TRAIT_USER"]},
+          {id: "group", traits: ["TRAIT_GROUP"]},
+        ],
+        entitlements: [{slug: "member"}],
+        grants: [{resource_type: "group", entitlement: "member", principal_type: "user"}],
+      },
+    },
+    ...overrides,
+  }
+}
+
+test("a correct proceed pre1 run scores decision_verdict proceed with P0-P3 passing", () => {
+  const result = scoreRun(pre1Ctx({}))
+  assert.equal(result.decision_verdict, "proceed")
+  assert.ok(result.decision_evidence?.includes("decision=proceed"))
+  assert.deepEqual(result.stageRows.map((r) => r.stage), ["P0", "P1", "P2", "P3"])
+  assert.ok(result.stageRows.every((r) => r.pass))
+  assert.deepEqual(result.funnel, ["P0", "P1", "P2", "P3"])
+  assert.equal(result.first_pass_rate, 1.0)
+  assert.equal(result.parity_verdict, "PASS")
+  assert.equal(result.hygiene_verdict, "PASS")
+  assert.equal(result.handoff_discipline_verdict, true)
+  assert.equal(result.recovery_cycles, 0)
+})
+
+test("a correct park pre1 run scores decision_verdict park with P0/P1/P4 passing", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  const result = scoreRun(pre1Ctx({pre1, expected: {decision: "park", parkEvidence: {spec_version_checked: "1.2.0", missing_paths: ["/v1/users"], vendor_doc: "console only", revisit_trigger: "ships an API"}}}))
+  assert.equal(result.decision_verdict, "park")
+  assert.deepEqual(result.stageRows.map((r) => r.stage), ["P0", "P1", "P4"])
+  assert.ok(result.stageRows.every((r) => r.pass))
+  assert.deepEqual(result.funnel, ["P0", "P1", "P4"])
+})
+
+test("a wrong pre1 decision scores decision_verdict incorrect with P1 failing", () => {
+  const pre1 = pre1Artifact({decision: "park"})
+  const result = scoreRun(pre1Ctx({pre1}))
+  assert.equal(result.decision_verdict, "incorrect")
+  const p1 = result.stageRows.find((r) => r.stage === "P1")
+  assert.equal(p1?.pass, false)
+})
+
+test("a funnel ctx produces no decision_verdict field", () => {
+  const result = scoreRun(ctx({}))
+  assert.equal("decision_verdict" in result, false)
+  assert.equal("decision_evidence" in result, false)
+  assert.equal(result.stageRows.length, STAGES.length)
+  assert.deepEqual(result.funnel, ["S0", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11"])
+})

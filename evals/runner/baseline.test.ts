@@ -340,3 +340,28 @@ test("(j) duplicate stage row exits 1", async () => {
     rmSync(dir, {recursive: true, force: true})
   }
 })
+
+test("(k) a pre1 record (stage rows begin with P0) is skipped with a warning, never fatal", async () => {
+  const dir = tmpDir()
+  try {
+    // A normal funnel record so the baseline has a matrix record to process.
+    writeFileSync(join(dir, "a.jsonl"), allPassRecord("evals-tier1-directory-20260902-120000-000", "none"))
+    // A pre1-shaped record with mode "none" (in the matrix) whose stage rows
+    // begin with P0 — must be skipped, not validated, not fatal.
+    const pre1Lines = [metaLine("evals-pre1-directory-proceed-20260902-120000-000", "none")]
+    for (const stage of ["P0", "P1", "P2", "P3"]) {
+      pre1Lines.push(stageRow(stage, true, true))
+    }
+    pre1Lines.push(summaryLine(1.0))
+    writeFileSync(join(dir, "b.jsonl"), pre1Lines.join("\n") + "\n")
+    const {code, stderr} = await runBaseline(dir)
+    assert.equal(code, 0)
+    assert.ok(stderr.includes("does not begin with the S0 funnel row"), `stderr=${stderr}`)
+    assert.ok(stderr.includes("b.jsonl"))
+    const b = readBaseline(dir)
+    const none = b.modes as Record<string, Record<string, unknown>>
+    assert.deepEqual(none.none.run_ids, ["evals-tier1-directory-20260902-120000-000"])
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})

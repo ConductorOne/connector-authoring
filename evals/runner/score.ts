@@ -1,5 +1,5 @@
 // score.ts — deterministic scorer.
-import {SKIPPED_STAGES, STAGES, handoffEmpty, type StageCtx} from "./stages.ts"
+import {PRE1_STAGES, SKIPPED_STAGES, STAGES, handoffEmpty, type StageCtx} from "./stages.ts"
 
 export interface StageRow {
   stage: string
@@ -22,6 +22,9 @@ export interface ScoreResult {
   recovery_cycles: number
   first_pass_rate: number
   funnel: string[]
+  // Pre-1 only: the separately-measured park-vs-proceed metric.
+  decision_verdict?: "proceed" | "park" | "incorrect"
+  decision_evidence?: string
 }
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024
@@ -161,6 +164,43 @@ function computeHygiene(ctx: StageCtx): {verdict: "PASS" | "FAIL"; evidence: str
 }
 
 export function scoreRun(ctx: StageCtx): ScoreResult {
+  // Pre-1 runs score the P0..P4 gate set (PRE1_STAGES) instead of the funnel.
+  // The park-vs-proceed metric is the P1 row: decision_verdict is the
+  // expected decision when P1 passes, "incorrect" otherwise.
+  if (ctx.kind === "pre1") {
+    const rows = PRE1_STAGES[ctx.expected?.decision ?? "proceed"]
+    const stageRows: StageRow[] = rows.map((s) => {
+      const pass = s.check(ctx)
+      return {
+        stage: s.stage,
+        gate: s.gate,
+        pass,
+        first_pass: pass,
+        attempts: pass ? 1 : 0,
+        evidence: s.evidence(ctx),
+      }
+    })
+    const p1 = stageRows.find((r) => r.stage === "P1")
+    const decisionVerdict: "proceed" | "park" | "incorrect" =
+      p1 !== undefined && p1.pass && ctx.expected?.decision !== undefined ? ctx.expected.decision : "incorrect"
+    const passes = stageRows.filter((r) => r.pass).length
+    return {
+      stageRows,
+      parity_verdict: "PASS",
+      parity_evidence: "not applicable (pre1 run)",
+      parity_tenant: "not_applicable",
+      parity_tenant_evidence: "",
+      hygiene_verdict: "PASS",
+      hygiene_evidence: "not applicable (pre1 run)",
+      handoff_discipline_verdict: true,
+      recovery_cycles: 0,
+      first_pass_rate: stageRows.length > 0 ? passes / stageRows.length : 0,
+      funnel: stageRows.filter((r) => r.pass).map((r) => r.stage),
+      decision_verdict: decisionVerdict,
+      decision_evidence: p1?.evidence ?? "",
+    }
+  }
+
   // L18 stalled-agent path: when the handoff is COMPLETELY absent, S1..S10
   // are force-failed with the locked evidence (the agent never reached them —
   // the handoff is the funnel's ledger). A PARTIAL handoff is scored from

@@ -19,10 +19,17 @@ through its registry (`--driver <name>`, default `tier0`).
   score an empty transcript as an all-fail outcome). The driver MUST honor
   `req.timeoutMs` and return `timedOut: true` when the run exceeds it (the
   runner scores the partial stream on timeout). `req.ref` is the git ref
-  under test, driver-interpreted.
+  under test, driver-interpreted. `req.scenarioId` names the scenario and
+  `req.scenarioKind` is `"funnel"` or `"pre1"` — a pre-1 run writes the
+  artifact to `channel.pre1Path` (never `channel.handoffPath`) and skips the
+  collector leg.
 - **RunChannel** — the runner-owned local file contract: `runDir`,
-  `handoffPath`, `scoreInputPath`, `transcriptPath`, plus the driver-supplied
-  `handoffInstructions`/`completionInstructions` prompt text.
+  `handoffPath`, `scoreInputPath`, `transcriptPath`, `pre1Path`, plus the
+  driver-supplied `handoffInstructions`/`completionInstructions`/
+  `pre1Instructions` prompt text. `pre1Instructions` must carry BOTH the
+  artifact write (with the `pre1Path`) and the `complete_run` termination
+  verb — a driver that supplies only the write half leaves a pre-1 agent
+  with no stop instruction.
 
 ## Reserved control names
 
@@ -46,6 +53,9 @@ The driver must:
 3. Persist the raw transcript to `channel.transcriptPath` for the record.
 4. Return the parsed transcript in `AgentRunResult.transcript` (the runner
    scores that stream; it never re-reads the raw transcript).
+5. For `scenarioKind === "pre1"`: write the agent's `pre1.json` artifact to
+   `channel.pre1Path` (not `channel.handoffPath`) and skip the collector leg
+   — the runner reads the artifact itself and scores the P0–P4 gate set.
 
 ## Readiness gate
 

@@ -14,11 +14,11 @@ import {loadScenario} from "./scenario.ts"
 const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
-const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate"]
-const VERSION = "0.2.0"
+const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec"]
+const VERSION = "0.3.0"
 
-function readBundle(): {version: string; skills: {name: string; path: string}[]} {
-  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; path: string}[]}
+function readBundle(): {version: string; skills: {name: string; version: string; path: string}[]} {
+  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string}[]}
 }
 
 // The repo has no YAML dependency: parse the frontmatter block (between the
@@ -36,6 +36,7 @@ function parseFrontmatter(file: string): Record<string, string> {
 
 test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
   const bundle = readBundle()
+  const bundleVersions: Record<string, string> = Object.fromEntries(bundle.skills.map((s) => [s.name, s.version]))
   for (const name of SKILLS) {
     const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
     const fm = parseFrontmatter(file)
@@ -43,15 +44,19 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
     assert.ok(fm.description, `${name}: frontmatter description missing`)
     assert.ok(fm.description.includes("Use when"), `${name}: description must carry the trigger sentence`)
     assert.ok(fm.description.includes("Do not use when"), `${name}: description must carry the anti-trigger sentence`)
-    assert.equal(fm.version, bundle.version, `${name}: frontmatter version must equal bundle.json version`)
-    assert.equal(fm.version, VERSION)
+    // bundle.json is the single source for per-skill versions: every bundled
+    // skill must carry a version entry, and the SKILL.md frontmatter must
+    // match it — bumping a skill body without bumping its bundle entry fails.
+    const entryVersion = bundleVersions[name]
+    assert.ok(entryVersion !== undefined, `${name}: no version entry in bundle.json`)
+    assert.equal(fm.version, entryVersion, `${name}: frontmatter version must equal the bundle.json entry version`)
   }
 })
 
 test("(b) every bundle.json path resolves to an existing file", () => {
   const bundle = readBundle()
   assert.equal(bundle.version, VERSION)
-  assert.equal(bundle.skills.length, 5)
+  assert.equal(bundle.skills.length, 7)
   assert.deepEqual(bundle.skills.map((s) => s.name), SKILLS)
   const skillsRoot = resolve("skills")
   for (const skill of bundle.skills) {
@@ -108,6 +113,26 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "user.id",
     "config(\"base-url\")",
   ],
+  "design-access-model": [
+    "TRAIT_USER",
+    "TRAIT_GROUP",
+    "WithExternalID is DEPRECATED",
+    "because the API lacks",
+    "source-openapi-spec",
+    "write-connector-source",
+    "id_compatibility",
+    "provisioning",
+  ],
+  "source-openapi-spec": [
+    "262144",
+    "1048576",
+    "wc -c",
+    "missing_paths",
+    "revisit_trigger",
+    "vendor_doc",
+    "Parking with evidence",
+    "authority ladder",
+  ],
 }
 
 test("(c) each SKILL.md carries the locked section markers, content literals, ASCII-only bodies, and stays <= 200 lines", () => {
@@ -127,7 +152,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.2.0")
+  assert.equal(full.skillBundle.version, "0.3.0")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -176,7 +201,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.2.0")
+    assert.equal(meta.skill_bundle_version, "0.3.0")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

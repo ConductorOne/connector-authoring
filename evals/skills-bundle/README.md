@@ -2,6 +2,18 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.3.0 — the seven skills
+
+The bundle ships seven skills: the five funnel skills plus two new pre-1
+judgment skills at `0.1.0`:
+
+- `design-access-model` — pre-1: access-model design for net-new providers
+  (resource types, traits, entitlements, grants, provisioning scope).
+- `source-openapi-spec` — pre-1: OpenAPI spec sourcing + the IAM go/no-go
+  gate, with park-with-evidence as a success outcome.
+
+The five funnel skills are unchanged; the bundle version is `0.3.0`.
+
 ## v0.2.0 — the five funnel skills
 
 The bundle ships five skills, authored against the v0.0.26 DSL contract and

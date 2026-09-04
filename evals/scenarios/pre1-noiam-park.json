@@ -1,0 +1,34 @@
+{
+  "id": "pre1-noiam-park",
+  "name": "Pre-1: Acme Analytics spec sourcing (park)",
+  "kind": "pre1",
+  "fixture": {
+    "port": 18080,
+    "baseUrl": "http://127.0.0.1:18080",
+    "auth": "basic",
+    "openapiPath": "/noiam/openapi.json",
+    "basicAuth": {
+      "username": "connector@example.com",
+      "password": "fixture-token"
+    },
+    "bearerToken": "fixture-token"
+  },
+  "providerBrief": "Acme Analytics is a usage-analytics platform. Its public API exposes a whoami endpoint (GET /v1/me) and business endpoints (projects, reports, invoices). User and group management is available only in the Acme web console - there is no public API for member listing, roles, or key inventory. Source the spec and run the IAM go/no-go gate.",
+  "expectedDecision": "park",
+  "expectedParkEvidence": {
+    "spec_version_checked": "1.2.0",
+    "missing_paths": [
+      "/v1/users",
+      "/v1/groups",
+      "/v1/groups/{groupId}/members"
+    ],
+    "vendor_doc": "User and group management is available only in the Acme web console; there is no public API for member listing, role management, or API key inventory.",
+    "revisit_trigger": "Acme ships a members or teams API (e.g. GET /v1/users or GET /v1/teams/{id}/members)"
+  },
+  "skillBundle": {
+    "mode": "full",
+    "version": "0.3.0"
+  },
+  "model": "together/deepseek-ai/DeepSeek-V4-Flash-0731",
+  "reasoningEffort": "high"
+}
