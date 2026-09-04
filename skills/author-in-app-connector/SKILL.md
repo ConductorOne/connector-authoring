@@ -87,9 +87,9 @@ produces it:
 |---|---|
 | 0 | `read-authoring-contract` |
 | 1 (create_draft) | ORCHESTRATOR-OWNED - perform directly |
+| write (source authoring, before S2) | `write-connector-source` |
 | 2-5, 9-10 | `build-and-test` |
 | 6-8, 11 | `deploy-and-activate` |
-| write (source authoring, before S2) | `write-connector-source` |
 | design/spec/verify/update/diagnose (not yet shipped) | follow the served guide |
 
 Direct invocation of a stage skill is allowed; the router alone is not

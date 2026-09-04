@@ -152,7 +152,11 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   (dual-schema parity); `api-token` is `is_secret`/`isSecret` in both
   schemas; the literal `fixture-token` appears in NO uploaded source file (no
   plaintext secrets); bundle caps respected (each file ≤ 12 MiB, total ≤
-  16 MiB, ≤ 256 files).
+  16 MiB, ≤ 256 files). **Bundle-arm comparability caveat:** the full skill
+  bundle teaches these checks (dual-schema parity, `is_secret`,
+  `fixture-token`, bundle caps) that the `none`/`guide-only` arms do not
+  receive, so hygiene-stage results are likewise not comparable across
+  bundle arms.
 
 ## Baseline + regression gate
 

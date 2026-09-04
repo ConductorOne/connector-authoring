@@ -18,9 +18,11 @@ the 23-tool tenant MCP surface:
   mint, handoff.
 
 The four pre-existing skills pin the c1 contract sources at `2502b4cd…`;
-`write-connector-source` pins them at `92f1c2e5…` (the SHA at authoring
-time). The split is intentional: the new skill quotes the capabilities
-contract correction that landed after the earlier pin.
+`write-connector-source` pins them at `92f1c2e5…` — the SHA current at
+authoring time. The capabilities-as-real-contract correction the new skill
+quotes is the batch's Linear intent (see its SOURCES.md), not a doc change
+between the two pins; the c1 docs at `92f1c2e5` still carry the stale
+presence-only wording.
 
 ## Mount contract
 
