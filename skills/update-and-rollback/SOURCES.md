@@ -1,0 +1,11 @@
+# Sources - update-and-rollback
+
+Authored against the pinned sources below (decision 5: nothing written from
+model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
+`authoring.proto`, (c) lifecycle doc.
+
+| Source | Pin / SHA | What this skill quotes |
+|---|---|---|
+| MCP-served guide | c1 `2e5f53eb441a93087d9754085ca17a5061e125ea` | The "Updating an active connector" contract: reuse the existing managed runtime instance, update the draft source, build a new revision, fresh PASS evidence, mint a new approval URL, human OWNER activates, poll `list_revision_summaries` until ACTIVE, record `activation_epoch`, force sync. |
+| Authoring proto | c1 `2e5f53eb441a93087d9754085ca17a5061e125ea` | `MintApprovalToken` (`expires_in_seconds` 1-14400, `activation_url`); `ListRevisionSummaries` + `RevisionStatus` enum (`REVISION_STATUS_ACTIVE` = 1, `activation_epoch` on the ACTIVE row); `RollbackRevision` (OWNER role, `POST /api/v1/connector-authoring/rollbacks`, request fields `catalog_id` / `target_revision_id` / `instance_app_id` / `instance_connector_id` / `approval_token_id`). |
+| Lifecycle doc | c1 `2e5f53eb441a93087d9754085ca17a5061e125ea` | The "Updating and rolling back a live connector" section: the image-digest reuse rule; the rotation STOP verbatim (`serve image does not match the revision-pinned runtime image`; do not clear runtime fields, call the provisioner directly, or mutate the deployment or AWS resources; record tenant/catalog/app/connector/target-revision IDs; escalate to Connector Authoring / managed-runtime engineering); the REST-only OWNER-gated rollback body and the strictly-greater-activation-epoch pointer move. |
