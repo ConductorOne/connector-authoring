@@ -23,7 +23,7 @@ the exact tenant MCP titles.
 4. Mint a new approval URL with `c1_connector_authoring_mint_approval_token`
    (`expires_in_seconds` 1-14400). GATE: non-empty `activation_url`.
 5. HARD STOP at the human boundary: present the URL to a human tenant OWNER
-   and stop. Do not redeem the approval token.
+   and stop. Do not redeem the approval token for activation.
 6. After the OWNER activates, poll
    `c1_connector_authoring_list_revision_summaries` until the target
    revision is `REVISION_STATUS_ACTIVE`; record its `activation_epoch`.
@@ -71,7 +71,8 @@ revision's serve state is untouched - the pointer move alone stops it
 serving.
 
 If the rollback call fails closed (e.g. a precondition error), read the
-error text and route through diagnose-authoring-failure.
+error text and re-check the request fields; if it does not resolve after 2
+fix cycles, stop and report the exact error text (see Blocker protocol).
 
 ## Exit criteria
 
@@ -89,7 +90,7 @@ error text and route through diagnose-authoring-failure.
 
 ## Anti-patterns
 
-- Do not redeem the activation approval token - activation is a human OWNER step.
+- Do not redeem the approval token for activation - activation is a human OWNER step.
 - Do not reuse the managed runtime instance when the image digest does not
   match the target revision's pinned runtime image digest.
 - Do not clear runtime fields, call the provisioner directly, or mutate the
