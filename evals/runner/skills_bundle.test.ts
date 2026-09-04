@@ -137,7 +137,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "never invent data to make a demo appear complete",
     "SYNC_STATUS_DONE",
     "SYNC_STATUS_RUNNING",
-    "DONE/ERROR after ~10 polls, STOP and report",
+    "terminal status after ~10 polls, STOP and report",
     "data-anomaly auto-pause",
     "significant drop in sync data",
     "sync_disabled",

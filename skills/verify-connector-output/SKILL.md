@@ -17,8 +17,9 @@ the exact tenant MCP titles.
    normal for authored connectors). GATE: DONE. STOP if the status row
    reports an error - read `status.lastError` and route through
    diagnose-authoring-failure. If `status.status` is `SYNC_STATUS_RUNNING`,
-   poll with backoff (e.g. every 5-10s) until DONE or ERROR; if no
-   DONE/ERROR after ~10 polls, STOP and report. `SYNC_STATUS_DISABLED` is
+   poll with backoff (e.g. every 5-10s) until DONE, ERROR, or DISABLED; if
+   no terminal status after ~10 polls, STOP and report.
+   `SYNC_STATUS_DISABLED` is
    an error-classified outcome: read the connector's `sync_disabled_reason`.
    A data-anomaly auto-pause (reason starting `Sync paused due to
    significant drop in sync data`) means the sync was paused after repeated
