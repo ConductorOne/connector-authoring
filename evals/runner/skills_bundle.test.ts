@@ -94,6 +94,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "is_secret: true",
     "Do not use the secret: spelling",
     "WithExternalID is DEPRECATED",
+    "Do not write plaintext secrets into",
+    "Do not paste JSON Schema into",
     "transports:",
     "connector.js",
     "CAPABILITY_SYNC",

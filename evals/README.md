@@ -131,9 +131,10 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   `totalPath`, the three `config("...")` literals, `newUserResource` +
   `user.id`). **Bundle-arm comparability caveat:** the full skill bundle
   teaches the scored literals (`totalPath`, `newUserResource` + `user.id`)
-  that the `none`/`guide-only` arms do not receive, so parity-stage results
-  are not comparable across bundle arms — a full-mode pass reflects the
-  skill's teaching, not a capability the other arms lack. **Measurement
+  directly, while the `none`/`guide-only` arms must discover them from the
+  SDK declarations and examples every checkout exposes, so parity-stage
+  results are not comparable across bundle arms — a full-mode pass reflects
+  the skill's teaching, not a capability the other arms lack. **Measurement
   boundary:** the draft test sync runs Validate +
   GetMetadata only and PASS requires "no write attempt" — synced resources
   appear in the tenant only after force sync, which the eval forbids
@@ -153,9 +154,9 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   schemas; the literal `fixture-token` appears in NO uploaded source file (no
   plaintext secrets); bundle caps respected (each file ≤ 12 MiB, total ≤
   16 MiB, ≤ 256 files). **Bundle-arm comparability caveat:** the full skill
-  bundle teaches dual-schema parity and the `fixture-token` hygiene rule,
-  which the `none`/`guide-only` arms do not receive (`is_secret` and the
-  bundle caps come from the served guide every arm reads at step 0), so
+  bundle teaches dual-schema parity and the no-fixture-credentials hygiene
+  rule, which the `none`/`guide-only` arms do not receive (`is_secret` and
+  the bundle caps come from the served guide every arm reads at step 0), so
   hygiene-stage results are likewise not comparable across bundle arms.
 
 ## Baseline + regression gate
