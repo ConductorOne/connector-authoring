@@ -16,20 +16,9 @@ const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec"]
 const VERSION = "0.3.0"
-// The plan's locked versions are intentionally non-uniform: the two new
-// pre-1 skills ship at 0.1.0 while the funnel skills keep their versions.
-const SKILL_VERSIONS: Record<string, string> = {
-  "author-in-app-connector": "0.2.1",
-  "read-authoring-contract": "0.2.0",
-  "write-connector-source": "0.2.0",
-  "build-and-test": "0.2.0",
-  "deploy-and-activate": "0.2.0",
-  "design-access-model": "0.1.0",
-  "source-openapi-spec": "0.1.0",
-}
 
-function readBundle(): {version: string; skills: {name: string; path: string}[]} {
-  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; path: string}[]}
+function readBundle(): {version: string; skills: {name: string; version: string; path: string}[]} {
+  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string}[]}
 }
 
 // The repo has no YAML dependency: parse the frontmatter block (between the
@@ -46,6 +35,8 @@ function parseFrontmatter(file: string): Record<string, string> {
 }
 
 test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
+  const bundle = readBundle()
+  const bundleVersions: Record<string, string> = Object.fromEntries(bundle.skills.map((s) => [s.name, s.version]))
   for (const name of SKILLS) {
     const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
     const fm = parseFrontmatter(file)
@@ -53,13 +44,12 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
     assert.ok(fm.description, `${name}: frontmatter description missing`)
     assert.ok(fm.description.includes("Use when"), `${name}: description must carry the trigger sentence`)
     assert.ok(fm.description.includes("Do not use when"), `${name}: description must carry the anti-trigger sentence`)
-    // The plan's locked versions are intentionally non-uniform (the two new
-    // pre-1 skills ship at 0.1.0); each skill's frontmatter must match its
-    // locked per-skill version. Every bundled skill must have a locked
-    // version entry — adding a skill to the bundle without recording its
-    // version fails here.
-    assert.ok(SKILL_VERSIONS[name] !== undefined, `${name}: no locked SKILL_VERSIONS entry`)
-    assert.equal(fm.version, SKILL_VERSIONS[name], `${name}: frontmatter version must equal the locked per-skill version`)
+    // bundle.json is the single source for per-skill versions: every bundled
+    // skill must carry a version entry, and the SKILL.md frontmatter must
+    // match it — bumping a skill body without bumping its bundle entry fails.
+    const entryVersion = bundleVersions[name]
+    assert.ok(entryVersion !== undefined, `${name}: no version entry in bundle.json`)
+    assert.equal(fm.version, entryVersion, `${name}: frontmatter version must equal the bundle.json entry version`)
   }
 })
 

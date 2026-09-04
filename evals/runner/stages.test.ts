@@ -3,6 +3,7 @@ import {test} from "node:test"
 import assert from "node:assert/strict"
 import {PRE1_STAGES, STAGES, sanitizeHandoffValue, type Handoff, type Pre1Artifact, type ScoreInput, type StageCtx} from "./stages.ts"
 import {parseStream, type ParsedStream} from "./stream.ts"
+import type {ExpectedParkEvidence} from "./scenario.ts"
 
 const HANDOFF_PATH = "/tmp/evals-run/handoff.json"
 
@@ -429,6 +430,19 @@ test("P3 fails when spec_url is empty", () => {
   assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
 })
 
+function parkExpected(overrides: Partial<ExpectedParkEvidence> = {}): {decision: "park"; parkEvidence: ExpectedParkEvidence} {
+  return {
+    decision: "park",
+    parkEvidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+      ...overrides,
+    },
+  }
+}
+
 test("P4 passes on complete park evidence", () => {
   const pre1 = pre1Artifact({
     decision: "park",
@@ -439,7 +453,7 @@ test("P4 passes on complete park evidence", () => {
       revisit_trigger: "ships an API",
     },
   })
-  assert.equal(pcheck("P4", pre1Ctx({pre1})), true)
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), true)
 })
 
 test("P4 fails when missing_paths is empty", () => {
@@ -452,7 +466,7 @@ test("P4 fails when missing_paths is empty", () => {
       revisit_trigger: "ships an API",
     },
   })
-  assert.equal(pcheck("P4", pre1Ctx({pre1})), false)
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false)
 })
 
 test("P4 fails when any park-evidence field is empty", () => {
@@ -467,6 +481,58 @@ test("P4 fails when any park-evidence field is empty", () => {
       },
     })
     pre1.park_evidence![key as "spec_version_checked" | "vendor_doc" | "revisit_trigger"] = ""
-    assert.equal(pcheck("P4", pre1Ctx({pre1})), false, `${key} empty should fail P4`)
+    assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false, `${key} empty should fail P4`)
   }
+})
+
+test("P4 fails when the checked spec version differs from the expected", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "2.0.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false)
+})
+
+test("P4 fails when an expected missing path is absent from the evidence", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false)
+})
+
+test("P4 passes when the evidence lists extra missing paths beyond the expected", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups", "/v1/teams"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), true)
+})
+
+test("P4 fails when the scenario carries no expected park evidence", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: {decision: "park"}})), false)
 })

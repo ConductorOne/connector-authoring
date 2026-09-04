@@ -508,7 +508,14 @@ const P4: Stage = {
     if (pre1 === null || pre1 === undefined || !isRecord(pre1.park_evidence)) return false
     const pe = pre1.park_evidence
     if (!nonEmptyString(pe.spec_version_checked) || !nonEmptyString(pe.vendor_doc) || !nonEmptyString(pe.revisit_trigger)) return false
-    return Array.isArray(pe.missing_paths) && pe.missing_paths.length > 0 && pe.missing_paths.every((p) => typeof p === "string" && p.length > 0)
+    if (!Array.isArray(pe.missing_paths) || pe.missing_paths.length === 0 || !pe.missing_paths.every((p) => typeof p === "string" && p.length > 0)) return false
+    // The scenario's expected park evidence is enforced, not just documented:
+    // the checked spec version must match exactly and every expected missing
+    // path must be present (the artifact may list more).
+    const expected = ctx.expected?.parkEvidence
+    if (expected === undefined) return false
+    if (pe.spec_version_checked !== expected.spec_version_checked) return false
+    return expected.missing_paths.every((p) => pe.missing_paths.includes(p))
   },
   evidence: (ctx) => {
     const pre1 = ctx.pre1
