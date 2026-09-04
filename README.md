@@ -54,7 +54,8 @@ Neither example calls a live service as part of this repository's checks.
 
 The [`skills`](./skills) directory ships agent skills for the in-app
 connector authoring funnel: `author-in-app-connector` (the S0–S11
-orchestrator), `read-authoring-contract`, `build-and-test`, and
+orchestrator), `read-authoring-contract`, `write-connector-source` (the
+four-file source contract authoring stage), `build-and-test`, and
 `deploy-and-activate`. Each skill's `SOURCES.md` names the pinned contract
 sources it was authored against.
 

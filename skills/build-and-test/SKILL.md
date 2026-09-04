@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and polling a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # build-and-test

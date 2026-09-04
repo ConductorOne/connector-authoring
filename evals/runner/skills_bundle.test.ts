@@ -14,8 +14,8 @@ import {loadScenario} from "./scenario.ts"
 const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
-const SKILLS = ["author-in-app-connector", "read-authoring-contract", "build-and-test", "deploy-and-activate"]
-const VERSION = "0.1.0"
+const SKILLS = ["author-in-app-connector", "read-authoring-contract", "build-and-test", "deploy-and-activate", "write-connector-source"]
+const VERSION = "0.2.0"
 
 function readBundle(): {version: string; skills: {name: string; path: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; path: string}[]}
@@ -51,7 +51,7 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
 test("(b) every bundle.json path resolves to an existing file", () => {
   const bundle = readBundle()
   assert.equal(bundle.version, VERSION)
-  assert.equal(bundle.skills.length, 4)
+  assert.equal(bundle.skills.length, 5)
   assert.deepEqual(bundle.skills.map((s) => s.name), SKILLS)
   const skillsRoot = resolve("skills")
   for (const skill of bundle.skills) {
@@ -81,12 +81,29 @@ const SKILL_LITERALS: Record<string, string[]> = {
   "build-and-test": [
     "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
   ],
-  "deploy-and-activate": [
+"deploy-and-activate": [
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
     "SYNC_STATUS_DONE", "skipped_human_boundary",
     "Do not redeem the approval token",
     "Do not call `c1_connector_service_force_sync` during the funnel run",
     "Do not call `c1_connector_authoring_list_revision_summaries` during the funnel run",
+  ],
+  "write-connector-source": [
+    "Do not call fetch",
+    "is_secret",
+    "Do not use the secret: spelling",
+    "WithExternalID",
+    "transports:",
+    "connector.js",
+    "CAPABILITY_SYNC",
+    "baton-axiomatic capabilities",
+    "ticketing.enabled",
+    "account_id",
+    "user.title",
+    "totalPath",
+    "newUserResource",
+    "user.id",
+    "config(\"base-url\")",
   ],
 }
 
@@ -107,7 +124,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.1.0")
+  assert.equal(full.skillBundle.version, "0.2.0")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -156,7 +173,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.1.0")
+    assert.equal(meta.skill_bundle_version, "0.2.0")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
