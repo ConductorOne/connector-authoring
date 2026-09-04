@@ -154,10 +154,11 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   schemas; the literal `fixture-token` appears in NO uploaded source file (no
   plaintext secrets); bundle caps respected (each file ≤ 12 MiB, total ≤
   16 MiB, ≤ 256 files). **Bundle-arm comparability caveat:** the full skill
-  bundle teaches dual-schema parity and the no-fixture-credentials hygiene
-  rule, which the `none`/`guide-only` arms do not receive (`is_secret` and
-  the bundle caps come from the served guide every arm reads at step 0), so
-  hygiene-stage results are likewise not comparable across bundle arms.
+  bundle teaches dual-schema parity directly, while the `none`/`guide-only`
+  arms must infer it from the paired example schemas every checkout exposes;
+  the no-fixture-credentials hygiene rule is genuinely bundle-only (`is_secret`
+  and the bundle caps come from the served guide every arm reads at step 0),
+  so hygiene-stage results are likewise not comparable across bundle arms.
 
 ## Baseline + regression gate
 
