@@ -16,7 +16,9 @@ and cross-cutting skills at `0.1.0`:
   router over the common-failures table, the draft-test FAIL reading, and
   where logs live.
 
-The seven prior skills are unchanged; the bundle version is `0.4.0`.
+The seven prior skills are unchanged; the bundle version is `0.4.0`. The
+three new skills pin the c1 contract sources at `2e5f53eb…` (see each
+skill's SOURCES.md).
 
 ## v0.3.0 — the seven skills
 

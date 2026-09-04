@@ -58,7 +58,9 @@ managed-runtime engineering.
 
 To roll back to a previously activated revision, mint an approval token for
 the rollback target revision and redeem it against the rollback endpoint -
-unlike activation, rollback is REST-only and OWNER-gated. Use the product
+unlike activation, rollback is REST-only and OWNER-gated. The agent executes
+the POST with an OWNER bearer token read from the environment or secret
+store - never ask a human to paste the token into chat. Use the product
 base URL and OWNER bearer token:
 
 ```

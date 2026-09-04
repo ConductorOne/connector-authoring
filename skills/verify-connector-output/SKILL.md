@@ -35,9 +35,12 @@ the exact tenant MCP titles.
 3. Grant wiring: verify that every grant principal references an emitted resource
    and every grant entitlement ID references an emitted entitlement. GATE: no
    dangling principal or entitlement ID.
-4. ID stability: re-sync and confirm the emitted resource and entitlement
-   IDs are stable across the re-sync - no churn in identity fields.
-   GATE: IDs unchanged.
+4. ID stability: call `c1_connector_service_force_sync`, then poll
+   `c1_connector_service_get` with backoff (e.g. every 5-10s) until
+   `status.status` is `SYNC_STATUS_DONE`, `SYNC_STATUS_ERROR`, or
+   `SYNC_STATUS_DISABLED`; if no terminal status after ~10 polls, STOP and
+   report. Confirm the emitted resource and entitlement IDs are stable
+   across the re-sync - no churn in identity fields. GATE: IDs unchanged.
 5. UI spot-check: open `/admin/connector/<catalog_id>/<app_id>/<connector_id>`
    on the product base URL and confirm the connector's resources and grants
    appear. GATE: resources and grants visible.
