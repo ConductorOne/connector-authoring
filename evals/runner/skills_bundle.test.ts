@@ -157,8 +157,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
     "if no ACTIVE row after ~10 polls, STOP and report",
-    "if no DONE after ~10 polls, STOP and report",
+    "no terminal status after ~10 polls, STOP and report",
     "SYNC_STATUS_ERROR",
+    "SYNC_STATUS_DISABLED",
     "Do not print, log, or otherwise expose the OWNER bearer token value",
   ],
   "diagnose-authoring-failure": [

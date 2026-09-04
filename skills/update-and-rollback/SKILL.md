@@ -33,9 +33,10 @@ the exact tenant MCP titles.
    5-10s); if no ACTIVE row after ~10 polls, STOP and report.
 7. Call `c1_connector_service_force_sync`; poll `c1_connector_service_get`
    with backoff (e.g. every 5-10s) until `status.status` is
-   `SYNC_STATUS_DONE`; if no DONE after ~10 polls, STOP and report. If the
-   status row reports `SYNC_STATUS_ERROR`, read `status.lastError` and route
-   through diagnose-authoring-failure; if `SYNC_STATUS_DISABLED`, read the
+   `SYNC_STATUS_DONE`, `SYNC_STATUS_ERROR`, or `SYNC_STATUS_DISABLED`; if
+   no terminal status after ~10 polls, STOP and report. If the status row
+   reports `SYNC_STATUS_ERROR`, read `status.lastError` and route through
+   diagnose-authoring-failure; if `SYNC_STATUS_DISABLED`, read the
    connector's `sync_disabled_reason` and route through
    diagnose-authoring-failure unless the reason indicates a deliberate
    pause (customer opt-out or ops).
