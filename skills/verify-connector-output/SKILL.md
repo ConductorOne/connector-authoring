@@ -23,8 +23,10 @@ the exact tenant MCP titles.
    A data-anomaly auto-pause (reason starting `Sync paused due to
    significant drop in sync data`) means the sync was paused after repeated
    data drops - investigate the counts below and the drop reason; a
-   deliberate pause (customer opt-out or ops) is normal. Any other
-   unexpected status value routes through diagnose-authoring-failure.
+   deliberate pause (customer opt-out or ops) is normal; an empty or
+   unexpected `sync_disabled_reason` routes through
+   diagnose-authoring-failure. Any other unexpected status value routes
+   through diagnose-authoring-failure.
 2. Counts: inspect the resource, entitlement, and grant counts for the
    intended scope. Assert count parity against the live tenant API, not
    against a seed list - the live product may own extra rows (default

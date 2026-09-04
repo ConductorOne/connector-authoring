@@ -153,7 +153,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "approval_token_id",
     "activation_epoch",
     "image digest",
-    "Do not redeem the approval token",
+    "Do not redeem the activation approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
     "if no ACTIVE row after ~10 polls, STOP and report",

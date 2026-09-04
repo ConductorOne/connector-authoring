@@ -70,6 +70,9 @@ revision under a strictly greater activation epoch. The rolled-back-from
 revision's serve state is untouched - the pointer move alone stops it
 serving.
 
+If the rollback call fails closed (e.g. a precondition error), read the
+error text and route through diagnose-authoring-failure.
+
 ## Exit criteria
 
 - Same-catalog rerun: new revision ACTIVE with a recorded `activation_epoch`,
@@ -86,7 +89,7 @@ serving.
 
 ## Anti-patterns
 
-- Do not redeem the approval token - activation is a human OWNER step.
+- Do not redeem the activation approval token - activation is a human OWNER step.
 - Do not reuse the managed runtime instance when the image digest does not
   match the target revision's pinned runtime image digest.
 - Do not clear runtime fields, call the provisioner directly, or mutate the
