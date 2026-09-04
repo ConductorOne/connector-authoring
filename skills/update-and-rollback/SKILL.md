@@ -31,8 +31,9 @@ the exact tenant MCP titles.
    return to the draft-test step and confirm a fresh PASS row binds this
    revision before minting a new approval URL. Poll with backoff (e.g. every
    5-10s); if no ACTIVE row after ~10 polls, STOP and report.
-7. Call `c1_connector_service_force_sync`; verify via
-   `c1_connector_service_get` that `status.status` is `SYNC_STATUS_DONE`.
+7. Call `c1_connector_service_force_sync`; poll `c1_connector_service_get`
+   with backoff (e.g. every 5-10s) until `status.status` is
+   `SYNC_STATUS_DONE`; if no DONE after ~10 polls, STOP and report.
 
 ## Rotation STOP (known limitation)
 
