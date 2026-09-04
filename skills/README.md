@@ -1,11 +1,12 @@
 # Agent skills
 
-The ten skills shipped in this batch: the seven funnel skills authored
-against the v0.0.26 DSL contract and the 23-tool tenant MCP surface, plus
-three post-funnel and cross-cutting skills (`verify-connector-output`,
-`update-and-rollback`, `diagnose-authoring-failure`) over the tenant
-connector and authoring tool surface. Each skill's `SOURCES.md` names the
-pinned sources with their SHAs.
+The ten skills shipped in this batch: the five funnel skills and two
+pre-1 skills authored against the v0.0.26 DSL contract and the 23-tool
+tenant MCP surface, plus three post-funnel and cross-cutting skills
+(`verify-connector-output`, `update-and-rollback`,
+`diagnose-authoring-failure`) over the tenant connector and authoring
+tool surface. Each skill's `SOURCES.md` names the pinned sources with
+their SHAs.
 
 | Skill | Stage coverage | Source basis |
 |---|---|---|
