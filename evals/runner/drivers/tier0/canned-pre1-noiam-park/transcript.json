@@ -11,7 +11,7 @@
   },
   {
     "type": "tool_result",
-    "message": "12297 /tmp/spec.json",
+    "message": "4997 /tmp/spec.json",
     "data": {
       "tool_name": "bash",
       "is_error": false

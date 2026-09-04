@@ -124,7 +124,7 @@ const provisioner: Provisioner = {
       child.kill()
       throw err
     }
-const baseUrl = "http://127.0.0.1:" + port
+    const baseUrl = "http://127.0.0.1:" + port
     return {
       baseUrl,
       credentials: {username: "connector@example.com", password: "fixture-token"},

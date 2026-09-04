@@ -11,10 +11,10 @@ import assert from "node:assert/strict"
 import {execFile} from "node:child_process"
 import {promisify} from "node:util"
 import {buildRunMeta} from "./record.ts"
-import {mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
+import {mkdtempSync, openSync, closeSync, ftruncateSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join} from "node:path"
-import {collectScoreInput, isCollectionFailure, provisionWithRetry, readHandoff} from "./run.ts"
+import {collectScoreInput, isCollectionFailure, provisionWithRetry, readHandoff, readPre1Artifact} from "./run.ts"
 import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "./driver.ts"
 import type {ParsedStream} from "./stream.ts"
 import type {Scenario} from "./scenario.ts"
@@ -391,6 +391,76 @@ test("readHandoff treats a malformed handoff as a stall without surfacing the pa
     writeFileSync(path, '{"catalog_id": "cat-1", "activation_url": "https://secret-token.example/abc123",')
     const handoff = await readHandoff(path)
     assert.equal(handoff, null)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("readPre1Artifact returns null on oversized, malformed, and non-object artifacts", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pre1-read-"))
+  try {
+    // Oversized: a file larger than the 64 MiB cap must be treated as absent.
+    const big = join(dir, "big.json")
+    const fd = openSync(big, "w")
+    ftruncateSync(fd, 64 * 1024 * 1024 + 1)
+    closeSync(fd)
+    assert.equal(await readPre1Artifact(big), null)
+    // Malformed JSON (the agent wrote garbage) — null, never a throw.
+    const bad = join(dir, "bad.json")
+    writeFileSync(bad, '{"decision": "proceed",')
+    assert.equal(await readPre1Artifact(bad), null)
+    // Non-object (array) — null.
+    const arr = join(dir, "arr.json")
+    writeFileSync(arr, "[1,2,3]")
+    assert.equal(await readPre1Artifact(arr), null)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("readPre1Artifact parses a valid artifact", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pre1-read-"))
+  try {
+    const path = join(dir, "pre1.json")
+    writeFileSync(path, JSON.stringify({decision: "proceed", access_model: {resource_types: []}}))
+    const artifact = await readPre1Artifact(path)
+    assert.equal(artifact?.decision, "proceed")
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("a pre1-directory-proceed Tier-0 run writes a record with decision_verdict proceed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "run-pre1-"))
+  try {
+    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/pre1-directory-proceed.json", "--driver", "tier0", "--out", dir], 120_000)
+    assert.equal(code, 0, `run.ts exited ${code}; stdout=${stdout}`)
+    assert.ok(stdout.includes("record:"), `expected a record line, got stdout=${stdout}`)
+    const records = readdirSync(dir).filter((f) => f.endsWith(".jsonl"))
+    assert.equal(records.length, 1, `expected exactly one record, got ${records.join(", ")}`)
+    const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
+    const stages = lines.slice(1, -1).map((l) => (JSON.parse(l) as {stage: string}).stage)
+    assert.deepEqual(stages, ["P0", "P1", "P2", "P3"])
+    const summary = JSON.parse(lines[lines.length - 1]) as Record<string, unknown>
+    assert.equal(summary.decision_verdict, "proceed")
+    assert.ok((summary.decision_evidence as string).includes("decision=proceed"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("a pre1-noiam-park Tier-0 run writes a record with decision_verdict park", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "run-pre1-"))
+  try {
+    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/pre1-noiam-park.json", "--driver", "tier0", "--out", dir], 120_000)
+    assert.equal(code, 0, `run.ts exited ${code}; stdout=${stdout}`)
+    const records = readdirSync(dir).filter((f) => f.endsWith(".jsonl"))
+    assert.equal(records.length, 1, `expected exactly one record, got ${records.join(", ")}`)
+    const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
+    const stages = lines.slice(1, -1).map((l) => (JSON.parse(l) as {stage: string}).stage)
+    assert.deepEqual(stages, ["P0", "P1", "P4"])
+    const summary = JSON.parse(lines[lines.length - 1]) as Record<string, unknown>
+    assert.equal(summary.decision_verdict, "park")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

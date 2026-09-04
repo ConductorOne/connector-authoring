@@ -135,7 +135,7 @@ const id = requireString(data, "id", "scenario")
     username: requireString(fixture.basicAuth, "username", "fixture.basicAuth"),
     password: requireString(fixture.basicAuth, "password", "fixture.basicAuth"),
   }
-const bearerToken = requireString(fixture, "bearerToken", "fixture")
+  const bearerToken = requireString(fixture, "bearerToken", "fixture")
 
   const kind = data.kind === undefined ? "funnel" : data.kind
   if (kind !== "funnel" && kind !== "pre1") {

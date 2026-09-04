@@ -395,6 +395,16 @@ test("P2 fails on a non-boolean provisionable", () => {
   assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
 })
 
+test("P2 fails on a malformed extra resource-type entry", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.resource_types = [
+    {id: "user", traits: ["TRAIT_USER"]},
+    {id: "group", traits: ["TRAIT_GROUP"]},
+    {id: "team", traits: "x" as unknown as string[]},
+  ]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
 test("P3 passes on valid provenance", () => {
   assert.equal(pcheck("P3", pre1Ctx({})), true)
 })

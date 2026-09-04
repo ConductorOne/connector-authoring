@@ -115,63 +115,19 @@ function isPlaceholder(v: string): boolean {
 const MAX_HANDOFF_BYTES = 64 * 1024 * 1024
 const MAX_SCORE_INPUT_BYTES = 64 * 1024 * 1024
 
-export async function readHandoff(handoffPath: string): Promise<Handoff | null> {
-  // Bounded retry: a transient read failure must not be misread as a stalled
-  // agent (locked L18). A written-but-empty file is a genuine stall; a
-  // missing file is retried (a private driver's transport may lag the write).
-  let lastErr: unknown
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      if (statSync(handoffPath).size > MAX_HANDOFF_BYTES) {
-        stderr.write(`WARNING: handoff at ${handoffPath} exceeds ${MAX_HANDOFF_BYTES} bytes — scoring as stalled\n`)
-        return null
-      }
-      const content = readFileSync(handoffPath, "utf8")
-      if (content.length === 0) return null
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(content)
-      } catch {
-        // A malformed handoff is a genuine stall (the agent wrote garbage) —
-        // return null immediately. Never surface the parse error: JSON.parse
-        // messages embed a snippet of the offending content, which can carry
-        // agent-written values. The warning is content-free so an operator
-        // can still distinguish "agent wrote garbage" from "agent never
-        // wrote the handoff".
-        stderr.write(`WARNING: handoff at ${handoffPath} is not valid JSON — scoring as stalled\n`)
-        return null
-      }
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
-      const handoff = parsed as Handoff
-      for (const f of HANDOFF_FIELDS) {
-        const v = handoff[f]
-        if (typeof v === "string" && isPlaceholder(v)) handoff[f] = ""
-      }
-      return handoff
-    } catch (err) {
-      // ENOENT is retried too: a private driver's transport may lag the
-      // handoff write (the old read retried every failure). Only a
-      // written-but-empty file is an immediate stall.
-      lastErr = err
-      if (attempt < 3) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 2000))
-      }
-    }
-  }
-stderr.write(`WARNING: handoff read failed after 3 attempts: ${(lastErr as Error).message} — scoring as stalled\n`)
-  return null
-}
-
-// The pre1 artifact is agent-written and untrusted: same bounded 3-attempt
-// retry + 64 MiB size cap + JSON-parse + non-object-returns-null semantics as
-// readHandoff. Returns null on missing/oversized/malformed/non-object (P0
-// then fails).
-export async function readPre1Artifact(path: string): Promise<Pre1Artifact | null> {
+// Shared bounded read for agent-written artifacts (the handoff and the pre1
+// artifact are equally untrusted): cap the read at 64 MiB (the removed
+// gateway path bounded every such read via execFile maxBuffer) so a runaway
+// agent cannot buffer a multi-gigabyte file into the runner; retry transient
+// failures 3 times (a private driver's transport may lag the write); return
+// null on missing/oversized/malformed/non-object. The caller applies
+// artifact-specific post-processing (e.g. the handoff's placeholder scrub).
+async function readBoundedJson(path: string, label: string, absent: string): Promise<unknown | null> {
   let lastErr: unknown
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       if (statSync(path).size > MAX_HANDOFF_BYTES) {
-        stderr.write(`WARNING: pre1 artifact at ${path} exceeds ${MAX_HANDOFF_BYTES} bytes — scoring as absent\n`)
+        stderr.write(`WARNING: ${label} at ${path} exceeds ${MAX_HANDOFF_BYTES} bytes — scoring as ${absent}\n`)
         return null
       }
       const content = readFileSync(path, "utf8")
@@ -180,20 +136,52 @@ export async function readPre1Artifact(path: string): Promise<Pre1Artifact | nul
       try {
         parsed = JSON.parse(content)
       } catch {
-        stderr.write(`WARNING: pre1 artifact at ${path} is not valid JSON — scoring as absent\n`)
+        // A malformed artifact is a genuine failure (the agent wrote
+        // garbage) — return null immediately. Never surface the parse error:
+        // JSON.parse messages embed a snippet of the offending content,
+        // which can carry agent-written values. The warning is content-free
+        // so an operator can still distinguish "agent wrote garbage" from
+        // "agent never wrote the artifact".
+        stderr.write(`WARNING: ${label} at ${path} is not valid JSON — scoring as ${absent}\n`)
         return null
       }
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
-      return parsed as Pre1Artifact
+      return parsed
     } catch (err) {
+      // ENOENT is retried too: a private driver's transport may lag the
+      // write (the old read retried every failure). Only a written-but-empty
+      // file is an immediate failure.
       lastErr = err
       if (attempt < 3) {
         await new Promise<void>((resolve) => setTimeout(resolve, 2000))
       }
     }
   }
-stderr.write(`WARNING: pre1 artifact read failed after 3 attempts: ${(lastErr as Error).message} — scoring as absent\n`)
+  stderr.write(`WARNING: ${label} read failed after 3 attempts: ${(lastErr as Error).message} — scoring as ${absent}\n`)
   return null
+}
+
+export async function readHandoff(handoffPath: string): Promise<Handoff | null> {
+  // Bounded retry: a transient read failure must not be misread as a stalled
+  // agent (locked L18). A written-but-empty file is a genuine stall; a
+  // missing file is retried (a private driver's transport may lag the write).
+  const parsed = await readBoundedJson(handoffPath, "handoff", "stalled")
+  if (parsed === null) return null
+  const handoff = parsed as Handoff
+  for (const f of HANDOFF_FIELDS) {
+    const v = handoff[f]
+    if (typeof v === "string" && isPlaceholder(v)) handoff[f] = ""
+  }
+  return handoff
+}
+
+// The pre1 artifact is agent-written and untrusted: same bounded 3-attempt
+// retry + 64 MiB size cap + JSON-parse + non-object-returns-null semantics as
+// readHandoff (shared readBoundedJson). Returns null on
+// missing/oversized/malformed/non-object (P0 then fails).
+export async function readPre1Artifact(path: string): Promise<Pre1Artifact | null> {
+  const parsed = await readBoundedJson(path, "pre1 artifact", "absent")
+  return parsed as Pre1Artifact | null
 }
 
 // L18 stalled-agent path is applied inside scoreRun (a completely absent
@@ -205,7 +193,7 @@ function buildChannel(out: string, runId: string): RunChannel {
   // and strict-equality-compared in the S11 gate — they must not be
   // cwd-dependent for a private driver whose agent runs elsewhere.
   const runDir = join(resolve(out), runId)
-return {
+  return {
     runDir,
     handoffPath: join(runDir, "handoff.json"),
     scoreInputPath: join(runDir, "score-input.json"),
@@ -362,7 +350,7 @@ async function main(): Promise<number> {
 
   try {
     const prompt = buildPrompt(scenario, runId, handle.baseUrl, channel)
-const result = await driver.agentDriver.runAgent({
+    const result = await driver.agentDriver.runAgent({
       kind: "agent",
       prompt,
       toolSurface: handle.toolSurface,
@@ -381,7 +369,7 @@ const result = await driver.agentDriver.runAgent({
     // infrastructure outage, not an agent outcome — fail loudly with no
     // record rather than scoring an all-fail funnel. A genuine zero-tool-call
     // stall (no collectionFailed signal) stays a scored exit-0 outcome.
-if (isCollectionFailure(result)) {
+    if (isCollectionFailure(result)) {
       throw new Error("agent driver reported a stream collection failure with an empty transcript — no record written")
     }
 

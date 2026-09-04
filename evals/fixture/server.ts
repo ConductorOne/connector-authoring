@@ -159,7 +159,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   const log = (status: number) => stdout.write(`${method} ${path} ${status}\n`)
 
   try {
-// --- openapi.json: unauthenticated ---
+    // --- openapi.json: unauthenticated ---
     if (path === "/openapi.json") {
       if (method !== "GET") {
         log(405)

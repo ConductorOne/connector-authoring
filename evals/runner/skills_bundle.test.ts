@@ -63,7 +63,7 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
 
 test("(b) every bundle.json path resolves to an existing file", () => {
   const bundle = readBundle()
-assert.equal(bundle.version, VERSION)
+  assert.equal(bundle.version, VERSION)
   assert.equal(bundle.skills.length, 7)
   assert.deepEqual(bundle.skills.map((s) => s.name), SKILLS)
   const skillsRoot = resolve("skills")
@@ -102,7 +102,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not call `c1_connector_service_force_sync` during the funnel run",
     "Do not call `c1_connector_authoring_list_revision_summaries` during the funnel run",
   ],
-"write-connector-source": [
+  "write-connector-source": [
     "Do not call fetch",
     "is_secret: true",
     "Do not use the secret: spelling",
@@ -208,7 +208,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     assert.equal(records.length, 1, `expected exactly one record, got ${records.join(", ")}`)
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
-assert.equal(meta.skill_bundle_mode, "full")
+    assert.equal(meta.skill_bundle_mode, "full")
     assert.equal(meta.skill_bundle_version, "0.3.0")
   } finally {
     rmSync(dir, {recursive: true, force: true})

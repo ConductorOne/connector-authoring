@@ -394,26 +394,29 @@ function accessModelDimensions(ctx: StageCtx): {
     return {rtMatch: false, entMatch: false, grantMatch: false, idcCount: 0, provisioning: "absent"}
   }
   const am = pre1.access_model
+  // Every entry must be shape-valid AND set-equal to expected: a malformed
+  // extra entry (e.g. {id: "team", traits: "x"}) fails the gate rather than
+  // being filtered out before the set-compare (the gate's contract: a
+  // malformed artifact fails its gate).
   const rtMatch =
     Array.isArray(am.resource_types) &&
+    am.resource_types.every((rt) => isRecord(rt) && typeof rt.id === "string" && Array.isArray(rt.traits) && rt.traits.every((t) => typeof t === "string")) &&
     setEqual(
-      am.resource_types
-        .filter((rt) => isRecord(rt) && typeof rt.id === "string" && Array.isArray(rt.traits) && rt.traits.every((t) => typeof t === "string"))
-        .map((rt) => canonicalResourceType(rt as {id: string; traits: string[]})),
+      am.resource_types.map((rt) => canonicalResourceType(rt as {id: string; traits: string[]})),
       expected.resource_types.map(canonicalResourceType),
     )
   const entMatch =
     Array.isArray(am.entitlements) &&
+    am.entitlements.every((e) => isRecord(e) && typeof e.slug === "string") &&
     setEqual(
-      am.entitlements.filter((e) => isRecord(e) && typeof e.slug === "string").map((e) => (e as {slug: string}).slug),
+      am.entitlements.map((e) => (e as {slug: string}).slug),
       expected.entitlements.map((e) => e.slug),
     )
   const grantMatch =
     Array.isArray(am.grants) &&
+    am.grants.every((g) => isRecord(g) && typeof g.resource_type === "string" && typeof g.entitlement === "string" && typeof g.principal_type === "string") &&
     setEqual(
-      am.grants
-        .filter((g) => isRecord(g) && typeof g.resource_type === "string" && typeof g.entitlement === "string" && typeof g.principal_type === "string")
-        .map((g) => canonicalGrant(g as {resource_type: string; entitlement: string; principal_type: string})),
+      am.grants.map((g) => canonicalGrant(g as {resource_type: string; entitlement: string; principal_type: string})),
       expected.grants.map(canonicalGrant),
     )
   const idcCount = Array.isArray(am.id_compatibility) ? am.id_compatibility.length : 0
