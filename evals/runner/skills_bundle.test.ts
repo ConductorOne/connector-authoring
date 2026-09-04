@@ -139,7 +139,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "SYNC_STATUS_RUNNING",
     "DONE/ERROR after ~10 polls, STOP and report",
     "data-anomaly auto-pause",
-    "SYNC_DISABLED_CATEGORY_DATA_ANOMALY",
+    "significant drop in sync data",
     "sync_disabled",
     "every grant principal references an emitted resource",
     "entitlement ID references an emitted entitlement",
