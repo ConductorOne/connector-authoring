@@ -56,7 +56,10 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
     assert.ok(fm.description.includes("Do not use when"), `${name}: description must carry the anti-trigger sentence`)
     // The plan's locked versions are intentionally non-uniform (the two new
     // pre-1 skills ship at 0.1.0); each skill's frontmatter must match its
-    // locked per-skill version.
+    // locked per-skill version. Every bundled skill must have a locked
+    // version entry — adding a skill to the bundle without recording its
+    // version fails here.
+    assert.ok(SKILL_VERSIONS[name] !== undefined, `${name}: no locked SKILL_VERSIONS entry`)
     assert.equal(fm.version, SKILL_VERSIONS[name], `${name}: frontmatter version must equal the locked per-skill version`)
   }
 })

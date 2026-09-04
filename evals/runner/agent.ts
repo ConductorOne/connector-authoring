@@ -32,10 +32,7 @@ ${scenario.providerBrief}
 ${skillBundleSection(scenario)}
 
 (5) OUTPUT CONTRACT
-Write pre1.json via driver.write_file: args {path: "${channel.pre1Path}", content: "<the full pre1.json>"}. Schema: {decision: "proceed"|"park", access_model: {resource_types: [{id, traits}], entitlements: [{slug, display_name, grantable_principals, stable_id_shape}], grants: [{resource_type, entitlement, principal_type}], id_compatibility: [...], provisioning: [{resource_type, provisionable, justification}]}, sourcing: {spec_url, fetched_at, authority_rung, spec_bytes}, park_evidence: {spec_version_checked, missing_paths, vendor_doc, revisit_trigger}}. Include only the sections your decision requires: proceed -> access_model + sourcing; park -> park_evidence.
-
-(6) COMPLETION
-Then terminate the run with driver.complete_run: args {summary: "pre1 artifact written"}.`
+${channel.pre1Instructions} Schema: {decision: "proceed"|"park", access_model: {resource_types: [{id, traits}], entitlements: [{slug, display_name, grantable_principals, stable_id_shape}], grants: [{resource_type, entitlement, principal_type}], id_compatibility: [...], provisioning: [{resource_type, provisionable, justification}]}, sourcing: {spec_url, fetched_at, authority_rung, spec_bytes}, park_evidence: {spec_version_checked, missing_paths, vendor_doc, revisit_trigger}}. Include only the sections your decision requires: proceed -> access_model + sourcing; park -> park_evidence.`
   }
   const creds = scenario.fixture.basicAuth
   return `You are an eval agent implementing a read-only Directory API connector and completing the 12-step in-app authoring funnel. Your goal: implement the connector source files, walk the funnel to the human-activation boundary, and stop there.

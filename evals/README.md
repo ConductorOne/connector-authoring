@@ -142,6 +142,12 @@ evidence) — the park-vs-proceed metric is measured from these fields.
 `handoff_discipline_verdict` is `true`; `recovery_cycles` is 0. Pre-1 records
 write no skipped rows (`skippedRows = []`).
 
+Pre-1 `first_pass_rate` is passes over the gate count for the expected
+decision — 4 for proceed runs (P0–P3), 3 for park runs (P0/P1/P4) — so it is
+comparable only between runs of the same expected decision, not across the
+two pre1 scenarios. `first_pass`/`attempts` on pre-1 stage rows mirror `pass`
+(1/0) rather than transcript-derived attempts, unlike the funnel path.
+
 ## Fixture traps
 
 The fixture (`evals/fixture/`) mirrors the documented failure modes:

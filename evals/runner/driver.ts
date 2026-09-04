@@ -63,6 +63,7 @@ export interface RunChannel {
   pre1Path: string
   handoffInstructions: string
   completionInstructions: string
+  pre1Instructions: string
 }
 
 export interface AgentRunRequest {
@@ -74,6 +75,9 @@ export interface AgentRunRequest {
   model: string
   // The scenario id (pre-1 runs use it to select the canned replay set).
   scenarioId?: string
+  // The scenario kind (pre-1 runs use it to fail loudly when the canned
+  // replay set is missing instead of silently replaying the funnel set).
+  scenarioKind?: "funnel" | "pre1"
   // Declared scenario reasoning-effort pin; driver-interpreted — a driver
   // that can set agent reasoning effort applies it. Tier-0 ignores it.
   reasoningEffort?: "high" | "medium" | "low"
@@ -102,5 +106,5 @@ export interface Driver {
   name: string
   provisioner: Provisioner
   agentDriver: AgentDriver
-  channelInstructions(channel: RunChannel): {handoffInstructions: string; completionInstructions: string}
+  channelInstructions(channel: RunChannel): {handoffInstructions: string; completionInstructions: string; pre1Instructions: string}
 }

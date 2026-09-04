@@ -73,7 +73,7 @@ function makeDriver(provisioner: Provisioner): Driver {
     agentDriver: {
       runAgent: async () => ({transcript: emptyStream(), timedOut: false, wallTimeMs: 0}),
     },
-    channelInstructions: () => ({handoffInstructions: "", completionInstructions: ""}),
+    channelInstructions: () => ({handoffInstructions: "", completionInstructions: "", pre1Instructions: ""}),
   }
 }
 
@@ -90,6 +90,7 @@ function makeChannel(dir: string): RunChannel {
     pre1Path: join(dir, "pre1.json"),
     handoffInstructions: "",
     completionInstructions: "",
+    pre1Instructions: "",
   }
 }
 

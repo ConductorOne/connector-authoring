@@ -175,6 +175,13 @@ const agentDriver: AgentDriver = {
         req.scenarioId !== undefined && existsSync(join(CANNED_DIR, `canned-${req.scenarioId}`))
           ? join(CANNED_DIR, `canned-${req.scenarioId}`)
           : CANNED_DIR
+      // A pre1 run with no canned-<scenarioId> dir must fail loudly: silently
+      // replaying the funnel set would write handoff.json instead of
+      // pre1.json and produce an exit-0 record with every P gate failed —
+      // indistinguishable from an agent failure.
+      if (req.scenarioKind === "pre1" && cannedDir === CANNED_DIR) {
+        throw new Error(`tier0: pre1 scenario ${req.scenarioId ?? "<no id>"} has no canned-<scenarioId> replay directory — refusing to replay the funnel canned set`)
+      }
       const readCannedFrom = (name: string) => readFileSync(join(cannedDir, name), "utf8")
       const raw = JSON.parse(readCannedFrom("transcript.json")) as Record<string, unknown>[]
       // Deep copy: the <run-dir> substitution must never mutate the canned file.
@@ -186,11 +193,15 @@ const agentDriver: AgentDriver = {
       writeFileSync(req.channel.transcriptPath, JSON.stringify(events, null, 2))
       if (existsSync(join(cannedDir, "pre1.json"))) {
         writeFileSync(req.channel.pre1Path, readCannedFrom("pre1.json"))
+        // Pre-1 runs skip the collector leg, so the agent leg writes the
+        // score-input itself. The funnel agent leg must NOT pre-write it:
+        // collectScoreInput relies on the ENOENT to detect a collector that
+        // returned without writing its output.
+        if (existsSync(join(cannedDir, "score-input.json"))) {
+          writeFileSync(req.channel.scoreInputPath, readCannedFrom("score-input.json"))
+        }
       } else {
         writeFileSync(req.channel.handoffPath, readCannedFrom("handoff.json"))
-      }
-      if (existsSync(join(cannedDir, "score-input.json"))) {
-        writeFileSync(req.channel.scoreInputPath, readCannedFrom("score-input.json"))
       }
       return {transcript: parseStream(events), timedOut: false, wallTimeMs: Date.now() - startedAt}
     }
@@ -206,5 +217,6 @@ export const tier0: Driver = {
   channelInstructions: (channel) => ({
     handoffInstructions: "Write it with driver.write_file: args {path: \"" + channel.handoffPath + "\", content: \"<the full handoff JSON>\"}.",
     completionInstructions: "Then terminate the run with driver.complete_run: args {summary: \"handoff written; funnel complete to human-activation boundary\"}.",
+    pre1Instructions: "Write it with driver.write_file: args {path: \"" + channel.pre1Path + "\", content: \"<the full pre1.json>\"}. Then terminate the run with driver.complete_run: args {summary: \"pre1 artifact written\"}.",
   }),
 }

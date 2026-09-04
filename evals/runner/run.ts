@@ -201,6 +201,7 @@ function buildChannel(out: string, runId: string): RunChannel {
     pre1Path: join(runDir, "pre1.json"),
     handoffInstructions: "",
     completionInstructions: "",
+    pre1Instructions: "",
   }
 }
 
@@ -340,9 +341,10 @@ async function main(): Promise<number> {
   const runId = runIdFor(scenario, new Date())
   const startedAt = new Date().toISOString()
   const channel = buildChannel(cli.out, runId)
-  const {handoffInstructions, completionInstructions} = driver.channelInstructions(channel)
+  const {handoffInstructions, completionInstructions, pre1Instructions} = driver.channelInstructions(channel)
   channel.handoffInstructions = handoffInstructions
   channel.completionInstructions = completionInstructions
+  channel.pre1Instructions = pre1Instructions
   mkdirSync(channel.runDir, {recursive: true})
 
   // Provision + readiness retry loop: 3 attempts, teardown between.
@@ -360,6 +362,7 @@ async function main(): Promise<number> {
       reasoningEffort: scenario.reasoningEffort,
       ref: cli.ref,
       scenarioId: scenario.id,
+      scenarioKind: scenario.kind,
     })
     const {transcript, timedOut, wallTimeMs} = result
     if (timedOut) {

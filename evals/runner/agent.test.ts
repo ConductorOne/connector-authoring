@@ -41,6 +41,7 @@ const CHANNEL: RunChannel = {
   pre1Path: "/tmp/evals-run/pre1.json",
   handoffInstructions: 'Write it with driver.write_file: args {path: "<path>", content: "<the full handoff JSON>"}.',
   completionInstructions: 'Then terminate the run with driver.complete_run: args {summary: "handoff written; funnel complete to human-activation boundary"}.',
+  pre1Instructions: 'Write it with driver.write_file: args {path: "<path>", content: "<the full pre1.json>"}. Then terminate the run with driver.complete_run: args {summary: "pre1 artifact written"}.',
 }
 
 test("buildPrompt carries the stop rule, handoff path, and credentials", () => {

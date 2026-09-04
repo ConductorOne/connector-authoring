@@ -66,6 +66,7 @@ test("tier0 agent driver replays a canned run that scores a schema-valid 16-line
       pre1Path: join(dir, "pre1.json"),
       handoffInstructions: "",
       completionInstructions: "",
+      pre1Instructions: "",
     }
     const result = await tier0.agentDriver.runAgent({kind: "agent", prompt: "p", toolSurface: TIER0_TOOL_SURFACE, channel, timeoutMs: 60_000, model: "m", ref: ""})
     assert.equal(result.timedOut, false)
@@ -187,6 +188,7 @@ function pre1Channel(dir: string): RunChannel {
     pre1Path: join(dir, "pre1.json"),
     handoffInstructions: "",
     completionInstructions: "",
+    pre1Instructions: "",
   }
 }
 
