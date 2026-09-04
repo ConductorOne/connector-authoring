@@ -14,7 +14,7 @@ import {loadScenario} from "./scenario.ts"
 const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
-const SKILLS = ["author-in-app-connector", "read-authoring-contract", "build-and-test", "deploy-and-activate", "write-connector-source"]
+const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate"]
 const VERSION = "0.2.0"
 
 function readBundle(): {version: string; skills: {name: string; path: string}[]} {

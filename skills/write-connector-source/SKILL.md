@@ -106,14 +106,15 @@ The file is the `c1.connector.v2.ConnectorCapabilities` contract - proto
 JSON with `connectorCapabilities` and `resourceTypeCapabilities[]`, each
 entry `resourceType{id,displayName,traits}` + `capabilities[]`; per-resource-type
 traits/annotations; capability enum values `CAPABILITY_SYNC`/`CAPABILITY_PROVISION`/`CAPABILITY_ACCOUNT_PROVISIONING`.
-NOT a placeholder. Generation path: compiled connector + image-baked
-`baton-axiomatic capabilities` with safe placeholder config (shopify
+NOT a placeholder. For in-app drafts, hand-author `capabilities.json` from
+the shipped `examples/http/capabilities.json` shape (quoted below) - the
+in-app build requires presence/non-empty only and does not schema-validate
+the file. The `baton-axiomatic capabilities` generation path (shopify
 Makefile pattern: `env BATON_BASE_URL=https://placeholder.myshopify.com
 BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
-baton_capabilities.json`; capability generation never makes network calls).
-Move the output to `capabilities.json` - the four-file contract name (shopify writes `baton_capabilities.json`).
-The in-app build today requires presence/non-empty only and does not
-schema-validate the file; the shipped `examples/http/capabilities.json` file carries this exact shape and is the quoted form:
+baton_capabilities.json`; capability generation never makes network calls)
+applies only when a compiled connector image is already available; move its
+output to `capabilities.json` (shopify writes `baton_capabilities.json`).
 
 ```json
 {

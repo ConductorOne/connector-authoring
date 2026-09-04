@@ -129,7 +129,12 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 - **`parity_verdict`** is computed STATICALLY from the uploaded `connector.ts`
   source (five literal-substring checks: `account_id`, `user.title`,
   `totalPath`, the three `config("...")` literals, `newUserResource` +
-  `user.id`). **Measurement boundary:** the draft test sync runs Validate +
+  `user.id`). **Bundle-arm comparability caveat:** the full skill bundle
+  teaches the scored literals (`totalPath`, `newUserResource` + `user.id`)
+  that the `none`/`guide-only` arms do not receive, so parity-stage results
+  are not comparable across bundle arms — a full-mode pass reflects the
+  skill's teaching, not a capability the other arms lack. **Measurement
+  boundary:** the draft test sync runs Validate +
   GetMetadata only and PASS requires "no write attempt" — synced resources
   appear in the tenant only after force sync, which the eval forbids
   (activation is human-only). Post-draft-test tenant counts are therefore
