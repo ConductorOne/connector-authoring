@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # author-in-app-connector
@@ -21,8 +21,8 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    and `draft_id`. STOP if either is empty.
    Before S2: author the four source files (connector.ts,
    config-schema.json, runtime-schema.json, capabilities.json) per the
-   served guide - the write stage skill is not yet shipped, so follow the
-   served guide.
+   served guide - invoke `write-connector-source` to author the four source
+   files.
 2. S2 upload: `wc -c` each source file, call
    `c1_connector_authoring_create_draft_source_upload` with the file list,
    PUT each file to its `upload_targets` URL with `required_headers`
@@ -90,7 +90,8 @@ produces it:
 | 1 (create_draft) | ORCHESTRATOR-OWNED - perform directly |
 | 2-5, 9-10 | `build-and-test` |
 | 6-8, 11 | `deploy-and-activate` |
-| design/spec/write/verify/update/diagnose (not yet shipped) | follow the served guide |
+| write (source authoring, before S2) | `write-connector-source` |
+| design/spec/verify/update/diagnose (not yet shipped) | follow the served guide |
 
 Direct invocation of a stage skill is allowed; the router alone is not
 trusted to recover mid-funnel.
