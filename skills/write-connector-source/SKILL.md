@@ -23,16 +23,13 @@ rule: when the served guide conflicts with any other doc, the served guide wins.
 ## connector.ts rules
 
 1. Config refs are opaque at module eval - `ref || default` never fires for transports; make the field required or resolve at request time.
-2. Every transport referenced by a `node` or `reuse` must be the SAME
-   transport object registered under `transports:` in the default export.
+2. Every transport referenced by a `node` or `reuse` must be the SAME transport object registered under `transports:` in the default export.
 3. Slot identity is by JS reference - never re-call `slot()`.
 4. The bundle targets ES5 - no `u` regex flag; goja quirks apply.
-5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers`
-   (`@baton/*` resolution).
+5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers` (`@baton/*` resolution).
 
-Worked skeletons: read `examples/http/connector.ts` (transport + offset
-pagination + users/groups/membership grants), `examples/static/connector.ts`
-(zero-config), and the lifecycle doc's "Worked example: Okta read-only connector" section (pin in SOURCES.md) as the patterns to follow.
+Worked skeletons: `examples/http/connector.ts` (transport + offset pagination
++ users/groups/membership grants), `examples/static/connector.ts` (zero-config), and the lifecycle doc's Okta worked example (pin in SOURCES.md).
 
 ## config-schema.json rules
 
@@ -155,28 +152,27 @@ Field-name parity between `config-schema.json` and `runtime-schema.json`;
       every field.
 - [ ] No unregistered transport - every transport referenced by a `node` or
       `reuse` registered under `transports:`.
-- [ ] Every `config("...")` literal in `connector.ts` declared in BOTH
-      schemas (parity covers connector.ts config refs, not just the two schemas).
+- [ ] Every `config("...")` literal in `connector.ts` declared in BOTH schemas (parity covers config refs, not just the two schemas).
 - [ ] `ticketing.enabled` - no `ticketing` block the connector code does not back (`ticketing.enabled must be true when ticketing is configured`).
 
 ## Eval-alignment contract
 
 Taught as contract rules, not eval-gaming literals:
 
-- Scope list calls - the users list-call query must pass `account_id`
-  structurally (a comment mention does not count).
-- Handle nullable fields - `user.title` may be null; project defensively.
-- Terminate offset pagination with `totalPath`.
-- Use the three config literals `config("base-url")` / `config("account-email")` / `config("api-token")`.
-- Construct users with `newUserResource` + `user.id`.
-- Hygiene: all four files present; dual-schema field-name parity; `api-token` `is_secret` in both schemas; the literal `fixture-token` in NO uploaded file; bundle caps (16 MiB total / 12 MiB per file / 256 files).
+- Scope list calls - pass the tenant-scoping query param the API requires structurally in the query object (e.g. `account_id`); a comment mention does not count.
+- Handle nullable fields - e.g. `user.title` may be null; project defensively.
+- Terminate offset pagination with the API's total-count path (e.g. `totalPath`).
+- Declare every `config("...")` literal the code reads in BOTH schemas (e.g. `config("base-url")` / `config("account-email")` / `config("api-token")`).
+- Construct users with the runtime's user helper + the user id (e.g. `newUserResource` + `user.id`).
+- Hygiene: all four files present; dual-schema parity; `api-token` `is_secret`
+  in both schemas; never write fixture/test credentials into uploaded source
+  (the literal `fixture-token` in NO uploaded file); bundle caps (16 MiB total / 12 MiB per file / 256 files).
 
 ## Exit criteria
 
 - All four files authored per the contract above.
 - Dual-schema parity holds.
 - `capabilities.json` carries the ConnectorCapabilities shape.
-- The body contains the locked literals listed in the bundle test.
 
 ## Anti-patterns
 
