@@ -81,7 +81,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
   "build-and-test": [
     "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
   ],
-"deploy-and-activate": [
+  "deploy-and-activate": [
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
     "SYNC_STATUS_DONE", "skipped_human_boundary",
     "Do not redeem the approval token",

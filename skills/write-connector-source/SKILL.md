@@ -165,7 +165,7 @@ checks:
 Taught as contract rules, not eval-gaming literals:
 
 - Scope list calls: the users list-call query must pass `account_id`
-  structurally (a comment mention does not count).
+  structurally - inside the `query:` object of the `directory.GET` call (e.g. `query: {account_id: ...}`); a comment mention does not count.
 - Handle nullable fields: `user.title` may be null - project it explicitly.
 - Terminate offset pagination with `totalPath`.
 - The three config literals: `config("base-url")`, `config("account-email")`,
