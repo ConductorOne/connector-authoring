@@ -22,8 +22,7 @@ rule: when the served guide conflicts with any other doc, the served guide wins.
 
 ## connector.ts rules
 
-1. Config refs are opaque at module eval - `ref || default` never fires for
-   transports; make the field required or resolve at request time.
+1. Config refs are opaque at module eval - `ref || default` never fires for transports; make the field required or resolve at request time.
 2. Every transport referenced by a `node` or `reuse` must be the SAME
    transport object registered under `transports:` in the default export.
 3. Slot identity is by JS reference - never re-call `slot()`.
@@ -39,8 +38,7 @@ pagination + users/groups/membership grants), `examples/static/connector.ts`
 
 The baton Configuration document shape - `{"fields":[...]}` with
 `stringField`/`boolField`/`intField` entries; do NOT paste a plain JSON
-Schema (rejected at draft time); secret fields use
-`is_secret`/`isSecret`/`IsSecret` spellings. Example shape (from the
+Schema (rejected at draft time); secret fields use `is_secret`/`isSecret`/`IsSecret` spellings. Example shape (from the
 lifecycle doc's source-file contract section):
 
 ```json
@@ -68,13 +66,12 @@ lifecycle doc's source-file contract section):
 ## runtime-schema.json rules
 
 The runtime contract with the baton `config_schema` inlined (do not fold the
-UI schema in - it is the wrong shape); EVERY field in the inline
-`config_schema` carries `type` (missing `type` is a runtime initialization
-error); credential-class fields (names containing `token`, `secret`,
-`password`, `api-key`, and similar) MUST carry `is_secret: true` - the build
-rejects a credential-class field not marked secret; the `secret:` spelling
-is not read; `runtime.connector: "connector.js"`. Example shape (from the
-lifecycle doc's source-file contract section):
+UI schema in - it is the wrong shape); EVERY field carries `type` (missing
+`type` is a runtime initialization error); credential-class fields (names
+containing `token`, `secret`, `password`, `api-key`, and similar) MUST carry
+`is_secret: true` - the build rejects a credential-class field not marked
+secret; the `secret:` spelling is not read; `runtime.connector: "connector.js"`.
+Example shape (from the lifecycle doc's source-file contract section):
 
 ```json
 {
@@ -110,9 +107,8 @@ lifecycle doc's source-file contract section):
 
 The file is the `c1.connector.v2.ConnectorCapabilities` contract - proto
 JSON with `connectorCapabilities` and `resourceTypeCapabilities[]`, each
-entry `resourceType{id,displayName,traits}` + `capabilities[]`;
-per-resource-type traits/annotations; capability enum values
-`CAPABILITY_SYNC`/`CAPABILITY_PROVISION`/`CAPABILITY_ACCOUNT_PROVISIONING`.
+entry `resourceType{id,displayName,traits}` + `capabilities[]`; per-resource-type
+traits/annotations; capability enum values `CAPABILITY_SYNC`/`CAPABILITY_PROVISION`/`CAPABILITY_ACCOUNT_PROVISIONING`.
 NOT a placeholder. Generation path: compiled connector + image-baked
 `baton-axiomatic capabilities` with safe placeholder config (shopify
 Makefile pattern: `env BATON_BASE_URL=https://placeholder.myshopify.com
@@ -149,8 +145,7 @@ schema-validate the file; the shipped `examples/http/capabilities.json` file car
 ## Dual-schema parity (pre-upload checklist)
 
 Field-name parity between `config-schema.json` and `runtime-schema.json`;
-`api-token` `is_secret` in BOTH schemas. Pass/fail checks from the docs'
-common-failures table:
+`api-token` `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
 
 - [ ] `connector.ts` source under the 262144-byte compile limit.
 - [ ] Bundle with embedded runtime specs under the 1048576-byte limit.

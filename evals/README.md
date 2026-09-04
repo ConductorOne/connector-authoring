@@ -196,7 +196,7 @@ real-tenant driver and the tool surface are available.
 
 ## Non-goals
 
-- The remaining five skills (design-access-model, source-openapi-spec, verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs; the five funnel skills ship in this PR.
+- The remaining five skills (design-access-model, source-openapi-spec, verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs; the fifth funnel skill ships in this PR.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.
