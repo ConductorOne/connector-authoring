@@ -146,7 +146,7 @@ Field-name parity between `config-schema.json` and `runtime-schema.json`;
 `api-token` `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
 
 - [ ] `connector.ts` source under the 262144-byte compile limit.
-- [ ] Bundle with embedded runtime specs under the 1048576-byte limit.
+- [ ] Built bundle with embedded runtime specs under the 1048576-byte limit.
 - [ ] Every credential-class config field marked `is_secret` (build rejects
       `credential-class config field must be marked is_secret`).
 - [ ] Every `connector config field X is missing type` fixed - `type` on
@@ -167,7 +167,7 @@ Taught as contract rules, not eval-gaming literals:
 - Construct users with the runtime's user helper + the user id (e.g. `newUserResource` + `user.id`).
 - Hygiene: all four files present; dual-schema parity; `api-token` `is_secret`
   in both schemas; never write fixture/test credentials into uploaded source
-  (the literal `fixture-token` in NO uploaded file); bundle caps (16 MiB total / 12 MiB per file / 256 files).
+  (the literal `fixture-token` in NO uploaded file); source-upload caps (16 MiB total / 12 MiB per file / 256 files).
 
 ## Exit criteria
 
