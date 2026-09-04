@@ -78,7 +78,7 @@ function makeDriver(provisioner: Provisioner): Driver {
 }
 
 function fullSurface(): string[] {
-  return [...FUNNEL_TOOLS, ...SCENARIO.readinessTools]
+  return [...FUNNEL_TOOLS, ...(SCENARIO.readinessTools ?? [])]
 }
 
 function makeChannel(dir: string): RunChannel {
@@ -87,6 +87,7 @@ function makeChannel(dir: string): RunChannel {
     handoffPath: join(dir, "handoff.json"),
     scoreInputPath: join(dir, "score-input.json"),
     transcriptPath: join(dir, "transcript.json"),
+    pre1Path: join(dir, "pre1.json"),
     handoffInstructions: "",
     completionInstructions: "",
   }
@@ -224,7 +225,7 @@ test("provisionWithRetry throws after 3 failed attempts, tearing down each handl
 })
 
 test("provisionWithRetry throws ReadinessError when a readiness tool is missing from the declared surface", async () => {
-  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: SCENARIO.readinessTools.slice(0, 4)}
+  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: (SCENARIO.readinessTools ?? []).slice(0, 4)}
   const driver = makeDriver({
     provision: async () => handle,
     checkReadiness: async () => {},
@@ -237,7 +238,7 @@ test("provisionWithRetry throws ReadinessError when a readiness tool is missing 
 })
 
 test("funnel_tools_present is false when the declared surface lacks funnel tools", async () => {
-  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: SCENARIO.readinessTools}
+  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: SCENARIO.readinessTools ?? []}
   const driver = makeDriver({
     provision: async () => handle,
     checkReadiness: async () => {},
@@ -258,7 +259,7 @@ test("collectScoreInput returns the normalized score-input on success", async ()
         return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools ?? [], false, "", 1)
     assert.equal(scoreInput.evidence.result, "PASS")
   } finally {
     rmSync(dir, {recursive: true, force: true})
@@ -279,7 +280,7 @@ test("collectScoreInput retries once on a transient failure", async () => {
         return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools ?? [], false, "", 1)
     assert.equal(calls, 2)
     assert.equal(scoreInput.evidence.result, "PASS")
   } finally {
@@ -308,7 +309,7 @@ test("collectScoreInput rethrows after 2 failures when the handoff is complete",
       deployment_instance_id: "di",
       activation_url: "https://x",
     }
-    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, "", 1), /collector down/)
+    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools ?? [], true, "", 1), /collector down/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
@@ -335,7 +336,7 @@ test("collectScoreInput rethrows after 2 failures on a partial handoff", async (
       deployment_instance_id: "",
       activation_url: "",
     }
-    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), partialHandoff, SCENARIO.readinessTools, false, "", 1), /collector down/)
+    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), partialHandoff, SCENARIO.readinessTools ?? [], false, "", 1), /collector down/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
@@ -350,7 +351,7 @@ test("collectScoreInput returns a null score-input on the stalled path (absent h
         throw new Error("collector down")
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools ?? [], false, "", 1)
     assert.deepEqual(scoreInput.draft.required_source_files, {})
     assert.equal(scoreInput.tenant_counts.users, null)
   } finally {
@@ -418,7 +419,7 @@ test("collectScoreInput redacts a malformed score-input parse error", async () =
       activation_url: "https://x",
     }
     await assert.rejects(
-      collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, "", 1),
+      collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools ?? [], true, "", 1),
       (err: unknown) => err instanceof Error && err.message.includes("unreadable score-input") && !err.message.includes("super-secret-value"),
     )
   } finally {

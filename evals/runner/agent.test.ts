@@ -38,6 +38,7 @@ const CHANNEL: RunChannel = {
   handoffPath: "/tmp/evals-run/handoff.json",
   scoreInputPath: "/tmp/evals-run/score-input.json",
   transcriptPath: "/tmp/evals-run/transcript.json",
+  pre1Path: "/tmp/evals-run/pre1.json",
   handoffInstructions: 'Write it with driver.write_file: args {path: "<path>", content: "<the full handoff JSON>"}.',
   completionInstructions: 'Then terminate the run with driver.complete_run: args {summary: "handoff written; funnel complete to human-activation boundary"}.',
 }

@@ -33,6 +33,9 @@ export interface SummaryLine {
   turns: number
   tokens_in: number | null
   tokens_out: number | null
+  // Pre-1 only: the separately-measured park-vs-proceed metric.
+  decision_verdict?: "proceed" | "park" | "incorrect"
+  decision_evidence?: string
 }
 
 // Run meta (locked D15): harness is inherited (no override); reasoning_effort

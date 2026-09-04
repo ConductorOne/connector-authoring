@@ -17,6 +17,7 @@ with a fixed seed so sync results are reproducible.
 | Method | Path | Auth | Pagination |
 |---|---|---|---|
 | GET | `/openapi.json` | none | — |
+| GET | `/noiam/openapi.json` | none | — |
 | GET | `/v1/users` | basic | offset (`{items, offset, limit, total}`) |
 | GET | `/v1/groups` | basic | offset |
 | GET | `/v1/groups/{groupId}/members` | basic | offset |
@@ -32,6 +33,9 @@ every non-final page (absent on the final page).
 
 Auth failures return `401` with `WWW-Authenticate` (`Basic realm="fixture"`
 on `/v1`, `Bearer` on `/v2`). Unknown paths return `404`; wrong methods `405`.
+
+`/noiam/openapi.json` serves the no-IAM surface (whoami + business endpoints;
+no member listing/roles/groups/keys) used by the pre1 park scenario.
 
 ## Seed
 
@@ -80,9 +84,9 @@ bash evals/fixture/verify.sh
 npm run eval:verify
 ```
 
-`verify.sh` runs the server on port 18081 (never 18080) and asserts all 16
-checks: every endpoint, both auth variants, both pagination variants, and all
-three traps.
+`verify.sh` runs the server on port 18081 (never 18080) and asserts all 19
+checks: every endpoint, both auth variants, both pagination variants, all
+three traps, and the no-IAM surface.
 
 ## Container
 

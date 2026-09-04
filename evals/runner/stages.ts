@@ -1,6 +1,8 @@
 // stages.ts — S0..S11 stage gate definitions.
 // Every check is a pure function over the locked evidence contract.
 import type {ParsedStream, ToolCallRecord} from "./stream.ts"
+import {isRecord} from "./scenario.ts"
+import type {ExpectedAccessModel, ExpectedParkEvidence} from "./scenario.ts"
 
 export interface Handoff {
   catalog_id?: string
@@ -36,6 +38,40 @@ export interface StageCtx {
   handoff: Handoff
   scoreInput: ScoreInput
   handoffPath: string
+  // Pre-1 fields (all optional — the existing test ctx() helpers compile
+  // unchanged). kind === "pre1" selects the PRE1_STAGES gate set.
+  kind?: "funnel" | "pre1"
+  pre1?: Pre1Artifact | null
+  expected?: {decision: "proceed" | "park"; accessModel?: ExpectedAccessModel; parkEvidence?: ExpectedParkEvidence}
+}
+
+export interface Pre1AccessModel {
+  resource_types: {id: string; traits: string[]}[]
+  entitlements: {slug: string; display_name?: string; grantable_principals?: string[]; stable_id_shape?: string}[]
+  grants: {resource_type: string; entitlement: string; principal_type: string}[]
+  id_compatibility: unknown[]
+  provisioning: {resource_type: string; provisionable: boolean; justification: string}[]
+}
+
+export interface Pre1Sourcing {
+  spec_url: string
+  fetched_at: string
+  authority_rung: string
+  spec_bytes: number
+}
+
+export interface Pre1ParkEvidence {
+  spec_version_checked: string
+  missing_paths: string[]
+  vendor_doc: string
+  revisit_trigger: string
+}
+
+export interface Pre1Artifact {
+  decision: "proceed" | "park"
+  access_model?: Pre1AccessModel
+  sourcing?: Pre1Sourcing
+  park_evidence?: Pre1ParkEvidence
 }
 
 export interface Stage {
@@ -318,3 +354,171 @@ export const SKIPPED_STAGES: {stage: string; gate: string}[] = [
   {stage: "S11b", gate: "REVISION_STATUS_ACTIVE"},
   {stage: "S11c", gate: "SYNC_STATUS_DONE"},
 ]
+
+// --- pre-1 gates (P0..P4) ---
+// The pre1 artifact is UNTRUSTED (agent-written). Every check type-checks it
+// defensively and never throws; a malformed artifact fails its gate.
+
+function nonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0
+}
+
+// Canonicalize BOTH sides identically: {id, traits} with traits sorted, then
+// set-compare. Extra fields on either side are dropped by the canonical form.
+function canonicalResourceType(rt: {id: string; traits: string[]}): string {
+  return JSON.stringify({id: rt.id, traits: [...rt.traits].sort()})
+}
+
+function canonicalGrant(g: {resource_type: string; entitlement: string; principal_type: string}): string {
+  return JSON.stringify({resource_type: g.resource_type, entitlement: g.entitlement, principal_type: g.principal_type})
+}
+
+function setEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const sortedA = [...a].sort()
+  const sortedB = [...b].sort()
+  return sortedA.every((v, i) => v === sortedB[i])
+}
+
+// Defensive access-model dimension checks shared by P2's check and evidence.
+function accessModelDimensions(ctx: StageCtx): {
+  rtMatch: boolean
+  entMatch: boolean
+  grantMatch: boolean
+  idcCount: number
+  provisioning: "all justified" | "missing justification" | "non-boolean provisionable" | "absent"
+} {
+  const pre1 = ctx.pre1
+  const expected = ctx.expected?.accessModel
+  if (pre1 === null || pre1 === undefined || !isRecord(pre1.access_model) || expected === undefined) {
+    return {rtMatch: false, entMatch: false, grantMatch: false, idcCount: 0, provisioning: "absent"}
+  }
+  const am = pre1.access_model
+  const rtMatch =
+    Array.isArray(am.resource_types) &&
+    setEqual(
+      am.resource_types
+        .filter((rt) => isRecord(rt) && typeof rt.id === "string" && Array.isArray(rt.traits) && rt.traits.every((t) => typeof t === "string"))
+        .map((rt) => canonicalResourceType(rt as {id: string; traits: string[]})),
+      expected.resource_types.map(canonicalResourceType),
+    )
+  const entMatch =
+    Array.isArray(am.entitlements) &&
+    setEqual(
+      am.entitlements.filter((e) => isRecord(e) && typeof e.slug === "string").map((e) => (e as {slug: string}).slug),
+      expected.entitlements.map((e) => e.slug),
+    )
+  const grantMatch =
+    Array.isArray(am.grants) &&
+    setEqual(
+      am.grants
+        .filter((g) => isRecord(g) && typeof g.resource_type === "string" && typeof g.entitlement === "string" && typeof g.principal_type === "string")
+        .map((g) => canonicalGrant(g as {resource_type: string; entitlement: string; principal_type: string})),
+      expected.grants.map(canonicalGrant),
+    )
+  const idcCount = Array.isArray(am.id_compatibility) ? am.id_compatibility.length : 0
+  let provisioning: "all justified" | "missing justification" | "non-boolean provisionable" | "absent" = "absent"
+  if (Array.isArray(am.provisioning)) {
+    if (am.provisioning.length === 0) {
+      provisioning = "missing justification"
+    } else if (am.provisioning.some((p) => !isRecord(p) || typeof p.provisionable !== "boolean")) {
+      provisioning = "non-boolean provisionable"
+    } else if (am.provisioning.some((p) => !nonEmptyString((p as Record<string, unknown>).justification))) {
+      provisioning = "missing justification"
+    } else {
+      provisioning = "all justified"
+    }
+  }
+  return {rtMatch, entMatch, grantMatch, idcCount, provisioning}
+}
+
+const P0: Stage = {
+  stage: "P0",
+  gate: "artifact written",
+  check: (ctx) => {
+    const pre1 = ctx.pre1
+    return pre1 !== null && pre1 !== undefined && (pre1.decision === "proceed" || pre1.decision === "park")
+  },
+  evidence: (ctx) => {
+    const pre1 = ctx.pre1
+    const present = pre1 !== null && pre1 !== undefined ? "yes" : "no"
+    const decision = pre1 !== null && pre1 !== undefined && typeof pre1.decision === "string" ? pre1.decision : "none"
+    return `pre1.json present=${present}, decision=${decision}`
+  },
+}
+
+const P1: Stage = {
+  stage: "P1",
+  gate: "decision correctness",
+  check: (ctx) => {
+    const pre1 = ctx.pre1
+    if (pre1 === null || pre1 === undefined) return false
+    return pre1.decision === ctx.expected?.decision
+  },
+  evidence: (ctx) => {
+    const pre1 = ctx.pre1
+    const decision = pre1 !== null && pre1 !== undefined && typeof pre1.decision === "string" ? pre1.decision : "none"
+    const expected = ctx.expected?.decision ?? "none"
+    return `decision=${decision}, expected=${expected}`
+  },
+}
+
+const P2: Stage = {
+  stage: "P2",
+  gate: "access-model match",
+  check: (ctx) => {
+    const d = accessModelDimensions(ctx)
+    return d.rtMatch && d.entMatch && d.grantMatch && d.idcCount > 0 && d.provisioning === "all justified"
+  },
+  evidence: (ctx) => {
+    const d = accessModelDimensions(ctx)
+    return `resource_types=${d.rtMatch ? "match" : "mismatch"}, entitlements=${d.entMatch ? "match" : "mismatch"}, grants=${d.grantMatch ? "match" : "mismatch"}, id_compatibility=${d.idcCount}, provisioning=${d.provisioning}`
+  },
+}
+
+const P3: Stage = {
+  stage: "P3",
+  gate: "sourcing provenance",
+  check: (ctx) => {
+    const pre1 = ctx.pre1
+    if (pre1 === null || pre1 === undefined || !isRecord(pre1.sourcing)) return false
+    const s = pre1.sourcing
+    if (!nonEmptyString(s.spec_url) || !nonEmptyString(s.fetched_at) || !nonEmptyString(s.authority_rung)) return false
+    return typeof s.spec_bytes === "number" && Number.isFinite(s.spec_bytes) && Number.isInteger(s.spec_bytes) && s.spec_bytes > 0 && s.spec_bytes < 1048576
+  },
+  evidence: (ctx) => {
+    const pre1 = ctx.pre1
+    const s = isRecord(pre1?.sourcing) ? pre1.sourcing : null
+    const specUrl = s !== null && nonEmptyString(s.spec_url) ? "set" : "EMPTY"
+    const fetchedAt = s !== null && nonEmptyString(s.fetched_at) ? "set" : "EMPTY"
+    const authorityRung = s !== null && nonEmptyString(s.authority_rung) ? "set" : "EMPTY"
+    const specBytes = s !== null && typeof s.spec_bytes === "number" ? String(s.spec_bytes) : "none"
+    return `spec_url=${specUrl}, fetched_at=${fetchedAt}, authority_rung=${authorityRung}, spec_bytes=${specBytes}`
+  },
+}
+
+const P4: Stage = {
+  stage: "P4",
+  gate: "park evidence",
+  check: (ctx) => {
+    const pre1 = ctx.pre1
+    if (pre1 === null || pre1 === undefined || !isRecord(pre1.park_evidence)) return false
+    const pe = pre1.park_evidence
+    if (!nonEmptyString(pe.spec_version_checked) || !nonEmptyString(pe.vendor_doc) || !nonEmptyString(pe.revisit_trigger)) return false
+    return Array.isArray(pe.missing_paths) && pe.missing_paths.length > 0 && pe.missing_paths.every((p) => typeof p === "string" && p.length > 0)
+  },
+  evidence: (ctx) => {
+    const pre1 = ctx.pre1
+    const pe = isRecord(pre1?.park_evidence) ? pre1.park_evidence : null
+    const specVersion = pe !== null && nonEmptyString(pe.spec_version_checked) ? "set" : "EMPTY"
+    const vendorDoc = pe !== null && nonEmptyString(pe.vendor_doc) ? "set" : "EMPTY"
+    const revisitTrigger = pe !== null && nonEmptyString(pe.revisit_trigger) ? "set" : "EMPTY"
+    const missingPaths = pe !== null && Array.isArray(pe.missing_paths) ? pe.missing_paths.filter((p) => typeof p === "string" && p.length > 0).length : 0
+    return `spec_version_checked=${specVersion}, missing_paths=${missingPaths}, vendor_doc=${vendorDoc}, revisit_trigger=${revisitTrigger}`
+  },
+}
+
+export const PRE1_STAGES: Record<"proceed" | "park", Stage[]> = {
+  proceed: [P0, P1, P2, P3],
+  park: [P0, P1, P4],
+}

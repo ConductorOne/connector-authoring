@@ -60,6 +60,7 @@ export interface RunChannel {
   handoffPath: string
   scoreInputPath: string
   transcriptPath: string
+  pre1Path: string
   handoffInstructions: string
   completionInstructions: string
 }
@@ -71,6 +72,8 @@ export interface AgentRunRequest {
   channel: RunChannel
   timeoutMs: number
   model: string
+  // The scenario id (pre-1 runs use it to select the canned replay set).
+  scenarioId?: string
   // Declared scenario reasoning-effort pin; driver-interpreted — a driver
   // that can set agent reasoning effort applies it. Tier-0 ignores it.
   reasoningEffort?: "high" | "medium" | "low"

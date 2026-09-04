@@ -11,7 +11,7 @@ import {loadScenario, type Scenario} from "./scenario.ts"
 import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type AgentRunResult, type Driver, type RunChannel, type TenantHandle} from "./driver.ts"
 import {buildPrompt} from "./agent.ts"
 import {buildCollectorPrompt, normalizeScoreInput} from "./collect.ts"
-import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
+import {SKIPPED_STAGES, STAGES, handoffEmpty, sanitizeHandoff, type Handoff, type Pre1Artifact, type ScoreInput, type StageCtx} from "./stages.ts"
 import {scoreRun} from "./score.ts"
 import {buildRunMeta, writeRecord, type RunMeta, type SummaryLine} from "./record.ts"
 import {tier0} from "./drivers/tier0/driver.ts"
@@ -158,7 +158,41 @@ export async function readHandoff(handoffPath: string): Promise<Handoff | null> 
       }
     }
   }
-  stderr.write(`WARNING: handoff read failed after 3 attempts: ${(lastErr as Error).message} — scoring as stalled\n`)
+stderr.write(`WARNING: handoff read failed after 3 attempts: ${(lastErr as Error).message} — scoring as stalled\n`)
+  return null
+}
+
+// The pre1 artifact is agent-written and untrusted: same bounded 3-attempt
+// retry + 64 MiB size cap + JSON-parse + non-object-returns-null semantics as
+// readHandoff. Returns null on missing/oversized/malformed/non-object (P0
+// then fails).
+export async function readPre1Artifact(path: string): Promise<Pre1Artifact | null> {
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      if (statSync(path).size > MAX_HANDOFF_BYTES) {
+        stderr.write(`WARNING: pre1 artifact at ${path} exceeds ${MAX_HANDOFF_BYTES} bytes — scoring as absent\n`)
+        return null
+      }
+      const content = readFileSync(path, "utf8")
+      if (content.length === 0) return null
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(content)
+      } catch {
+        stderr.write(`WARNING: pre1 artifact at ${path} is not valid JSON — scoring as absent\n`)
+        return null
+      }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
+      return parsed as Pre1Artifact
+    } catch (err) {
+      lastErr = err
+      if (attempt < 3) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 2000))
+      }
+    }
+  }
+stderr.write(`WARNING: pre1 artifact read failed after 3 attempts: ${(lastErr as Error).message} — scoring as absent\n`)
   return null
 }
 
@@ -171,11 +205,12 @@ function buildChannel(out: string, runId: string): RunChannel {
   // and strict-equality-compared in the S11 gate — they must not be
   // cwd-dependent for a private driver whose agent runs elsewhere.
   const runDir = join(resolve(out), runId)
-  return {
+return {
     runDir,
     handoffPath: join(runDir, "handoff.json"),
     scoreInputPath: join(runDir, "score-input.json"),
     transcriptPath: join(runDir, "transcript.json"),
+    pre1Path: join(runDir, "pre1.json"),
     handoffInstructions: "",
     completionInstructions: "",
   }
@@ -198,7 +233,7 @@ export async function provisionWithRetry(
       const h = await driver.provisioner.provision({scenario, runId, ref})
       handle = h
       await driver.provisioner.checkReadiness(h)
-      const missing = scenario.readinessTools.filter((t) => !h.toolSurface.includes(t))
+      const missing = (scenario.readinessTools ?? []).filter((t) => !h.toolSurface.includes(t))
       if (missing.length > 0) throw new ReadinessError("missing readiness tools: " + missing.join(", "))
       const funnelToolsPresent = FUNNEL_TOOLS.every((t) => h.toolSurface.includes(t))
       return {handle: h, funnelToolsPresent}
@@ -327,7 +362,7 @@ async function main(): Promise<number> {
 
   try {
     const prompt = buildPrompt(scenario, runId, handle.baseUrl, channel)
-    const result = await driver.agentDriver.runAgent({
+const result = await driver.agentDriver.runAgent({
       kind: "agent",
       prompt,
       toolSurface: handle.toolSurface,
@@ -336,6 +371,7 @@ async function main(): Promise<number> {
       model: scenario.model,
       reasoningEffort: scenario.reasoningEffort,
       ref: cli.ref,
+      scenarioId: scenario.id,
     })
     const {transcript, timedOut, wallTimeMs} = result
     if (timedOut) {
@@ -345,8 +381,60 @@ async function main(): Promise<number> {
     // infrastructure outage, not an agent outcome — fail loudly with no
     // record rather than scoring an all-fail funnel. A genuine zero-tool-call
     // stall (no collectionFailed signal) stays a scored exit-0 outcome.
-    if (isCollectionFailure(result)) {
+if (isCollectionFailure(result)) {
       throw new Error("agent driver reported a stream collection failure with an empty transcript — no record written")
+    }
+
+    // Pre-1 runs: read the pre1 artifact, skip the collector leg entirely,
+    // and score the P0..P4 gate set. The empty ScoreInput literal is the
+    // same shape the stalled-path fallback in collectScoreInput uses.
+    if (scenario.kind === "pre1") {
+      const pre1 = await readPre1Artifact(channel.pre1Path)
+      const scoreInput: ScoreInput = {
+        run_id: runId,
+        draft: {required_source_files: {}, source_files: [], config_schema: {fields: []}, runtime_schema: {fields: []}},
+        connector_config: {},
+        evidence: {},
+        build_run: {},
+        tenant_counts: {users: null, groups: null, memberships: null},
+        resource_ids: {users: [], groups: []},
+      }
+      const ctx: StageCtx = {
+        transcript,
+        handoff: {},
+        scoreInput,
+        handoffPath: channel.pre1Path,
+        kind: "pre1",
+        pre1,
+        expected: {decision: scenario.expectedDecision!, accessModel: scenario.expectedAccessModel, parkEvidence: scenario.expectedParkEvidence},
+      }
+      const scored = scoreRun(ctx)
+      const stageRows = scored.stageRows
+      const meta: RunMeta = buildRunMeta(runId, scenario, driver.name, startedAt, wallTimeMs, funnelToolsPresent)
+      const summary: SummaryLine = {
+        summary: true,
+        funnel: stageRows.filter((r) => r.pass).map((r) => r.stage),
+        first_pass_rate: scored.first_pass_rate,
+        recovery_cycles: scored.recovery_cycles,
+        parity_verdict: scored.parity_verdict,
+        parity_evidence: scored.parity_evidence,
+        parity_tenant: scored.parity_tenant,
+        parity_tenant_evidence: scored.parity_tenant_evidence,
+        hygiene_verdict: scored.hygiene_verdict,
+        hygiene_evidence: scored.hygiene_evidence,
+        handoff_discipline_verdict: scored.handoff_discipline_verdict,
+        tool_calls: transcript.toolCalls.length,
+        turns: transcript.turns,
+        tokens_in: transcript.tokensIn,
+        tokens_out: transcript.tokensOut,
+        decision_verdict: scored.decision_verdict,
+        decision_evidence: scored.decision_evidence,
+      }
+      const recordPath = writeRecord(runId, scenario, meta, stageRows, [], summary, cli.out)
+      const passList = stageRows.filter((r) => r.pass).map((r) => r.stage).join(",")
+      stdout.write(`record: ${recordPath}\n`)
+      stdout.write(`summary: funnel=[${passList}] first_pass_rate=${summary.first_pass_rate.toFixed(2)} decision=${summary.decision_verdict ?? "n/a"} tool_calls=${summary.tool_calls} turns=${summary.turns} tokens_in=${summary.tokens_in} tokens_out=${summary.tokens_out}\n`)
+      return 0
     }
 
     // Handoff: missing/incomplete -> L18 stalled-agent path.

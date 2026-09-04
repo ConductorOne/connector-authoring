@@ -1,6 +1,6 @@
 // drivers/tier0/driver.ts — Tier-0 local/static driver (no credentials).
 import {spawn, type ChildProcess} from "node:child_process"
-import {readFileSync, writeFileSync} from "node:fs"
+import {existsSync, readFileSync, writeFileSync} from "node:fs"
 
 import {join} from "node:path"
 import {cwd} from "node:process"
@@ -86,6 +86,23 @@ async function waitForFixture(baseUrl: string, expectedUsers: number): Promise<v
   throw new ReadinessError(`fixture not reachable at ${baseUrl} within 30 s (expected ${expectedUsers} users)`)
 }
 
+// Pre-1 readiness: the fixture serves the spec unauthenticated — poll
+// GET <baseUrl><openapiPath> for HTTP 200 (same 30 s deadline + 2 s probe
+// timeout as waitForFixture).
+async function waitForSpec(baseUrl: string, openapiPath: string): Promise<void> {
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(baseUrl + openapiPath, {signal: AbortSignal.timeout(2_000)})
+      if (res.status === 200) return
+    } catch {
+      /* server not up yet — retry */
+    }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  throw new ReadinessError(`spec not reachable at ${baseUrl}${openapiPath} within 30 s`)
+}
+
 const provisioner: Provisioner = {
   provision: async (ctx) => {
     const child = spawn(process.execPath, ["--experimental-strip-types", FIXTURE_SCRIPT, "--port", "0", "--host", "127.0.0.1"], {cwd: cwd(), stdio: ["ignore", "pipe", "ignore"]})
@@ -107,8 +124,19 @@ const provisioner: Provisioner = {
       child.kill()
       throw err
     }
-    const baseUrl = "http://127.0.0.1:" + port
-    return {baseUrl, credentials: {username: "connector@example.com", password: "fixture-token"}, toolSurface: TIER0_TOOL_SURFACE, meta: {child, port, expectedUsers: ctx.scenario.seed.users}}
+const baseUrl = "http://127.0.0.1:" + port
+    return {
+      baseUrl,
+      credentials: {username: "connector@example.com", password: "fixture-token"},
+      toolSurface: TIER0_TOOL_SURFACE,
+      meta: {
+        child,
+        port,
+        expectedUsers: ctx.scenario.seed?.users,
+        pre1: ctx.scenario.kind === "pre1",
+        openapiPath: ctx.scenario.fixture.openapiPath,
+      },
+    }
   },
   checkReadiness: async (handle) => {
     // Fail fast if the fixture child already exited (spawn error or crash) —
@@ -116,6 +144,10 @@ const provisioner: Provisioner = {
     const child = (handle.meta?.child as ChildProcess | undefined)
     if (child && (child.exitCode !== null || child.signalCode !== null)) {
       throw new ReadinessError(`fixture exited before readiness (code ${child.exitCode ?? "signal " + child.signalCode})`)
+    }
+    if (handle.meta?.pre1 === true) {
+      await waitForSpec(handle.baseUrl, (handle.meta?.openapiPath as string | undefined) ?? "/openapi.json")
+      return
     }
     await waitForFixture(handle.baseUrl, (handle.meta?.expectedUsers as number | undefined) ?? 23)
   },
@@ -136,7 +168,15 @@ const agentDriver: AgentDriver = {
   runAgent: async (req) => {
     const startedAt = Date.now()
     if (req.kind === "agent") {
-      const raw = JSON.parse(readCanned("transcript.json")) as Record<string, unknown>[]
+      // Canned-dir selection: a scenarioId with a matching canned-<id> dir
+      // next to the fixed set selects that set (pre-1 replays); otherwise the
+      // fixed funnel set is the default.
+      const cannedDir =
+        req.scenarioId !== undefined && existsSync(join(CANNED_DIR, `canned-${req.scenarioId}`))
+          ? join(CANNED_DIR, `canned-${req.scenarioId}`)
+          : CANNED_DIR
+      const readCannedFrom = (name: string) => readFileSync(join(cannedDir, name), "utf8")
+      const raw = JSON.parse(readCannedFrom("transcript.json")) as Record<string, unknown>[]
       // Deep copy: the <run-dir> substitution must never mutate the canned file.
       const events = JSON.parse(JSON.stringify(raw)) as Record<string, unknown>[]
       for (const ev of events) {
@@ -144,7 +184,14 @@ const agentDriver: AgentDriver = {
         if (input && typeof input.path === "string") input.path = input.path.replaceAll("<run-dir>", req.channel.runDir)
       }
       writeFileSync(req.channel.transcriptPath, JSON.stringify(events, null, 2))
-      writeFileSync(req.channel.handoffPath, readCanned("handoff.json"))
+      if (existsSync(join(cannedDir, "pre1.json"))) {
+        writeFileSync(req.channel.pre1Path, readCannedFrom("pre1.json"))
+      } else {
+        writeFileSync(req.channel.handoffPath, readCannedFrom("handoff.json"))
+      }
+      if (existsSync(join(cannedDir, "score-input.json"))) {
+        writeFileSync(req.channel.scoreInputPath, readCannedFrom("score-input.json"))
+      }
       return {transcript: parseStream(events), timedOut: false, wallTimeMs: Date.now() - startedAt}
     }
     writeFileSync(req.channel.scoreInputPath, readCanned("score-input.json"))

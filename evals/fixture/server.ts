@@ -20,6 +20,7 @@ import {
 } from "./data.ts"
 
 const OPENAPI = readFileSync(new URL("./openapi.json", import.meta.url), "utf8")
+const OPENAPI_NOIAM = readFileSync(new URL("./openapi-noiam.json", import.meta.url), "utf8")
 
 // --- args: --port (default 18080), --host (default 127.0.0.1) ---
 let port = 18080
@@ -158,7 +159,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   const log = (status: number) => stdout.write(`${method} ${path} ${status}\n`)
 
   try {
-    // --- openapi.json: unauthenticated ---
+// --- openapi.json: unauthenticated ---
     if (path === "/openapi.json") {
       if (method !== "GET") {
         log(405)
@@ -168,6 +169,19 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       log(200)
       res.writeHead(200, {"Content-Type": "application/json"})
       res.end(OPENAPI)
+      return
+    }
+
+    // --- noiam/openapi.json: unauthenticated (pre1 park scenario) ---
+    if (path === "/noiam/openapi.json") {
+      if (method !== "GET") {
+        log(405)
+        sendEmpty(res, 405)
+        return
+      }
+      log(200)
+      res.writeHead(200, {"Content-Type": "application/json"})
+      res.end(OPENAPI_NOIAM)
       return
     }
 

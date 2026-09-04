@@ -14,8 +14,8 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/fixture/` | Deterministic Directory API fixture (zero-dependency `node:http`) |
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
-| `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.2.0 manifest — five funnel skills in `skills/`) |
+| `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.3.0 manifest — seven skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) |
 
 ## How to run
@@ -24,7 +24,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 # start the fixture locally (port 18080)
 npm run eval:fixture
 
-# verify the fixture (all 16 assertions, port 18081; requires curl + jq)
+# verify the fixture (all 19 assertions, port 18081; requires curl + jq)
 npm run eval:verify
 
 # run the committed unit smokes (scorer/parser/stages/record/scenario/driver)
@@ -112,6 +112,35 @@ never invented.
 | S9 | `test_run_id` | handoff non-empty; ≥1 successful `run_draft_test_sync` call in the transcript |
 | S10 | durable PASS evidence | score-input `evidence.result == "PASS"` |
 | S11 | handoff discipline | deploy + mint succeeded; all 10 handoff fields; zero tool calls after the mint except the handoff write; no token redemption |
+
+## Pre-1 kind (P0–P4)
+
+A `kind: "pre1"` scenario runs the pre-1 judgment phase instead of the funnel:
+the agent sources the provider's OpenAPI spec and designs the access model,
+then writes a `pre1.json` artifact to the run channel's `pre1Path` and stops.
+Pre-1 scenarios carry `providerBrief`, `expectedDecision` (`"proceed"` or
+`"park"`), and exactly one of `expectedAccessModel` (proceed) or
+`expectedParkEvidence` (park); the funnel-only fields (`seed`, `expected`,
+`requiredSourceFiles`) must be absent. The Tier-0 driver replays canned
+artifacts from `drivers/tier0/canned-<scenario.id>/`.
+
+Pre-1 records are scored against the P0–P4 gate set:
+
+| Stage | Gate | Evidence |
+|---|---|---|
+| P0 | artifact written | `pre1.json` present with a `decision` of `"proceed"` or `"park"` |
+| P1 | decision correctness | `decision === expectedDecision` — the separately-measured park-vs-proceed metric |
+| P2 | access-model match (proceed) | resource-type `{id, traits}` pairs, entitlement slugs, and grant edges set-equal to the expected sets; `id_compatibility` non-empty; every `provisioning` entry justified with a boolean `provisionable` |
+| P3 | sourcing provenance (proceed) | `spec_url`/`fetched_at`/`authority_rung` non-empty; `spec_bytes` a positive integer < 1048576 |
+| P4 | park evidence (park) | all four `park_evidence` fields non-empty with `missing_paths` a non-empty array |
+
+The record's summary carries `decision_verdict` (`"proceed"`/`"park"` when P1
+passes, `"incorrect"` otherwise) and `decision_evidence` (the P1 row's
+evidence) — the park-vs-proceed metric is measured from these fields.
+`parity_verdict`/`hygiene_verdict` are `"PASS"` with evidence
+`"not applicable (pre1 run)"`; `parity_tenant` is `"not_applicable"`;
+`handoff_discipline_verdict` is `true`; `recovery_cycles` is 0. Pre-1 records
+write no skipped rows (`skippedRows = []`).
 
 ## Fixture traps
 
@@ -207,7 +236,7 @@ real-tenant driver and the tool surface are available.
 
 ## Non-goals
 
-- The remaining five skills (design-access-model, source-openapi-spec, verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs; the fifth funnel skill ships in this PR.
+- The remaining three skills (verify-connector-output, update-and-rollback, diagnose-authoring-failure) — later PRs.
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.

@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.2.0
+version: 0.2.1
 ---
 
 # author-in-app-connector
@@ -90,10 +90,17 @@ produces it:
 | write (source authoring, before S2) | `write-connector-source` |
 | 2-5, 9-10 | `build-and-test` |
 | 6-8, 11 | `deploy-and-activate` |
-| design/spec/verify/update/diagnose (not yet shipped) | follow the served guide |
+| pre-1 design (net-new provider) | `design-access-model` |
+| pre-1 spec sourcing | `source-openapi-spec` |
+| verify/update/diagnose (not yet shipped) | follow the served guide |
 
 Direct invocation of a stage skill is allowed; the router alone is not
 trusted to recover mid-funnel.
+
+## Pre-S1 checklist
+
+Net-new provider: before S1, run both pre-1 skills - `source-openapi-spec`
+(source the spec, IAM go/no-go) then `design-access-model` (access model).
 
 ## Human boundary
 
