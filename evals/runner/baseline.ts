@@ -76,12 +76,14 @@ function parseRecord(file: string, lines: string[]): RunRecord | null {
 
   // Pre-1 records (stage rows begin with P0, not S0) can land in
   // evals/results/ locally without breaking baseline generation: skip them
-  // with a one-line stderr warning, never fatal. Funnel-shaped records
-  // validate exactly as before.
+  // with a one-line stderr warning, never fatal. The predicate is narrowed to
+  // the pre-1 shape (P-led stages) so a corrupt funnel record that dropped
+  // its S0 row still fails the canonical-row check below instead of being
+  // silently skipped.
   const firstRowRaw = parseLine(file, 2, lines[1])
   if (typeof firstRowRaw === "object" && firstRowRaw !== null && !Array.isArray(firstRowRaw)) {
     const firstRow = firstRowRaw as Record<string, unknown>
-    if (firstRow.stage !== "S0") {
+    if (typeof firstRow.stage === "string" && firstRow.stage.startsWith("P")) {
       console.error(`WARNING: skipping ${file}: record does not begin with the S0 funnel row`)
       return null
     }

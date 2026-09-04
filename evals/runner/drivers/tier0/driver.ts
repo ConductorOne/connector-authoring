@@ -193,13 +193,6 @@ const agentDriver: AgentDriver = {
       writeFileSync(req.channel.transcriptPath, JSON.stringify(events, null, 2))
       if (existsSync(join(cannedDir, "pre1.json"))) {
         writeFileSync(req.channel.pre1Path, readCannedFrom("pre1.json"))
-        // Pre-1 runs skip the collector leg, so the agent leg writes the
-        // score-input itself. The funnel agent leg must NOT pre-write it:
-        // collectScoreInput relies on the ENOENT to detect a collector that
-        // returned without writing its output.
-        if (existsSync(join(cannedDir, "score-input.json"))) {
-          writeFileSync(req.channel.scoreInputPath, readCannedFrom("score-input.json"))
-        }
       } else {
         writeFileSync(req.channel.handoffPath, readCannedFrom("handoff.json"))
       }

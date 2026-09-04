@@ -1,1 +1,0 @@
-{"run_id": "pre1-canned", "draft": {"required_source_files": {}, "source_files": [], "config_schema": {"fields": []}, "runtime_schema": {"fields": []}}, "connector_config": {}, "evidence": {}, "build_run": {}, "tenant_counts": {"users": null, "groups": null, "memberships": null}, "resource_ids": {"users": [], "groups": []}}

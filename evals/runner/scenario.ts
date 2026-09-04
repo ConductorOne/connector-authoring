@@ -98,6 +98,46 @@ function requireStringArray(obj: Record<string, unknown>, key: string, where: st
   return v as string[]
 }
 
+// Single source for skillBundle validation + the bundle-version drift check —
+// shared by the funnel and pre-1 branches so the pin check cannot diverge.
+function parseSkillBundle(data: Record<string, unknown>): SkillBundleConfig {
+  if (!isRecord(data.skillBundle)) throw new Error("scenario field skillBundle missing or not an object")
+  const mode = data.skillBundle.mode
+  if (mode !== "none" && mode !== "guide-only" && mode !== "full") {
+    throw new Error('scenario field skillBundle.mode must be "none", "guide-only", or "full"')
+  }
+  const skillBundle = {
+    mode: mode as "none" | "guide-only" | "full",
+    version: requireString(data.skillBundle, "version", "skillBundle"),
+  }
+  if (skillBundle.mode === "full") {
+    // Fail fast when the scenario's bundle version drifts from the mounted
+    // bundle: run records must never be stamped with a version that does not
+    // match the skills actually mounted (bundle.json is the single source).
+    // Resolve relative to this module so the check is not cwd-dependent, and
+    // wrap read/parse errors like the scenario file's own.
+    const bundlePath = fileURLToPath(new URL("../skills-bundle/bundle.json", import.meta.url))
+    let bundleRaw: string
+    try {
+      bundleRaw = readFileSync(bundlePath, "utf8")
+    } catch (err) {
+      throw new Error(`cannot read skill bundle ${bundlePath}: ${(err as Error).message}`)
+    }
+    let bundle: {version?: unknown}
+    try {
+      bundle = JSON.parse(bundleRaw) as {version?: unknown}
+    } catch (err) {
+      throw new Error(`skill bundle ${bundlePath} is not valid JSON: ${(err as Error).message}`)
+    }
+    if (typeof bundle.version !== "string" || bundle.version !== skillBundle.version) {
+      throw new Error(
+        `scenario skillBundle.version ${skillBundle.version} does not match evals/skills-bundle/bundle.json version ${bundle.version}`,
+      )
+    }
+  }
+  return skillBundle
+}
+
 export function loadScenario(path: string): Scenario {
   let raw: string
   try {
@@ -162,41 +202,7 @@ const id = requireString(data, "id", "scenario")
       memberships: requireNumber(data.expected, "memberships", "expected"),
     }
 
-    if (!isRecord(data.skillBundle)) throw new Error("scenario field skillBundle missing or not an object")
-    const mode = data.skillBundle.mode
-    if (mode !== "none" && mode !== "guide-only" && mode !== "full") {
-      throw new Error('scenario field skillBundle.mode must be "none", "guide-only", or "full"')
-    }
-    const skillBundle = {
-      mode: mode as "none" | "guide-only" | "full",
-      version: requireString(data.skillBundle, "version", "skillBundle"),
-    }
-    if (skillBundle.mode === "full") {
-      // Fail fast when the scenario's bundle version drifts from the mounted
-      // bundle: run records must never be stamped with a version that does not
-      // match the skills actually mounted (bundle.json is the single source).
-      // Resolve relative to this module so the check is not cwd-dependent, and
-      // wrap read/parse errors like the scenario file's own.
-      const bundlePath = fileURLToPath(new URL("../skills-bundle/bundle.json", import.meta.url))
-      let bundleRaw: string
-      try {
-        bundleRaw = readFileSync(bundlePath, "utf8")
-      } catch (err) {
-        throw new Error(`cannot read skill bundle ${bundlePath}: ${(err as Error).message}`)
-      }
-      let bundle: {version?: unknown}
-      try {
-        bundle = JSON.parse(bundleRaw) as {version?: unknown}
-      } catch (err) {
-        throw new Error(`skill bundle ${bundlePath} is not valid JSON: ${(err as Error).message}`)
-      }
-      if (typeof bundle.version !== "string" || bundle.version !== skillBundle.version) {
-        throw new Error(
-          `scenario skillBundle.version ${skillBundle.version} does not match evals/skills-bundle/bundle.json version ${bundle.version}`,
-        )
-      }
-    }
-
+    const skillBundle = parseSkillBundle(data)
     const reasoningEffort = data.reasoningEffort
     if (reasoningEffort !== "high" && reasoningEffort !== "medium" && reasoningEffort !== "low") {
       throw new Error('scenario field reasoningEffort must be "high", "medium", or "low"')
@@ -250,36 +256,7 @@ const id = requireString(data, "id", "scenario")
     readinessTools = requireStringArray(data, "readinessTools", "scenario")
   }
 
-  if (!isRecord(data.skillBundle)) throw new Error("scenario field skillBundle missing or not an object")
-  const mode = data.skillBundle.mode
-  if (mode !== "none" && mode !== "guide-only" && mode !== "full") {
-    throw new Error('scenario field skillBundle.mode must be "none", "guide-only", or "full"')
-  }
-  const skillBundle = {
-    mode: mode as "none" | "guide-only" | "full",
-    version: requireString(data.skillBundle, "version", "skillBundle"),
-  }
-  if (skillBundle.mode === "full") {
-    const bundlePath = fileURLToPath(new URL("../skills-bundle/bundle.json", import.meta.url))
-    let bundleRaw: string
-    try {
-      bundleRaw = readFileSync(bundlePath, "utf8")
-    } catch (err) {
-      throw new Error(`cannot read skill bundle ${bundlePath}: ${(err as Error).message}`)
-    }
-    let bundle: {version?: unknown}
-    try {
-      bundle = JSON.parse(bundleRaw) as {version?: unknown}
-    } catch (err) {
-      throw new Error(`skill bundle ${bundlePath} is not valid JSON: ${(err as Error).message}`)
-    }
-    if (typeof bundle.version !== "string" || bundle.version !== skillBundle.version) {
-      throw new Error(
-        `scenario skillBundle.version ${skillBundle.version} does not match evals/skills-bundle/bundle.json version ${bundle.version}`,
-      )
-    }
-  }
-
+  const skillBundle = parseSkillBundle(data)
   const reasoningEffort = data.reasoningEffort
   if (reasoningEffort !== "high" && reasoningEffort !== "medium" && reasoningEffort !== "low") {
     throw new Error('scenario field reasoningEffort must be "high", "medium", or "low"')
