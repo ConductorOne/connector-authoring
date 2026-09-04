@@ -28,8 +28,8 @@ rule: when the served guide conflicts with any other doc, the served guide wins.
 4. The bundle targets ES5 - no `u` regex flag; goja quirks apply.
 5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers` (`@baton/*` resolution).
 
-Worked skeletons: `examples/http/connector.ts` (transport + offset pagination
-+ users/groups/membership grants), `examples/static/connector.ts` (zero-config), and the lifecycle doc's Okta worked example (pin in SOURCES.md).
+Worked skeletons: `examples/http/connector.ts` (transport + offset
+pagination + users/groups/membership grants), `examples/static/connector.ts` (zero-config), and the lifecycle doc's Okta worked example (pin in SOURCES.md).
 
 ## config-schema.json rules
 
@@ -72,7 +72,7 @@ Example shape (from the lifecycle doc's source-file contract section):
 
 ```json
 {
-  "version": 1,
+  "version": "1",
   "name": "my-connector",
   "runtime": {
     "connector": "connector.js",
