@@ -158,6 +158,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "evidence is unsatisfied",
     "if no ACTIVE row after ~10 polls, STOP and report",
     "if no DONE after ~10 polls, STOP and report",
+    "SYNC_STATUS_ERROR",
     "Do not print, log, or otherwise expose the OWNER bearer token value",
   ],
   "diagnose-authoring-failure": [
