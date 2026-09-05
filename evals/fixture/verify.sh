@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # verify.sh — self-check for the Directory API fixture (evals/fixture).
-# Runs the server on port 18081 (never 18080) and asserts all 16 checks:
-# every endpoint, both auth variants, both pagination variants, and all three
-# traps. Requires curl + jq. Kills the server on exit (trap).
+# Runs the server on port 18081 (never 18080) and asserts all 19 checks:
+# every endpoint, both auth variants, both pagination variants, all three
+# traps, and the no-IAM surface. Requires curl + jq. Kills the server on
+# exit (trap).
 set -euo pipefail
 
 PORT=18081
@@ -160,4 +161,19 @@ CODE="$(curl -sS -o /dev/null -w '%{http_code}' $BASIC_AUTH -X POST "$BASE/v1/us
 [ "$CODE" = "405" ] || fail "POST /v1/users != 405 (got $CODE)"
 echo "ok: wrong method -> 405"
 
-echo "== all 16 fixture assertions passed =="
+# (17) GET /noiam/openapi.json -> 200
+CODE="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/noiam/openapi.json")"
+[ "$CODE" = "200" ] || fail "/noiam/openapi.json != 200 (got $CODE)"
+echo "ok: /noiam/openapi.json -> 200"
+
+# (18) the no-IAM spec serves the whoami path
+NOIAM="$(curl -sS "$BASE/noiam/openapi.json")"
+jq -e '.paths["/v1/me"]' <<<"$NOIAM" >/dev/null || fail "noiam openapi.json missing /v1/me path"
+echo "ok: noiam openapi.json serves /v1/me"
+
+# (19) the no-IAM spec has NO member-listing paths
+jq -e '.paths["/v1/users"] | not' <<<"$NOIAM" >/dev/null || fail "noiam openapi.json has /v1/users (must be absent)"
+jq -e '.paths["/v1/groups"] | not' <<<"$NOIAM" >/dev/null || fail "noiam openapi.json has /v1/groups (must be absent)"
+echo "ok: noiam openapi.json has no /v1/users or /v1/groups"
+
+echo "== all 19 fixture assertions passed =="

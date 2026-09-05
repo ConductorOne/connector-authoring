@@ -1,0 +1,36 @@
+{
+  "id": "pre1-directory-proceed",
+  "name": "Pre-1: Directory API access model + spec sourcing (proceed)",
+  "kind": "pre1",
+  "fixture": {
+    "port": 18080,
+    "baseUrl": "http://127.0.0.1:18080",
+    "auth": "basic",
+    "openapiPath": "/openapi.json",
+    "basicAuth": {
+      "username": "connector@example.com",
+      "password": "fixture-token"
+    },
+    "bearerToken": "fixture-token"
+  },
+  "providerBrief": "A directory service (the Directory API) exposes users, groups, and group memberships over REST. GET /v1/users lists users (basic auth, offset pagination, page object {items, offset, limit, total}); GET /v1/groups lists groups; GET /v1/groups/{groupId}/members lists a group's members; POST and DELETE /v1/groups/{groupId}/members grant and revoke memberships. The account_id scoping param is required on user listing. user.title is nullable. Design the access model and source the spec.",
+  "expectedDecision": "proceed",
+  "expectedAccessModel": {
+    "resource_types": [
+      {"id": "user", "traits": ["TRAIT_USER"]},
+      {"id": "group", "traits": ["TRAIT_GROUP"]}
+    ],
+    "entitlements": [
+      {"slug": "member"}
+    ],
+    "grants": [
+      {"resource_type": "group", "entitlement": "member", "principal_type": "user"}
+    ]
+  },
+  "skillBundle": {
+    "mode": "full",
+    "version": "0.4.0"
+  },
+  "model": "together/deepseek-ai/DeepSeek-V4-Flash-0731",
+  "reasoningEffort": "high"
+}

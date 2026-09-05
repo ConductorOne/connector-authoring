@@ -11,10 +11,10 @@ import assert from "node:assert/strict"
 import {execFile} from "node:child_process"
 import {promisify} from "node:util"
 import {buildRunMeta} from "./record.ts"
-import {mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
+import {mkdtempSync, openSync, closeSync, ftruncateSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join} from "node:path"
-import {collectScoreInput, isCollectionFailure, provisionWithRetry, readHandoff} from "./run.ts"
+import {collectScoreInput, isCollectionFailure, provisionWithRetry, readHandoff, readPre1Artifact} from "./run.ts"
 import {FUNNEL_TOOLS, ReadinessError, type AgentDriver, type Driver, type Provisioner, type RunChannel, type TenantHandle} from "./driver.ts"
 import type {ParsedStream} from "./stream.ts"
 import type {Scenario} from "./scenario.ts"
@@ -73,12 +73,12 @@ function makeDriver(provisioner: Provisioner): Driver {
     agentDriver: {
       runAgent: async () => ({transcript: emptyStream(), timedOut: false, wallTimeMs: 0}),
     },
-    channelInstructions: () => ({handoffInstructions: "", completionInstructions: ""}),
+    channelInstructions: () => ({handoffInstructions: "", completionInstructions: "", pre1Instructions: ""}),
   }
 }
 
 function fullSurface(): string[] {
-  return [...FUNNEL_TOOLS, ...SCENARIO.readinessTools]
+  return [...FUNNEL_TOOLS, ...(SCENARIO.readinessTools ?? [])]
 }
 
 function makeChannel(dir: string): RunChannel {
@@ -87,8 +87,10 @@ function makeChannel(dir: string): RunChannel {
     handoffPath: join(dir, "handoff.json"),
     scoreInputPath: join(dir, "score-input.json"),
     transcriptPath: join(dir, "transcript.json"),
+    pre1Path: join(dir, "pre1.json"),
     handoffInstructions: "",
     completionInstructions: "",
+    pre1Instructions: "",
   }
 }
 
@@ -224,7 +226,7 @@ test("provisionWithRetry throws after 3 failed attempts, tearing down each handl
 })
 
 test("provisionWithRetry throws ReadinessError when a readiness tool is missing from the declared surface", async () => {
-  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: SCENARIO.readinessTools.slice(0, 4)}
+  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: (SCENARIO.readinessTools ?? []).slice(0, 4)}
   const driver = makeDriver({
     provision: async () => handle,
     checkReadiness: async () => {},
@@ -237,7 +239,7 @@ test("provisionWithRetry throws ReadinessError when a readiness tool is missing 
 })
 
 test("funnel_tools_present is false when the declared surface lacks funnel tools", async () => {
-  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: SCENARIO.readinessTools}
+  const handle: TenantHandle = {baseUrl: "http://x", credentials: {}, toolSurface: SCENARIO.readinessTools ?? []}
   const driver = makeDriver({
     provision: async () => handle,
     checkReadiness: async () => {},
@@ -258,7 +260,7 @@ test("collectScoreInput returns the normalized score-input on success", async ()
         return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools ?? [], false, "", 1)
     assert.equal(scoreInput.evidence.result, "PASS")
   } finally {
     rmSync(dir, {recursive: true, force: true})
@@ -279,7 +281,7 @@ test("collectScoreInput retries once on a transient failure", async () => {
         return {transcript: emptyStream(), timedOut: false, wallTimeMs: 0}
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools ?? [], false, "", 1)
     assert.equal(calls, 2)
     assert.equal(scoreInput.evidence.result, "PASS")
   } finally {
@@ -308,7 +310,7 @@ test("collectScoreInput rethrows after 2 failures when the handoff is complete",
       deployment_instance_id: "di",
       activation_url: "https://x",
     }
-    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, "", 1), /collector down/)
+    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools ?? [], true, "", 1), /collector down/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
@@ -335,7 +337,7 @@ test("collectScoreInput rethrows after 2 failures on a partial handoff", async (
       deployment_instance_id: "",
       activation_url: "",
     }
-    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), partialHandoff, SCENARIO.readinessTools, false, "", 1), /collector down/)
+    await assert.rejects(collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), partialHandoff, SCENARIO.readinessTools ?? [], false, "", 1), /collector down/)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
@@ -350,7 +352,7 @@ test("collectScoreInput returns a null score-input on the stalled path (absent h
         throw new Error("collector down")
       },
     }
-    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools, false, "", 1)
+    const {scoreInput} = await collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), {}, SCENARIO.readinessTools ?? [], false, "", 1)
     assert.deepEqual(scoreInput.draft.required_source_files, {})
     assert.equal(scoreInput.tenant_counts.users, null)
   } finally {
@@ -395,6 +397,76 @@ test("readHandoff treats a malformed handoff as a stall without surfacing the pa
   }
 })
 
+test("readPre1Artifact returns null on oversized, malformed, and non-object artifacts", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pre1-read-"))
+  try {
+    // Oversized: a file larger than the 64 MiB cap must be treated as absent.
+    const big = join(dir, "big.json")
+    const fd = openSync(big, "w")
+    ftruncateSync(fd, 64 * 1024 * 1024 + 1)
+    closeSync(fd)
+    assert.equal(await readPre1Artifact(big), null)
+    // Malformed JSON (the agent wrote garbage) — null, never a throw.
+    const bad = join(dir, "bad.json")
+    writeFileSync(bad, '{"decision": "proceed",')
+    assert.equal(await readPre1Artifact(bad), null)
+    // Non-object (array) — null.
+    const arr = join(dir, "arr.json")
+    writeFileSync(arr, "[1,2,3]")
+    assert.equal(await readPre1Artifact(arr), null)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("readPre1Artifact parses a valid artifact", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pre1-read-"))
+  try {
+    const path = join(dir, "pre1.json")
+    writeFileSync(path, JSON.stringify({decision: "proceed", access_model: {resource_types: []}}))
+    const artifact = await readPre1Artifact(path)
+    assert.equal(artifact?.decision, "proceed")
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("a pre1-directory-proceed Tier-0 run writes a record with decision_verdict proceed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "run-pre1-"))
+  try {
+    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/pre1-directory-proceed.json", "--driver", "tier0", "--out", dir], 120_000)
+    assert.equal(code, 0, `run.ts exited ${code}; stdout=${stdout}`)
+    assert.ok(stdout.includes("record:"), `expected a record line, got stdout=${stdout}`)
+    const records = readdirSync(dir).filter((f) => f.endsWith(".jsonl"))
+    assert.equal(records.length, 1, `expected exactly one record, got ${records.join(", ")}`)
+    const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
+    const stages = lines.slice(1, -1).map((l) => (JSON.parse(l) as {stage: string}).stage)
+    assert.deepEqual(stages, ["P0", "P1", "P2", "P3"])
+    const summary = JSON.parse(lines[lines.length - 1]) as Record<string, unknown>
+    assert.equal(summary.decision_verdict, "proceed")
+    assert.ok((summary.decision_evidence as string).includes("decision=proceed"))
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test("a pre1-noiam-park Tier-0 run writes a record with decision_verdict park", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "run-pre1-"))
+  try {
+    const {code, stdout} = await runCli(["--scenario", "evals/scenarios/pre1-noiam-park.json", "--driver", "tier0", "--out", dir], 120_000)
+    assert.equal(code, 0, `run.ts exited ${code}; stdout=${stdout}`)
+    const records = readdirSync(dir).filter((f) => f.endsWith(".jsonl"))
+    assert.equal(records.length, 1, `expected exactly one record, got ${records.join(", ")}`)
+    const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
+    const stages = lines.slice(1, -1).map((l) => (JSON.parse(l) as {stage: string}).stage)
+    assert.deepEqual(stages, ["P0", "P1", "P4"])
+    const summary = JSON.parse(lines[lines.length - 1]) as Record<string, unknown>
+    assert.equal(summary.decision_verdict, "park")
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
 test("collectScoreInput redacts a malformed score-input parse error", async () => {
   const dir = mkdtempSync(join(tmpdir(), "collect-"))
   try {
@@ -418,7 +490,7 @@ test("collectScoreInput redacts a malformed score-input parse error", async () =
       activation_url: "https://x",
     }
     await assert.rejects(
-      collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools, true, "", 1),
+      collectScoreInput(driver, SCENARIO, "r", channel, join(dir, "handoff-sanitized.json"), fullHandoff, SCENARIO.readinessTools ?? [], true, "", 1),
       (err: unknown) => err instanceof Error && err.message.includes("unreadable score-input") && !err.message.includes("super-secret-value"),
     )
   } finally {

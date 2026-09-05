@@ -15,6 +15,25 @@ function skillBundleSection(scenario: Scenario): string {
 }
 
 export function buildPrompt(scenario: Scenario, runId: string, baseUrl: string, channel: RunChannel): string {
+  if (scenario.kind === "pre1") {
+    return `You are an eval agent performing the pre-1 judgment phase for a net-new connector provider. Your goal: source the provider's OpenAPI spec and design the access model, then write the pre1.json artifact and stop.
+
+(1) ROLE + GOAL
+Run the two pre-1 skills in order: source-openapi-spec (source the spec, run the IAM go/no-go gate) then design-access-model (design the access model). Write the pre1.json artifact to ${channel.pre1Path} and stop.
+
+(2) PROVIDER BRIEF
+${scenario.providerBrief}
+
+(3) SPEC
+- Spec URL: ${baseUrl}${scenario.fixture.openapiPath}
+- Fetch it with bash: curl -sS ${baseUrl}${scenario.fixture.openapiPath} (the fixture serves it unauthenticated).
+
+(4) SKILL BUNDLE
+${skillBundleSection(scenario)}
+
+(5) OUTPUT CONTRACT
+${channel.pre1Instructions} Schema: {decision: "proceed"|"park", access_model: {resource_types: [{id, traits}], entitlements: [{slug, display_name, grantable_principals, stable_id_shape}], grants: [{resource_type, entitlement, principal_type}], id_compatibility: [...], provisioning: [{resource_type, provisionable, justification}]}, sourcing: {spec_url, fetched_at, authority_rung, spec_bytes}, park_evidence: {spec_version_checked, missing_paths, vendor_doc, revisit_trigger}}. Include only the sections your decision requires: proceed -> access_model + sourcing; park -> park_evidence.`
+  }
   const creds = scenario.fixture.basicAuth
   return `You are an eval agent implementing a read-only Directory API connector and completing the 12-step in-app authoring funnel. Your goal: implement the connector source files, walk the funnel to the human-activation boundary, and stop there.
 

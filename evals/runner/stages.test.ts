@@ -1,8 +1,9 @@
 // stages.test.ts — unit smoke for the S0..S11 stage gates (locked D2/L23).
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {STAGES, sanitizeHandoffValue, type Handoff, type ScoreInput, type StageCtx} from "./stages.ts"
+import {PRE1_STAGES, STAGES, sanitizeHandoffValue, type Handoff, type Pre1Artifact, type ScoreInput, type StageCtx} from "./stages.ts"
 import {parseStream, type ParsedStream} from "./stream.ts"
+import type {ExpectedParkEvidence} from "./scenario.ts"
 
 const HANDOFF_PATH = "/tmp/evals-run/handoff.json"
 
@@ -281,4 +282,257 @@ test("S1 fails on an empty catalog_id while S4/S6/S7/S9 still pass on present fi
   assert.equal(check("S6", c), true)
   assert.equal(check("S7", c), true)
   assert.equal(check("S9", c), true)
+})
+
+// --- pre-1 gates (P0..P4) ---
+
+function pre1Artifact(overrides: Partial<Pre1Artifact>): Pre1Artifact {
+  return {
+    decision: "proceed",
+    access_model: {
+      resource_types: [
+        {id: "user", traits: ["TRAIT_USER"]},
+        {id: "group", traits: ["TRAIT_GROUP"]},
+      ],
+      entitlements: [{slug: "member"}],
+      grants: [{resource_type: "group", entitlement: "member", principal_type: "user"}],
+      id_compatibility: [{resource_type: "user", id_shape: "user:{id}", stable: true}],
+      provisioning: [
+        {resource_type: "user", provisionable: false, justification: "because the API lacks a user create/update endpoint"},
+      ],
+    },
+    sourcing: {
+      spec_url: "http://127.0.0.1:18080/openapi.json",
+      fetched_at: "2026-09-04T00:00:00.000Z",
+      authority_rung: "official published spec at a stable URL",
+      spec_bytes: 12297,
+    },
+    ...overrides,
+  }
+}
+
+function pre1Ctx(overrides: Partial<StageCtx>): StageCtx {
+  return {
+    transcript: cleanTranscript(),
+    handoff: {},
+    scoreInput: goodScoreInput(),
+    handoffPath: "/tmp/evals-run/pre1.json",
+    kind: "pre1",
+    pre1: pre1Artifact({}),
+    expected: {
+      decision: "proceed",
+      accessModel: {
+        resource_types: [
+          {id: "user", traits: ["TRAIT_USER"]},
+          {id: "group", traits: ["TRAIT_GROUP"]},
+        ],
+        entitlements: [{slug: "member"}],
+        grants: [{resource_type: "group", entitlement: "member", principal_type: "user"}],
+      },
+    },
+    ...overrides,
+  }
+}
+
+function pcheck(stage: string, c: StageCtx): boolean {
+  const s = PRE1_STAGES.proceed.find((x) => x.stage === stage) ?? PRE1_STAGES.park.find((x) => x.stage === stage)
+  assert.ok(s, `pre1 stage ${stage} exists`)
+  return s.check(c)
+}
+
+test("P0 fails on a null artifact and passes on a valid one", () => {
+  assert.equal(pcheck("P0", pre1Ctx({pre1: null})), false)
+  assert.equal(pcheck("P0", pre1Ctx({})), true)
+})
+
+test("P1 passes when the decision matches and fails when it differs", () => {
+  assert.equal(pcheck("P1", pre1Ctx({})), true)
+  assert.equal(pcheck("P1", pre1Ctx({pre1: pre1Artifact({decision: "park"})})), false)
+})
+
+test("P2 passes on a matching access model", () => {
+  assert.equal(pcheck("P2", pre1Ctx({})), true)
+})
+
+test("P2 fails on a wrong resource-type id", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.resource_types = [{id: "user", traits: ["TRAIT_USER"]}, {id: "team", traits: ["TRAIT_GROUP"]}]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on a wrong trait", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.resource_types = [{id: "user", traits: ["TRAIT_USER"]}, {id: "group", traits: ["TRAIT_ROLE"]}]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on a missing entitlement slug", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.entitlements = [{slug: "owner"}]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on a missing grant edge", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.grants = []
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on an empty id_compatibility", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.id_compatibility = []
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on an empty provisioning justification", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.provisioning = [{resource_type: "user", provisionable: false, justification: ""}]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on a non-boolean provisionable", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.provisioning = [{resource_type: "user", provisionable: "yes" as unknown as boolean, justification: "because the API lacks a user create/update endpoint"}]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P2 fails on a malformed extra resource-type entry", () => {
+  const pre1 = pre1Artifact({})
+  pre1.access_model!.resource_types = [
+    {id: "user", traits: ["TRAIT_USER"]},
+    {id: "group", traits: ["TRAIT_GROUP"]},
+    {id: "team", traits: "x" as unknown as string[]},
+  ]
+  assert.equal(pcheck("P2", pre1Ctx({pre1})), false)
+})
+
+test("P3 passes on valid provenance", () => {
+  assert.equal(pcheck("P3", pre1Ctx({})), true)
+})
+
+test("P3 fails when spec_bytes is at or above the cap", () => {
+  const pre1 = pre1Artifact({})
+  pre1.sourcing!.spec_bytes = 1048576
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
+})
+
+test("P3 fails when spec_bytes is 0 or negative", () => {
+  for (const n of [0, -1]) {
+    const pre1 = pre1Artifact({})
+    pre1.sourcing!.spec_bytes = n
+    assert.equal(pcheck("P3", pre1Ctx({pre1})), false, `spec_bytes ${n} should fail P3`)
+  }
+})
+
+test("P3 fails when spec_url is empty", () => {
+  const pre1 = pre1Artifact({})
+  pre1.sourcing!.spec_url = ""
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
+})
+
+function parkExpected(overrides: Partial<ExpectedParkEvidence> = {}): {decision: "park"; parkEvidence: ExpectedParkEvidence} {
+  return {
+    decision: "park",
+    parkEvidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+      ...overrides,
+    },
+  }
+}
+
+test("P4 passes on complete park evidence", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), true)
+})
+
+test("P4 fails when missing_paths is empty", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: [],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false)
+})
+
+test("P4 fails when any park-evidence field is empty", () => {
+  for (const key of ["spec_version_checked", "vendor_doc", "revisit_trigger"]) {
+    const pre1 = pre1Artifact({
+      decision: "park",
+      park_evidence: {
+        spec_version_checked: "1.2.0",
+        missing_paths: ["/v1/users"],
+        vendor_doc: "console only",
+        revisit_trigger: "ships an API",
+      },
+    })
+    pre1.park_evidence![key as "spec_version_checked" | "vendor_doc" | "revisit_trigger"] = ""
+    assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false, `${key} empty should fail P4`)
+  }
+})
+
+test("P4 fails when the checked spec version differs from the expected", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "2.0.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false)
+})
+
+test("P4 fails when an expected missing path is absent from the evidence", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), false)
+})
+
+test("P4 passes when the evidence lists extra missing paths beyond the expected", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups", "/v1/teams"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: parkExpected()})), true)
+})
+
+test("P4 fails when the scenario carries no expected park evidence", () => {
+  const pre1 = pre1Artifact({
+    decision: "park",
+    park_evidence: {
+      spec_version_checked: "1.2.0",
+      missing_paths: ["/v1/users", "/v1/groups"],
+      vendor_doc: "console only",
+      revisit_trigger: "ships an API",
+    },
+  })
+  assert.equal(pcheck("P4", pre1Ctx({pre1, expected: {decision: "park"}})), false)
 })
