@@ -16,7 +16,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
 | `evals/skills-bundle/` | Skill-bundle mount point (v0.4.0 manifest — ten skills in `skills/`) |
-| `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) |
+| `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
 
@@ -234,19 +234,36 @@ pinned scenarios on a skill PR and fails if the measured pass rate drops below
 gate workflow itself is not built in this batch; the committed file plus this
 consumption rule is the reference.
 
-**Halt-path status.** The E2E runs that would produce the six records are
-blocked (see E2E status below), so no scored runs exist and no
-`baseline.json` is committed. The generator is covered by unit smokes
-(`evals/runner/baseline.test.ts`); the reference will be published once a
-real-tenant driver and the tool surface are available.
+**Reference status (CXF-233).** The six-run matrix is no longer blocked: the
+E2E ran 2026-09-04/05 on the private squire driver (omp agent harness, model
+`together/deepseek-ai/DeepSeek-V4-Flash-0731`, `reasoningEffort: "high"`),
+producing 3 scored `none` runs + 3 scored `guide-only` runs, and the generated
+`evals/results/baseline.json` is committed as the control-group reference.
+Measured result: no full-funnel passes in either arm (`pass_at_3` 0), mean
+first-pass rate 0.47 (`none`) / 0.61 (`guide-only`); the failure pareto is S2
+(source-upload PUTs), S8 (connector config `api-token`), S11 (activation-mint
+handoff discipline), S5 (build-run state). Stage gates S0/S1/S3/S4/S6/S7/S9/
+S10 passed in every run of both arms. Known measurement caveats, documented so
+the gate is read correctly: S2's PUT-200 leg only observes bash `-X PUT`
+results, while the omp agent uploads through code-mode programs (the
+`upload_id` + `create_draft_source_upload` legs of S2 pass; the PUT leg reads
+0-with-0); S8's `api-token` reads EMPTY from `c1_connector_service_get`
+(secret-masked responses). The generator remains covered by unit smokes
+(`evals/runner/baseline.test.ts`).
+
+Full per-run records (run ids, funnels, per-stage evidence) live in the
+private harness repo (`ductone/squire-evals`, branch
+`bjorn/CXF-233/collector-transport-override`); the `*.jsonl` records behind
+`baseline.json` are copied into this directory but stay gitignored.
 
 ## Non-goals
 
 - Tier-2 real sandbox providers and the qualitative LLM-judge tier.
 - Operator-side activation E2E leg (redeeming the approval token) — those two
   fields are `skipped_human_boundary`.
-- Baseline matrix runs and CI regression gating — the runs are blocked on the
-  E2E tool surface (halt path); no `baseline.json` is committed in this PR.
+- CI regression gating workflow — the gate workflow itself is a later PR;
+  the committed `baseline.json` plus the consumption rule above is the
+  reference it will consume (the baseline matrix itself ran — CXF-233).
 - The `/v2` fixture surface (bearer + link pagination) is fixture capability
   asserted by `verify.sh` only; the Tier-1 agent uses `/v1` (basic + offset).
 - Tier-1+ end-to-end runs require a private driver (credentials + a real
@@ -261,18 +278,16 @@ real-tenant driver and the tool surface are available.
   `examples/**/*.ts` and `baton/**/*.d.ts` surface — the evals options do not
   leak into the repo-wide type environment. `npm run typecheck` runs both
   configs; the CI workflow is unmodified.
-- **E2E status.** The Tier-1 end-to-end run (done-definition 4) is BLOCKED.
-  The public repo ships only the Tier-0 local driver (canned transcript); a
-  Tier-1+ run needs a private driver with real tenant credentials and an
-  agent transport, which is out of scope for the public repo. The CXF-217
-  preflight (on the Squire-based harness) also established a structural
-  blocker on the c1 side: fresh c1-image eval envs expose no
-  `c1_connector_authoring_*` tools even with `CONNECTOR_AUTHORING` effective
-  (the `c1.api.*` MCP surface is not mounted in this region's envs) —
-  evidence at `/current-tasks/src-tu2rs/results/BLOCKER.md`. The batch halted
-  per done-definition 7; the runner, scorer, and stage gates are covered by
-  the committed unit smokes (`npm run eval:test`), and the E2E must run once
-  a real-tenant driver and the tool surface are available.
+- **E2E status.** The Tier-1 end-to-end run RAN (2026-09-04/05, CXF-233) via
+  the private squire driver (`ductone/squire-evals`, omp agent harness against
+  real dev-tenant envs); the six scored records behind the committed
+  `baseline.json` come from those runs. The earlier CXF-217 structural blocker
+  (fresh c1-image envs exposing no `c1_connector_authoring_*` tools) was NOT
+  observed in this dispatch: every env's readiness probe found the full
+  authoring surface. The public repo still ships only the Tier-0 local driver;
+  the squire driver (credentials + agent transport) remains in the private
+  harness repo, out of scope here. The runner, scorer, and stage gates stay
+  covered by the committed unit smokes (`npm run eval:test`).
 - **Score-input boundary.** `score-input.json` is written by a collector
   agent that transcribes tenant tool responses; the scorer type-validates but
   cannot verify truthfulness. The collector reads the agent-written handoff
