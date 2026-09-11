@@ -58,7 +58,19 @@ is trimmed by selection, never by editing the vendored document.
 Emit the `sourcing` and `park_evidence` halves of the pre1.json artifact:
 
 - `sourcing`: `{spec_url, fetched_at, authority_rung, spec_bytes}`.
+  - `spec_url` (string) and `fetched_at` (string, ISO-8601).
+  - `authority_rung` (string, NOT a number) - the ladder rung as a string,
+    e.g. `"1"` for an official published spec.
+  - `spec_bytes` (integer) - from `wc -c`; above 0 and under 1048576.
 - `park_evidence`: `{spec_version_checked, missing_paths, vendor_doc, revisit_trigger}`.
+  - `spec_version_checked` (string) - the provider's bare version value and
+    nothing else, e.g. `"1.2.0"`. Not a sentence, and not a composite carrying
+    hashes, byte counts, or fetch timestamps; those belong in `sourcing`.
+  - `missing_paths` (array of strings) - the literal OpenAPI path templates
+    that are absent, e.g. `["/v1/users", "/v1/groups",
+    "/v1/groups/{groupId}/members"]`. Not prose descriptions of the missing
+    capability families.
+  - `vendor_doc` (string) and `revisit_trigger` (string), both non-empty.
 
 ## Exit criteria
 
