@@ -27,6 +27,10 @@ rule: when the served guide conflicts with any other doc, the served guide wins.
 3. Slot identity is by JS reference - never re-call `slot()`.
 4. The bundle targets ES5 - no `u` regex flag; goja quirks apply.
 5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers` (`@baton/*` resolution).
+6. Provisioning: emit `provisioningResponse.grant({grants: [...]})` / `.revoke({})`;
+   that `Grant` is `@baton/types`' (NO `"@type"`), not the proto-shaped `sdk-types`
+   one. Attach the walkers under `provisioning: {grant, revoke}` - the runtime-facing
+   `RuntimeResourceTypeSpec` carries only that nesting.
 
 Worked skeletons: `examples/http/connector.ts` (transport + offset
 pagination + users/groups/membership grants), `examples/static/connector.ts` (zero-config), and the lifecycle doc's Okta worked example (pin in SOURCES.md).
@@ -183,6 +187,8 @@ Taught as contract rules, not eval-gaming literals:
 - WithExternalID is DEPRECATED - never required.
 - Do not write plaintext secrets into `connector.ts`.
 - Do not claim the build schema-validates `capabilities.json`.
+- Do not put a proto-JSON `"@type"` in a `provisioningResponse.grant` grant -
+  that `Grant` has no discriminator.
 
 ## Blocker protocol
 
