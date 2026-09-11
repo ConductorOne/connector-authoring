@@ -189,8 +189,8 @@ every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail che
 - Do not paste JSON Schema into `config-schema.json`. Do not use the secret: spelling; use `is_secret`.
 - WithExternalID is DEPRECATED - never required.
 - Do not write plaintext secrets into `connector.ts`.
-- Do not treat `capabilities.json` as runtime authority or as a placeholder -
-  it is strictly validated metadata.
+- Do not treat `capabilities.json` as runtime authority or as a placeholder - it is strictly validated metadata.
+- Do not put `"@type"` in a `provisioningResponse.grant` grant - it takes the `@baton/types` `Grant`, not the proto-shaped `sdk-types` one.
 
 ## Blocker protocol
 
