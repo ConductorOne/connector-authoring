@@ -1189,12 +1189,37 @@ export interface FailureClassifierConfig {
  * `retryable_classes` list is the canonical axis. To retry a specific HTTP
  * status (or other transport signal), add a `failure_classifier` rule that
  * maps it to one of the canonical {@link ErrorClass} values such as
- * `"rate_limited"` or `"transient"`.
+ * `"transient"`.
+ *
+ * A `"rate_limited"` failure (a 429 under the default classifier) is not
+ * retried in-connector by this policy: it is surfaced to the caller as gRPC
+ * `Unavailable` carrying a `RateLimitDescription`, and baton-sdk's retryer owns
+ * the backoff outside the connector's wall-clock budget. Listing
+ * `"rate_limited"` in `retryable_classes` therefore has no in-connector effect.
+ * (This is about the connector-declared policy; an operator `connect.retry`
+ * overlay is a separate axis.)
+ *
+ * This applies to every entrypoint, provisioning included: a rate-limited write
+ * is surfaced to the caller too, and baton-sdk may replay the whole entrypoint
+ * (`provisioning.grant` / `revoke` / `createAccount` / `rotateCredential`), so
+ * provisioning code must tolerate a caller-side retry.
+ *
+ * Note that `err.retryable` stays `true` for a `"rate_limited"` error (it
+ * remains a retryable class, e.g. in the default retryable set). Do not branch
+ * on `err.retryable` to predict whether the connector will retry — rate limits
+ * are always handed to the caller.
  */
 export interface RetryConfig {
   readonly max_retries?: number;
   readonly retry_interval?: string;
   readonly retry_multiplier?: number;
+  /**
+   * Upper bound on a retry delay. For classes that are still retried
+   * in-connector this also caps a server `Retry-After`: a `transient` failure
+   * carrying `Retry-After: 300` waits at most this long (30s default) rather
+   * than honoring the server exactly. Raise it if you need to follow longer
+   * server-directed backoff within the connector's budget.
+   */
   readonly max_retry_interval?: string;
   readonly retryable_classes?: readonly string[];
 }
