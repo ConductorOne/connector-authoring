@@ -622,6 +622,8 @@ export interface ResponseTokenPaginationSpec extends PaginationSpecBase {
   readonly tokenParam: string;
   /** Response body path the token is read from. */
   readonly tokenPath: PaginationPath;
+  /** Optional boolean gate; absent-or-false in the response ends pagination. */
+  readonly hasNextPath?: PaginationPath;
   readonly pageSize?: number;
   readonly pageSizeParam?: string;
 }
@@ -2174,6 +2176,13 @@ export type HttpAuthSpec =
        * it once at construction and rejects any other value.
        */
       client_auth_style?: "basic" | "body" | "header" | "in_header" | "in_body" | "form" | "params" | "post";
+      /**
+       * Encoding for the OAuth token request body. Defaults to
+       * "application/x-www-form-urlencoded"; use "application/json" only when
+       * the provider explicitly requires a JSON client-credentials request.
+       * Static config, not dynamic-resolvable.
+       */
+      token_request_content_type?: "application/x-www-form-urlencoded" | "application/json";
       scope?: AuthValue;
       scopes?: readonly AuthValue[];
       grant_type?: AuthValue;
