@@ -2133,6 +2133,27 @@ export declare const auth: {
   bearer(value: AuthResolvedValue): RuntimeValueExpression;
 };
 
+/**
+ * One request in the "session_cookie" auth flow (the sign-in preflight or the
+ * sign-out). url/header/query/body values take AuthConfigString: a literal
+ * string or a config ref (including a secret config field, e.g. the sign-in
+ * Authorization header). They are NOT full AuthValue: the dynamic auth helpers
+ * (auth.ref/auth.bearer/strings.concat and (refs) => … callbacks) are not
+ * normalized for these fields and fail closed at config load (a raw helper is
+ * rejected as an unsupported auth helper; a callback fails to decode).
+ * url is resolved against the transport base_url when relative.
+ */
+export interface HttpSessionRequestSpec {
+  /** HTTP method; defaults to POST. */
+  method?: string;
+  url: AuthConfigString;
+  headers?: Record<string, AuthConfigString>;
+  query_params?: Record<string, AuthConfigString>;
+  body?: AuthConfigString;
+  /** Content-Type for the request body; defaults to application/json when a body is set. */
+  content_type?: string;
+}
+
 export type HttpAuthSpec =
   | {
       name?: string;
@@ -2252,6 +2273,19 @@ export type HttpAuthSpec =
       username: AuthValue;
       /** SendSafely API secret, used as the HMAC-SHA256 signing key. */
       password: AuthValue;
+    }
+  | {
+      name?: string;
+      /**
+       * Session-cookie auth: sign_in runs once before the first data call and
+       * its Set-Cookie response seeds a cookie jar that the transport resends
+       * on every later request. sign_out, if set, runs at the end of a
+       * successful sync to close the session server-side. Use for APIs whose session lives only
+       * in a cookie (e.g. BeyondTrust Password Safe SignAppin/Signout).
+       */
+      type: "session_cookie";
+      sign_in: HttpSessionRequestSpec;
+      sign_out?: HttpSessionRequestSpec;
     }
   | {
       steps: readonly HttpAuthSpec[];
