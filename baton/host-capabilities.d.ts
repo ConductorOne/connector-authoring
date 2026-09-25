@@ -55,6 +55,7 @@ export interface LoadShapedResponseArgs {
 export interface LoadShapedResponseResult {
   value: unknown;
   nextPageToken: string;
+  selected?: Record<string, unknown>;
 }
 
 export interface LogArgs {
@@ -102,6 +103,11 @@ export interface ProjectArgs {
   label?: string;
 }
 
+export interface SelectPaginationItemsArgs {
+  select: Record<string, unknown>;
+  items: unknown[];
+}
+
 export interface ShapeResponseArgs {
   response: unknown;
   itemsPath?: string[];
@@ -128,6 +134,7 @@ export interface TransportCallResult {
   nextPageToken?: string;
   metadata?: Record<string, unknown>;
   items?: unknown[];
+  selected?: Record<string, unknown>;
   raw?: Record<string, unknown>;
 }
 
@@ -171,6 +178,7 @@ export interface HostCapabilities {
     nodeConcurrency(args: PolicyNodeConcurrencyArgs): PolicyNodeConcurrencyResult;
   };
   project(args: ProjectArgs): unknown;
+  selectPaginationItems(args: SelectPaginationItemsArgs): unknown;
   shapeResponse(args: ShapeResponseArgs): unknown;
   sleep(args: SleepArgs): Promise<SleepResult>;
   transport: {

@@ -643,7 +643,7 @@ export interface CursorPaginationSpec extends PaginationSpecBase {
 }
 
 /** Page-number pagination carried in a query parameter. */
-export interface PageNumberQueryPaginationSpec extends PaginationSpecBase {
+interface PageNumberQueryPaginationFields extends PaginationSpecBase {
   readonly kind: "page_number";
   readonly pageParam: string;
   readonly pageBodyPath?: never;
@@ -664,7 +664,7 @@ export interface PageNumberQueryPaginationSpec extends PaginationSpecBase {
 }
 
 /** Page-number pagination written into the JSON request body (POST search APIs). */
-export interface PageNumberBodyPaginationSpec extends PaginationSpecBase {
+interface PageNumberBodyPaginationFields extends PaginationSpecBase {
   readonly kind: "page_number";
   readonly pageBodyPath: PaginationPath;
   readonly pageParam?: never;
@@ -681,7 +681,7 @@ export interface PageNumberBodyPaginationSpec extends PaginationSpecBase {
 }
 
 /** Offset pagination carried in a query parameter. */
-export interface OffsetQueryPaginationSpec extends PaginationSpecBase {
+interface OffsetQueryPaginationFields extends PaginationSpecBase {
   readonly kind: "offset";
   readonly offsetParam: string;
   readonly offsetBodyPath?: never;
@@ -699,7 +699,7 @@ export interface OffsetQueryPaginationSpec extends PaginationSpecBase {
 }
 
 /** Offset pagination written into the JSON request body (POST search APIs). */
-export interface OffsetBodyPaginationSpec extends PaginationSpecBase {
+interface OffsetBodyPaginationFields extends PaginationSpecBase {
   readonly kind: "offset";
   readonly offsetBodyPath: PaginationPath;
   readonly offsetParam?: never;
@@ -712,7 +712,45 @@ export interface OffsetBodyPaginationSpec extends PaginationSpecBase {
   readonly isLastPath?: PaginationPath;
 }
 
-export type PaginationSpec =
+/**
+ * http.v1 (deprecated) keeps the lenient presets: the Go engine infers
+ * termination and a short page ends the walk. `shortPage` is a v2 knob.
+ */
+type NoShortPage = { readonly shortPage?: never };
+export type PageNumberQueryPaginationSpec = PageNumberQueryPaginationFields & NoShortPage;
+export type PageNumberBodyPaginationSpec = PageNumberBodyPaginationFields & NoShortPage;
+export type OffsetQueryPaginationSpec = OffsetQueryPaginationFields & NoShortPage;
+export type OffsetBodyPaginationSpec = OffsetBodyPaginationFields & NoShortPage;
+
+/**
+ * http.v2 presets must say how they end. A termination field is the reliable
+ * signal: `totalPagesPath` or row-count `totalPath` for page_number,
+ * `totalPath` or `isLastPath` for offset. Without one the only signal is a
+ * short page, which AWS, Google, Graph, and Okta document as unreliable,
+ * so it is an explicit opt-in: `shortPage: true` says the API guarantees
+ * full pages until the last, and needs `pageSize` or `maxResultsPath`.
+ */
+type ShortPageOptIn =
+  | { readonly shortPage: true; readonly pageSize: number }
+  | { readonly shortPage: true; readonly maxResultsPath: PaginationPath };
+type PageNumberTerminationV2 =
+  | { readonly totalPagesPath: PaginationPath; readonly totalPath?: never; readonly shortPage?: false }
+  | ({ readonly totalPath: PaginationPath; readonly totalPagesPath?: never; readonly shortPage?: false } & OffsetPageSizeV2)
+  | (ShortPageOptIn & { readonly totalPath?: never; readonly totalPagesPath?: never });
+type OffsetPageSizeV2 =
+  | { readonly pageSize: number }
+  | { readonly maxResultsPath: PaginationPath };
+type OffsetTerminationV2 =
+  | { readonly totalPath: PaginationPath; readonly shortPage?: false }
+  | { readonly isLastPath: PaginationPath; readonly shortPage?: false }
+  | ShortPageOptIn;
+export type PageNumberQueryPaginationSpecV2 = PageNumberQueryPaginationFields & PageNumberTerminationV2;
+export type PageNumberBodyPaginationSpecV2 = PageNumberBodyPaginationFields & PageNumberTerminationV2;
+export type OffsetQueryPaginationSpecV2 = OffsetQueryPaginationFields & OffsetTerminationV2 & OffsetPageSizeV2;
+export type OffsetBodyPaginationSpecV2 = OffsetBodyPaginationFields & OffsetTerminationV2 & OffsetPageSizeV2;
+
+/** Pagination on an http.v1 transport (deprecated surface; Go infers termination). */
+export type PaginationSpecV1 =
   | TransportPaginationSpec
   | LinkPaginationSpec
   | ResponseTokenPaginationSpec
@@ -721,6 +759,167 @@ export type PaginationSpec =
   | PageNumberBodyPaginationSpec
   | OffsetQueryPaginationSpec
   | OffsetBodyPaginationSpec;
+
+/**
+ * Pagination on an http.v2 transport: presets that say how they end, or the
+ * general form built with `page.program`. `kind: "transport"` is not a v2
+ * kind (use `link` for transport-followed URLs).
+ */
+export type PaginationSpecV2 =
+  | LinkPaginationSpec
+  | ResponseTokenPaginationSpec
+  | CursorPaginationSpec
+  | PageNumberQueryPaginationSpecV2
+  | PageNumberBodyPaginationSpecV2
+  | OffsetQueryPaginationSpecV2
+  | OffsetBodyPaginationSpecV2
+  | AnyPaginationProgramSpec;
+
+/**
+ * Either version. Node-level `fetch` specs take a `via` of either version,
+ * so they accept both; `http.v1(...)` and `http.v2(...)` request methods are
+ * typed to their own version.
+ */
+export type PaginationSpec = PaginationSpecV1 | PaginationSpecV2;
+
+/**
+ * The union member for `page.program(...)` values. `next` takes `any` here
+ * on purpose: the precise `selected` type lives on the value `page.program`
+ * returns (inferred from its `select`), and a contravariant parameter in
+ * the union member would reject every such value under strictFunctionTypes.
+ */
+export type AnyPaginationProgramSpec = Omit<PaginationProgramSpec<Record<string, PageSelector<any, boolean>>>, "next"> & {
+  readonly next: (selected: any, token: string) => string | null;
+};
+
+// ---------------------------------------------------------------------------
+// http.v2 pagination, general form: selectors in Go, decisions in JS.
+//
+// `select` names the values the decision needs; Go evaluates them against
+// each response next to the body and hands JS a small typed record. `next`
+// and `apply` are pure JS. The six kinds above are presets over the same
+// three parts and keep working unchanged on http.v2.
+// ---------------------------------------------------------------------------
+
+export type PageSelectorType = "string" | "number" | "boolean";
+type PageValueOf<T extends PageSelectorType> = T extends "string" ? string : T extends "number" ? number : boolean;
+
+/**
+ * One value to read from a response. `T` is what `next` receives; `Optional`
+ * is whether absence is allowed (then `T | undefined`). Required is the
+ * default: an absent, null, or empty required value fails the page naming
+ * the selector, which is loud on page one; an optional one would feed
+ * `undefined` into JS truthiness and loop or truncate silently.
+ */
+export interface PageSelector<T = unknown, Optional extends boolean = false> {
+  readonly __batonPageSelector: true;
+  readonly __value?: T;
+  readonly __optional?: Optional;
+}
+
+export declare const page: {
+  /**
+   * A path into the body parsed per the request's `parseAs`. A string is one
+   * key, never split (`"has_more"`, `"@odata.nextLink"`); a list is a nested
+   * path (`["meta", "next"]`).
+   */
+  body<T extends PageSelectorType = "string">(path: string | readonly [string, ...string[]], type?: T): PageSelector<PageValueOf<T>>;
+  header<T extends "string" | "number" = "string">(name: string, type?: T): PageSelector<PageValueOf<T>>;
+  /** The Link header's URL for `rel` (default "next"); `header` names a non-standard header carrying links. */
+  link(rel?: string, options?: { readonly header?: string }): PageSelector<string>;
+  status(): PageSelector<number>;
+  /** The unparsed body (for `parseAs: "text"`). */
+  raw(): PageSelector<string>;
+  /** Items on this page after `itemsPath`; never absent. */
+  itemCount(): PageSelector<number>;
+  /**
+   * A field of the last item on this page (keyset pagination). Optional by
+   * construction: an empty page has no last item and that is the normal
+   * terminal state, so `selected.x` is `T | undefined` and required-ness
+   * belongs on the gate (`has_more`), not here. A non-empty page whose last
+   * item lacks the requested field is an error, not a terminal page.
+   */
+  lastItem<T extends PageSelectorType = "string">(path: string | readonly [string, ...string[]], type?: T): PageSelector<PageValueOf<T>, true>;
+  /** Allow absence: absent, null, or "" yields `undefined` instead of failing the page. */
+  optional<T>(selector: PageSelector<T, boolean>): PageSelector<T, true>;
+  /**
+   * The general form: selectors Go evaluates per response, and pure JS
+   * `next`/`apply` over the selected record. See {@link PaginationProgramInput}.
+   */
+  program<const S extends Record<string, PageSelector<any, boolean>>>(spec: PaginationProgramInput<S>): PaginationProgramSpec<S>;
+
+  /**
+   * `apply` presets for the three ways a token is carried. Each returns an
+   * `apply` function; the first page (empty token) sends the request as is.
+   */
+  toQuery(name: string): (request: PaginationRequest, token: string) => PaginationRequest;
+  /** In the JSON body at `path` (a key, or a list of keys). */
+  toBody(path: string | readonly string[]): (request: PaginationRequest, token: string) => PaginationRequest;
+  /**
+   * As the whole next URL (absolute, or relative to baseUrl), dropping the
+   * first page's query so it is not re-applied on top. What `link` does.
+   */
+  toUrl(): (request: PaginationRequest, token: string) => PaginationRequest;
+};
+
+/** The record `next` receives: one property per selector, `| undefined` for optional ones. */
+export type PageSelected<S extends Record<string, PageSelector<any, boolean>>> = {
+  readonly [K in keyof S]: S[K] extends PageSelector<infer V, infer O> ? (O extends true ? V | undefined : V) : never;
+};
+
+/**
+ * The request `apply` receives and returns: the materialized transport
+ * request (`method`, `path`, `url?`, `query`, `params`, `headers`, `body`),
+ * the same seven fields on every path; anything else on the wire request
+ * is re-attached by the runtime after `apply`. `url` (absolute, or relative
+ * to `baseUrl`) wins over `path`, which is how a next-URL scheme replays.
+ */
+export interface PaginationRequest {
+  readonly method?: string;
+  readonly path?: string;
+  readonly url?: string;
+  readonly query?: Record<string, unknown>;
+  readonly params?: Record<string, unknown>;
+  readonly headers?: Record<string, unknown>;
+  readonly body?: unknown;
+}
+
+/**
+ * General-form pagination. `token` is the continuation this page was
+ * fetched with: what the previous `next` returned, `""` on the first page,
+ * and what the connector page token carries between process calls. `apply`
+ * stamps it onto the request; `next` returns the token for the next page,
+ * or `null` when done. The loop enforces: `next` returns `string | null`
+ * (anything else, including `""` and `undefined`, is an error, not "done"),
+ * never the same token again, and never more than `maxPages` pages.
+ *
+ *   pagination: page.program({
+ *     select: { hasMore: page.body("has_more", "boolean"), last: page.lastItem("id") },
+ *     next: (s) => (s.hasMore && s.last !== undefined ? s.last : null),
+ *     apply: (req, t) => (t ? { ...req, query: { ...req.query, starting_after: t } } : req),
+ *   })
+ */
+export interface PaginationProgramInput<S extends Record<string, PageSelector<any, boolean>>> extends PaginationSpecBase {
+  readonly select: S;
+  readonly next: (selected: PageSelected<S>, token: string) => string | null;
+  readonly apply: (request: PaginationRequest, token: string) => PaginationRequest;
+}
+
+/**
+ * The value `page.program(...)` returns. Branded so the general form is
+ * always built through `page.program`, which is what gives `next` its exact
+ * `selected` type: the request helpers infer their whole spec as one type
+ * parameter, which leaves an inline callback contextually untyped. The
+ * brand is a non-exported unique symbol, so a hand-written literal cannot
+ * forge it; the runtime marker `__batonPaginationProgram` rides alongside
+ * for the engine.
+ */
+declare const paginationProgramBrand: unique symbol;
+export interface PaginationProgramSpec<S extends Record<string, PageSelector<any, boolean>>> extends PaginationProgramInput<S> {
+  readonly [paginationProgramBrand]: true;
+  readonly __batonPaginationProgram: true;
+  readonly kind?: undefined;
+}
 
 /**
  * SQL pagination is transport-managed: the Go SQL transport appends
@@ -756,6 +955,7 @@ export interface HttpExecution<TResponse = unknown> {
   readonly projection?: ProjectionHandle<any>;
   readonly request: unknown;
   readonly itemsPath?: readonly string[];
+  readonly parseAs?: HttpParseAs;
   readonly pagination?: PaginationSpec;
   readonly failure_classifier?: FailureClassifierConfig | false;
   readonly retry?: RetryConfig | false;
@@ -776,17 +976,51 @@ export type Execution<TResponse = unknown> =
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
 
-export type RawHttpExecutionSpec<Method extends string = string> = {
+/**
+ * How the transport parses a response body before `itemsPath`, projections,
+ * and pagination read it. A property of the response, so it sits on the
+ * request next to `itemsPath`, not on the transport and not on each reader.
+ * "json" (the default; a body that is not JSON is an error on http.v2, not
+ * an empty page), "xml" (lowered to the same tree: namespace prefixes are
+ * dropped, attributes are "-name", mixed text is "#text"), or "text" (no
+ * tree; the body is exposed as `_raw`).
+ */
+export type HttpParseAs = "json" | "xml" | "text";
+
+type RawHttpExecutionSpecBase<Method extends string> = {
   readonly path: string;
   readonly query?: Record<string, unknown>;
   readonly headers?: Record<string, unknown>;
   readonly body?: unknown;
   readonly itemsPath?: readonly string[];
-  readonly pagination?: PaginationSpec;
-  readonly failure_classifier?: FailureClassifierConfig | false;
-  readonly retry?: RetryConfig | false;
+  readonly parseAs?: HttpParseAs;
   readonly method?: Method;
 };
+
+/** Per-request policy overrides on http.v1: the transport's snake_case names. */
+type HttpRequestPolicyV1 = {
+  readonly failure_classifier?: FailureClassifierConfig | false;
+  readonly retry?: RetryConfig | false;
+};
+
+/**
+ * Per-request policy overrides on http.v2. `retry: false` disables retries
+ * for this call; an object overrides the transport's policy for this call.
+ */
+type HttpRequestPolicyV2 = {
+  readonly failureClassifier?: FailureClassifierConfig | false;
+  readonly retry?: RetryConfigV2 | false;
+};
+
+type RawHttpExecutionSpecOf<Method extends string, Pagination, Policy> =
+  RawHttpExecutionSpecBase<Method> & { readonly pagination?: Pagination } & Policy;
+
+/** @deprecated http.v1 request shape; see {@link RawHttpExecutionSpecV2}. */
+export type RawHttpExecutionSpec<Method extends string = string> =
+  RawHttpExecutionSpecOf<Method, PaginationSpecV1, HttpRequestPolicyV1>;
+/** The argument of `GET`/`POST`/`PUT`/`PATCH`/`DELETE`/`HEAD` on an http.v2 transport. */
+export type RawHttpExecutionSpecV2<Method extends string = string> =
+  RawHttpExecutionSpecOf<Method, PaginationSpecV2, HttpRequestPolicyV2>;
 
 type OperationRequestShapeOf<O> = (
   O extends { readonly types: { readonly request: infer TRequest } }
@@ -802,11 +1036,12 @@ export type OperationInvocationSpec<
 > = Simplify<OperationRequestShapeOf<O> & {
   readonly projection?: P;
   readonly itemsPath?: readonly string[];
+  readonly parseAs?: HttpParseAs;
   readonly pagination?: PaginationSpec;
 }>;
 
 type OperationRequestPortion<T> =
-  T extends object ? Omit<T, "projection" | "itemsPath" | "pagination"> : never;
+  T extends object ? Omit<T, "projection" | "itemsPath" | "pagination" | "parseAs" | "retry" | "failureClassifier" | "failure_classifier"> : never;
 
 /**
  * Exact-checks an inferred spec's pagination member against the
@@ -821,12 +1056,12 @@ type OperationRequestPortion<T> =
  * OPTIONAL (e.g. built with a conditional spread): without it those fell
  * through to plain assignability and a typo'd field compiled again.
  */
-type ExactPaginationField<TActual> =
+type ExactPaginationField<TActual, Pagination = PaginationSpec> =
   TActual extends { readonly pagination: infer P }
-    ? { readonly pagination: ExactReturn<PaginationSpec, P> }
+    ? { readonly pagination: ExactReturn<Pagination, P> }
     : TActual extends { readonly pagination?: infer P }
-      ? { readonly pagination?: ExactReturn<PaginationSpec, NonNullable<P>> }
-      : { readonly pagination?: PaginationSpec };
+      ? { readonly pagination?: ExactReturn<Pagination, NonNullable<P>> }
+      : { readonly pagination?: Pagination };
 
 /**
  * Exact-checks the pagination member of a SQL query spec against
@@ -853,28 +1088,35 @@ type NoExcessTopLevelKeys<TExpected, TActual> = {
   readonly [K in Exclude<keyof TActual, keyof TExpected>]: never;
 };
 
-export interface HttpTransport extends Transport {
+/**
+ * The request methods of an HTTP transport handle, typed to the version's
+ * pagination union and per-request policy spelling. `http.v1` returns
+ * {@link HttpTransport}, `http.v2` returns {@link HttpTransportV2}.
+ */
+interface HttpTransportSurface<Pagination, Policy> extends Transport {
   request<
     O extends { readonly types: { readonly request: unknown } },
     P extends ProjectionHandle<any>,
     TActual,
   >(
     operation: O,
-    spec: {
+    spec: Policy & {
       readonly projection: P;
       readonly itemsPath?: readonly string[];
-      readonly pagination?: PaginationSpec;
-    } & TActual & ExactReturn<O["types"]["request"], OperationRequestPortion<TActual>> & ExactPaginationField<TActual>,
+      readonly parseAs?: HttpParseAs;
+      readonly pagination?: Pagination;
+    } & TActual & ExactReturn<O["types"]["request"], OperationRequestPortion<TActual>> & ExactPaginationField<TActual, Pagination>,
   ): HttpExecution<ProjectionValue<P>>;
   request<
     O extends { readonly types: { readonly request: unknown } },
     TActual,
   >(
     operation: O,
-    spec: TActual & {
+    spec: Policy & TActual & {
       readonly itemsPath?: readonly string[];
-      readonly pagination?: PaginationSpec;
-    } & ExactReturn<O["types"]["request"], OperationRequestPortion<TActual>> & ExactPaginationField<TActual>,
+      readonly parseAs?: HttpParseAs;
+      readonly pagination?: Pagination;
+    } & ExactReturn<O["types"]["request"], OperationRequestPortion<TActual>> & ExactPaginationField<TActual, Pagination>,
   ): HttpExecution<unknown>;
   request<
     O extends AnyOperationHandle,
@@ -882,41 +1124,48 @@ export interface HttpTransport extends Transport {
     TActual,
   >(
     operation: O,
-    spec: TActual & {
+    spec: Policy & TActual & {
       readonly projection: P;
       readonly itemsPath?: readonly string[];
-      readonly pagination?: PaginationSpec;
-    } & ExactReturn<OperationRequestOf<O>, OperationRequestPortion<TActual>> & ExactPaginationField<TActual>,
+      readonly parseAs?: HttpParseAs;
+      readonly pagination?: Pagination;
+    } & ExactReturn<OperationRequestOf<O>, OperationRequestPortion<TActual>> & ExactPaginationField<TActual, Pagination>,
   ): HttpExecution<ProjectionValue<P>>;
   request<
     O extends AnyOperationHandle,
     TActual,
   >(
     operation: O,
-    spec: TActual & {
+    spec: Policy & TActual & {
       readonly itemsPath?: readonly string[];
-      readonly pagination?: PaginationSpec;
-    } & ExactReturn<OperationRequestOf<O>, OperationRequestPortion<TActual>> & ExactPaginationField<TActual>,
+      readonly parseAs?: HttpParseAs;
+      readonly pagination?: Pagination;
+    } & ExactReturn<OperationRequestOf<O>, OperationRequestPortion<TActual>> & ExactPaginationField<TActual, Pagination>,
   ): HttpExecution<OperationResponseOf<O>>;
-  GET<TActual extends RawHttpExecutionSpec<"GET">>(
-    spec: TActual & ExactPaginationField<TActual> & NoExcessTopLevelKeys<RawHttpExecutionSpec<"GET">, TActual>,
+  GET<TActual extends RawHttpExecutionSpecOf<"GET", Pagination, Policy>>(
+    spec: TActual & ExactPaginationField<TActual, Pagination> & NoExcessTopLevelKeys<RawHttpExecutionSpecOf<"GET", Pagination, Policy>, TActual>,
   ): HttpExecution<unknown>;
-  POST<TActual extends RawHttpExecutionSpec<"POST">>(
-    spec: TActual & ExactPaginationField<TActual> & NoExcessTopLevelKeys<RawHttpExecutionSpec<"POST">, TActual>,
+  POST<TActual extends RawHttpExecutionSpecOf<"POST", Pagination, Policy>>(
+    spec: TActual & ExactPaginationField<TActual, Pagination> & NoExcessTopLevelKeys<RawHttpExecutionSpecOf<"POST", Pagination, Policy>, TActual>,
   ): HttpExecution<unknown>;
-  PUT<TActual extends RawHttpExecutionSpec<"PUT">>(
-    spec: TActual & ExactPaginationField<TActual> & NoExcessTopLevelKeys<RawHttpExecutionSpec<"PUT">, TActual>,
+  PUT<TActual extends RawHttpExecutionSpecOf<"PUT", Pagination, Policy>>(
+    spec: TActual & ExactPaginationField<TActual, Pagination> & NoExcessTopLevelKeys<RawHttpExecutionSpecOf<"PUT", Pagination, Policy>, TActual>,
   ): HttpExecution<unknown>;
-  PATCH<TActual extends RawHttpExecutionSpec<"PATCH">>(
-    spec: TActual & ExactPaginationField<TActual> & NoExcessTopLevelKeys<RawHttpExecutionSpec<"PATCH">, TActual>,
+  PATCH<TActual extends RawHttpExecutionSpecOf<"PATCH", Pagination, Policy>>(
+    spec: TActual & ExactPaginationField<TActual, Pagination> & NoExcessTopLevelKeys<RawHttpExecutionSpecOf<"PATCH", Pagination, Policy>, TActual>,
   ): HttpExecution<unknown>;
-  DELETE<TActual extends RawHttpExecutionSpec<"DELETE">>(
-    spec: TActual & ExactPaginationField<TActual> & NoExcessTopLevelKeys<RawHttpExecutionSpec<"DELETE">, TActual>,
+  DELETE<TActual extends RawHttpExecutionSpecOf<"DELETE", Pagination, Policy>>(
+    spec: TActual & ExactPaginationField<TActual, Pagination> & NoExcessTopLevelKeys<RawHttpExecutionSpecOf<"DELETE", Pagination, Policy>, TActual>,
   ): HttpExecution<unknown>;
-  HEAD<TActual extends RawHttpExecutionSpec<"HEAD">>(
-    spec: TActual & ExactPaginationField<TActual> & NoExcessTopLevelKeys<RawHttpExecutionSpec<"HEAD">, TActual>,
+  HEAD<TActual extends RawHttpExecutionSpecOf<"HEAD", Pagination, Policy>>(
+    spec: TActual & ExactPaginationField<TActual, Pagination> & NoExcessTopLevelKeys<RawHttpExecutionSpecOf<"HEAD", Pagination, Policy>, TActual>,
   ): HttpExecution<unknown>;
 }
+
+/** @deprecated The handle returned by `http.v1(...)`; author against {@link HttpTransportV2}. */
+export interface HttpTransport extends HttpTransportSurface<PaginationSpecV1, HttpRequestPolicyV1> {}
+
+export interface HttpTransportV2 extends HttpTransportSurface<PaginationSpecV2, HttpRequestPolicyV2> {}
 
 type ExactObject<TExpected, TActual> =
   // Keep expected and extra keys separate. The simpler
@@ -957,6 +1206,11 @@ type ExactSection<TExpected, TActual> =
       ? TActual extends TExpected ? TActual : never
     : TExpected extends { readonly kind: "walk" }
       ? TActual extends TExpected ? TActual : never
+    // page.program values are branded and already exact (the builder's
+    // own parameter type rejects extra keys); destructuring them would
+    // re-check `next` against the loose union member.
+    : TExpected extends { readonly [paginationProgramBrand]: true }
+      ? TActual extends TExpected ? TActual : never
     : TExpected extends object
       ? string extends keyof TExpected
         ? TActual extends TExpected ? TActual : never
@@ -984,6 +1238,7 @@ interface NodeFetchWithoutOperation<TRow, TValue = unknown> {
   readonly projection?: ProjectionHandle<TValue>;
   readonly request: (dependencies: TRow) => RawHttpRequest;
   readonly itemsPath?: readonly string[];
+  readonly parseAs?: HttpParseAs;
   readonly pagination?: PaginationSpec;
 }
 
@@ -1002,6 +1257,7 @@ export interface OperationFetchSpec<
   readonly headers?: never;
   readonly body?: never;
   readonly itemsPath?: readonly string[];
+  readonly parseAs?: HttpParseAs;
   readonly pagination?: PaginationSpec;
   readonly __input?: TRow;
   readonly __response?: OperationFetchResponse<O, P>;
@@ -1050,9 +1306,11 @@ export interface OperationModule<
   readonly projection?: ProjectionHandle<any>;
   readonly request: (dependencies: TRow) => OperationTransportRequestOf<O>;
   readonly itemsPath?: readonly string[];
+  readonly parseAs?: HttpParseAs;
   readonly pagination?: PaginationSpec;
   readonly failure_classifier?: FailureClassifierConfig | false;
-  readonly retry?: RetryConfig | false;
+  readonly failureClassifier?: FailureClassifierConfig | false;
+  readonly retry?: RetryConfig | RetryConfigV2 | false;
   readonly __input?: TRow;
   readonly __response?: TResponse;
   readonly [operationModuleBrand]: true;
@@ -1068,9 +1326,12 @@ export interface GeneratedOperationSpec<
   readonly projection?: P;
   readonly request: RequestBuilder<TRow, OperationRequestOf<O>, TRequest>;
   readonly itemsPath?: readonly string[];
+  readonly parseAs?: HttpParseAs;
   readonly pagination?: PaginationSpec;
+  /** v1 spelling; on a v2 `via` write `failureClassifier`. */
   readonly failure_classifier?: FailureClassifierConfig | false;
-  readonly retry?: RetryConfig | false;
+  readonly failureClassifier?: FailureClassifierConfig | false;
+  readonly retry?: RetryConfig | RetryConfigV2 | false;
 }
 
 export interface GeneratedOperation<O extends AnyOperationHandle>
@@ -1224,6 +1485,28 @@ export interface RetryConfig {
    */
   readonly max_retry_interval?: string;
   readonly retryable_classes?: readonly string[];
+}
+
+/**
+ * Retry policy on http.v2, camelCase like the rest of that surface.
+ * Defaults: 3 retries, 1s base interval, x2 multiplier, 30s cap, and the
+ * runtime's default retryable classes. When `retryableClasses` is set it is
+ * the sole axis: an error is retried only if its class is listed.
+ * Rate-limited failures are always handed to the caller for backoff outside
+ * the connector's wall-clock budget, even when listed in retryableClasses.
+ * See {@link RetryConfig} for caller-side replay and Retry-After semantics.
+ *
+ * Conditional `rules` from the Go retry engine are intentionally not part of
+ * this DSL. Use failureClassifier to classify failures, then configure their
+ * retryable classes, retry limit, and backoff here. Untyped `rules` objects
+ * are rejected rather than passed through to the Go engine.
+ */
+export interface RetryConfigV2 {
+  readonly maxRetries?: number;
+  readonly retryInterval?: string;
+  readonly retryMultiplier?: number;
+  readonly maxRetryInterval?: string;
+  readonly retryableClasses?: readonly string[];
 }
 
 export interface SourceNodeSpec<
@@ -2111,27 +2394,57 @@ interface AuthStepRef<Name extends string = string> {
   readonly name: Name;
 }
 
-export interface RuntimeValueExpression {
+export type AuthContext = "static" | "request" | "response";
+export type AuthValueKind = "string" | "number" | "object";
+export interface RuntimeValueExpression<C extends AuthContext = "static", K extends AuthValueKind = "string"> {
   readonly kind: "runtime_value_expr";
+  readonly __authContext: C;
+  readonly __authValueKind: K;
+}
+type AuthContextOf<V> = V extends RuntimeValueExpression<infer C, AuthValueKind> ? C : "static";
+type AuthKindOf<V> = V extends RuntimeValueExpression<AuthContext, infer K> ? K : "string";
+type AuthRequestValue = AuthConfigString | AuthStepRef | RuntimeValueExpression<"static" | "request", AuthValueKind>;
+type AuthExtractValue = AuthConfigString | AuthStepRef | RuntimeValueExpression<"static" | "response", AuthValueKind>;
+
+
+/**
+ * An expiry built with `auth.at(...)` or `auth.after(...)`. `expires` takes
+ * only these (or `"never"`), so a bare `auth.response.body("expires_in")`
+ * is a compile error rather than a per-acquire failure in Go.
+ */
+export interface AuthExpiryExpression<C extends AuthContext = AuthContext> extends RuntimeValueExpression<C> {
+  readonly __batonAuthExpiry: true;
 }
 
 export type RuntimeValue = AuthConfigString | RuntimeValueExpression;
 
-type AuthResolvedValue = AuthConfigString | AuthStepRef | RuntimeValueExpression;
+type AuthResolvedValue = AuthConfigString | AuthStepRef | RuntimeValueExpression<AuthContext, AuthValueKind>;
 
-type AuthStepRefs<Names extends string = string> = Readonly<Record<Names, AuthStepRef<Names>>>;
+type AuthStepRefs<Names extends string = string> = { readonly [K in Names]: AuthStepRef<K> };
 
 export type AuthValue =
   | AuthResolvedValue
   | ((refs: AuthStepRefs) => AuthResolvedValue);
 
 export declare const strings: {
-  concat(...parts: readonly AuthResolvedValue[]): RuntimeValueExpression;
+  concat<const V extends readonly AuthResolvedValue[]>(...parts: V): RuntimeValueExpression<AuthContextOf<V[number]>>;
 };
 
-export declare const auth: {
-  bearer(value: AuthResolvedValue): RuntimeValueExpression;
-};
+/**
+ * Auth expression helpers. Every helper returns an opaque expression that is
+ * serialized into the connector spec and evaluated in Go, per request,
+ * against the acquired credentials and the outbound request. Secret values
+ * referenced through `config()` or refs are never materialized in
+ * JavaScript. Request-bound helpers (`request`, `headerOr`, `canonical*`) are
+ * only valid inside `apply`; acquire-time fields (`token_url`, ...) have no
+ * request yet.
+ *
+ * Variables are referenced through typed handles, never by string: the
+ * `refs` object passed to `apply` (and to callback-valued fields) carries one
+ * handle per named `credentials` entry and per named acquire step, and
+ * `a.let(...)` returns a handle for an apply local.
+ */
+export declare const auth: AuthHelpers;
 
 /**
  * One request in the "session_cookie" auth flow (the sign-in preflight or the
@@ -2154,7 +2467,281 @@ export interface HttpSessionRequestSpec {
   content_type?: string;
 }
 
-export type HttpAuthSpec =
+/**
+ * Value transforms, usable anywhere an auth expression is: `bearer`, `json`,
+ * `sign`, `after`/`at`, `response.*`. Request introspection (`request`,
+ * `headerOr`, `canonical*`, `signedHeaders`) is on the apply builder `a`
+ * only, because it is meaningful only while an op runs against an outbound
+ * request.
+ */
+export interface AuthValueHelpers {
+  bearer<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  concat<const V0 extends readonly AuthResolvedValue[]>(...parts: V0): RuntimeValueExpression<AuthContextOf<V0[number]>, "string">;
+  join<V0 extends AuthResolvedValue, const V1 extends readonly AuthResolvedValue[]>(sep: V0, ...parts: V1): RuntimeValueExpression<AuthContextOf<V0 | V1[number]>, "string">;
+  lines<const V0 extends readonly AuthResolvedValue[]>(...parts: V0): RuntimeValueExpression<AuthContextOf<V0[number]>, "string">;
+  /** First non-empty part. */
+  coalesce<const V0 extends readonly AuthResolvedValue[]>(...parts: V0): RuntimeValueExpression<AuthContextOf<V0[number]>, "string">;
+  /** Byte-offset slice `[start, end)`; `end` defaults to the end of the value. */
+  substr<V0 extends AuthResolvedValue>(value: V0, start: number, end?: number): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  lower<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  upper<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  trim<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  base64<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  base64url<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  hex<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /** RFC 3986 unreserved-set percent-encoding with uppercase hex. */
+  urlEncode<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /** Digest of value; `alg` is sha256 (default), sha1, sha384, sha512, or md5. Encoding defaults to hex. */
+  hash<V0 extends AuthResolvedValue>(alg: AuthHashAlgorithm, value: V0, encoding?: AuthEncoding): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /**
+   * HMAC of value under key. Encoding defaults to hex; `"raw"` yields the
+   * binary MAC for use as the next key in a derivation chain (SigV4).
+   */
+  hmac<V0 extends AuthResolvedValue, V1 extends AuthResolvedValue>(alg: AuthHashAlgorithm, key: V0, value: V1, encoding?: AuthEncoding): RuntimeValueExpression<AuthContextOf<V0 | V1>, "string">;
+  /**
+   * The evaluation clock (UTC) in a named format (default "rfc3339") or a
+   * token pattern such as "YYYY-MM-DDTHH:mm:ss+0000".
+   */
+  now(format?: AuthTimeFormat): RuntimeValueExpression<"static", "string">;
+  /** Random hex token of `bytes` bytes (default 16). */
+  nonce(bytes?: number): RuntimeValueExpression<"static", "string">;
+
+  /**
+   * Asymmetric signature of value under a PEM private key (RSA, EC, or
+   * Ed25519; PKCS#1, SEC 1, or PKCS#8). Output is the JOSE-style raw
+   * signature (r||s for ECDSA), encoded base64url by default. Symmetric
+   * algorithms are refused: use `hmac`.
+   */
+  sign<V0 extends AuthResolvedValue, V1 extends AuthResolvedValue>(alg: AuthSignAlgorithm, key: V0, value: V1, encoding?: AuthEncoding): RuntimeValueExpression<AuthContextOf<V0 | V1>, "string">;
+  /** Public JWK (JSON) of a private key, in RFC 7638 canonical member order. */
+  jwk<V0 extends AuthResolvedValue>(key: V0): RuntimeValueExpression<AuthContextOf<V0>, "object">;
+  /** RFC 7638 SHA-256 thumbprint (base64url) of a private key's public JWK. */
+  jwkThumbprint<V0 extends AuthResolvedValue>(key: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /**
+   * JSON object from named expressions. Members are strings unless wrapped:
+   * `number(...)` emits a JSON number, `optional(...)` is dropped when
+   * empty, nested `json(...)`/`jwk(...)` embed as objects. `undefined`
+   * members are skipped. Keys are emitted sorted.
+   */
+  json<const V0 extends Record<string, AuthResolvedValue | undefined>>(fields: V0): RuntimeValueExpression<AuthContextOf<V0[keyof V0]>, "object">;
+  /** Marks a `json` member as a number (the value must parse as one). */
+  number<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "number">;
+  /**
+   * Marks a value as allowed to be empty: a `json` member wrapped in it is
+   * dropped when empty, and a `response.body(...)` wrapped in it yields ""
+   * for a missing member instead of failing the fetch.
+   */
+  optional<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, AuthKindOf<V0>>;
+  /**
+   * Compact JWS `header.payload.signature`. `header` is a `json(...)` of
+   * extra JOSE parameters (typ, jwk, kid); `alg` is set by the signer.
+   * `payload` is a `json(...)`. This is a DPoP proof, a private_key_jwt
+   * client assertion, or any other per-request JWT.
+   */
+  jws<V0 extends AuthResolvedValue, H extends RuntimeValueExpression<AuthContext, "object"> | undefined, P extends RuntimeValueExpression<AuthContext, "object">>(alg: AuthSignAlgorithm, key: V0, header: H, payload: P): RuntimeValueExpression<AuthContextOf<V0 | H | P>, "string">;
+
+  /**
+   * Values from a `fetch` step's response; only meaningful in that step's
+   * `value`, `expires`, and `outputs`. The same vocabulary as `page.*`.
+   */
+  readonly response: AuthResponseHelpers;
+  /**
+   * An absolute time `value` seconds from now (`expires_in`), for `expires`.
+   * Accepts a number or a unit-suffixed duration ("90m").
+   */
+  after<V0 extends AuthResolvedValue>(value: V0): AuthExpiryExpression<AuthContextOf<V0>>;
+  /**
+   * An absolute time parsed leniently from `value`: epoch seconds or
+   * milliseconds, RFC 3339 / ISO 8601 / HTTP-date strings. Give `format` (a
+   * token pattern, `DD/MM/YYYY HH:mm`) for a vendor's unusual layout; it is
+   * then used exclusively. Unparseable input is an error, never a default.
+   */
+  at<V0 extends AuthResolvedValue>(value: V0, format?: AuthTimeFormat): AuthExpiryExpression<AuthContextOf<V0>>;
+  /** Raw bytes of a base64 value (std or URL alphabet, padded or not). */
+  base64Decode<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /** Raw bytes of a hex value. */
+  hexDecode<V0 extends AuthResolvedValue>(value: V0): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /**
+   * One parameter of a challenge or credentials header value:
+   * `authParam('Digest realm="x", nonce="y"', "nonce")` is `y`.
+   */
+  authParam<V0 extends AuthResolvedValue>(value: V0, name: string): RuntimeValueExpression<AuthContextOf<V0>, "string">;
+  /**
+   * `value` when `cond` is non-empty, else "". The one conditional: with
+   * `optional(...)` around it, a header is withheld until a challenge has
+   * been observed.
+   */
+  when<V0 extends AuthResolvedValue, V1 extends AuthResolvedValue>(cond: V0, value: V1): RuntimeValueExpression<AuthContextOf<V0 | V1>, AuthKindOf<V1>>;
+}
+
+/**
+ * Readers of a `fetch` step's response. `body` reads the body parsed per the
+ * step's `parseAs` (JSON by default, XML lowered to the same tree): a string
+ * is one key, never split (`"access_token"`, `"@odata.nextLink"`), a list is
+ * a nested path (`["data", "token"]`, `["items", "0", "id"]`). A missing
+ * member fails the fetch unless wrapped in `auth.optional(...)`; a member
+ * that is an object or array is an error. `raw` is the unparsed body;
+ * `status` is the numeric status as a string.
+ */
+export interface AuthResponseHelpers {
+  body(path: string | readonly [string, ...string[]]): RuntimeValueExpression<"response">;
+  header(name: string): RuntimeValueExpression<"response">;
+  cookie(name: string): RuntimeValueExpression<"response">;
+  status(): RuntimeValueExpression<"response">;
+  raw(): RuntimeValueExpression<"response">;
+}
+
+/**
+ * The outbound request as it stands when an apply op runs. Only on the apply
+ * builder: in an acquire step there is no request yet.
+ */
+export interface AuthRequestHelpers {
+  /**
+   * A field of the outbound request: method, url, scheme, host, path
+   * (decoded), raw_path (escaped), query, body, header (with name),
+   * query_param (with name).
+   */
+  request(field: "header" | "query_param", name: string): RuntimeValueExpression<"request">;
+  request(field: Exclude<AuthRequestField, "header" | "query_param">): RuntimeValueExpression<"request">;
+  /**
+   * The request's current value for header `name`, or `fallback` when it is
+   * absent: `coalesce(request("header", name), fallback)`. This is how a spec
+   * lets a caller-supplied date or nonce win over a minted one.
+   */
+  headerOr(name: string, fallback: AuthRequestValue): RuntimeValueExpression<"request">;
+  /** Sorted, percent-encoded query string (`a=1&b=2`). */
+  canonicalQuery(style?: AuthQueryStyle): RuntimeValueExpression<"request">;
+  /** `name:value\n` block of the selected headers, lowercased and sorted. */
+  canonicalHeaders(selector: AuthHeaderSelector & {
+    /** Defaults to collapse (SigV4); ACS3 requires trim, preserving internal whitespace. */
+    readonly whitespace?: "collapse" | "trim";
+  }): RuntimeValueExpression<"request">;
+  /** `;`-joined lowercased names of the selected headers, sorted. */
+  signedHeaders(selector: AuthHeaderSelector): RuntimeValueExpression<"request">;
+  /**
+   * OAuth 1.0a parameter normalization (RFC 5849 §3.4.1.3): the request's
+   * query parameters and form body plus `extra` (the oauth_* protocol
+   * parameters), percent-encoded, sorted, joined `k=v&k=v`. `include`
+   * narrows the request sources (default both `"query"` and `"form"`).
+   */
+  canonicalParams(
+    extra: Record<string, AuthRequestValue | undefined>,
+    include?: readonly ("query" | "form")[],
+  ): RuntimeValueExpression<"request">;
+}
+
+export interface AuthHelpers extends AuthValueHelpers {
+  /**
+   * http.v2 multi-step auth. Steps are added by name; a step's spec may be a
+   * function of the refs bound so far (credentials, earlier
+   * steps and their outputs), so every reference is a typed property access
+   * and a typo is a compile error. See {@link AuthFlow}.
+   */
+  flow<
+    const C extends Record<string, AuthExpr> = Record<never, never>,
+    const R extends AuthReactRule = never,
+  >(options?: { readonly credentials?: C; readonly react?: readonly R[] }): AuthFlow<keyof C & string, AuthReactNames<R>>;
+}
+
+/** `form` is `k=v&k=v` (SigV4, Alibaba); `lines` is `name:value` per line (Azure SharedKey). */
+export type AuthQueryStyle = "form" | "lines";
+
+export type AuthSignAlgorithm =
+  | "ES256"
+  | "ES384"
+  | "ES512"
+  | "RS256"
+  | "RS384"
+  | "RS512"
+  | "PS256"
+  | "PS384"
+  | "PS512"
+  | "EdDSA";
+
+export type AuthHashAlgorithm = "sha256" | "sha1" | "sha384" | "sha512" | "md5";
+/**
+ * Named clock formats, or a token pattern. Pattern tokens: YYYY, YY, MM, DD,
+ * HH, mm, ss, SSS; `T` and `Z` are literal; digits and punctuation pass
+ * through. Any other letter run is rejected in Go so a typo cannot render as
+ * text.
+ */
+export type AuthTimeFormat =
+  | "rfc3339" // 2013-05-24T00:00:00Z
+  | "iso8601_no_zone" // 2013-05-24T00:00:00
+  | "iso8601_basic" // 20130524T000000Z
+  | "date" // 2013-05-24
+  | "date_basic" // 20130524
+  | "unix"
+  | "unix_ms"
+  | "http_date"
+  | (string & Record<never, never>);
+export type AuthEncoding = "hex" | "base64" | "base64url" | "raw";
+export type AuthRequestField =
+  | "method"
+  | "url"
+  | "scheme"
+  | "host"
+  | "path"
+  | "raw_path"
+  | "query"
+  | "body"
+  | "header"
+  | "query_param"
+  /** Body length in bytes; "" (not "0") when there is no body. */
+  | "content_length";
+export interface AuthHeaderSelector {
+  /** Exact header names (case-insensitive). */
+  readonly names?: readonly string[];
+  /** Header name prefixes (case-insensitive), e.g. "x-amz-". */
+  readonly prefixes?: readonly string[];
+}
+
+/**
+ * The builder handed to `apply`. It is the `auth` helper set plus the four
+ * ops; ops are recorded in call order. `let` returns a handle, so locals
+ * flow into later ops as values rather than by name:
+ *
+ *   apply: (c, a) => {
+ *     const ts = a.let(a.concat(a.now("iso8601_no_zone"), "+0000"));
+ *     a.header("ss-request-timestamp", ts);
+ *     a.header("ss-request-signature",
+ *       a.hmac("sha256", c.api_secret, a.concat(c.api_key, a.request("path"), ts, a.request("body"))));
+ *   }
+ */
+export interface AuthApplyBuilder extends AuthValueHelpers, AuthRequestHelpers {
+  /** Evaluate once per request and bind; the optional label only names the local in error messages. */
+  let<V extends AuthRequestValue>(value: V, label?: string): RuntimeValueExpression<AuthContextOf<V>, AuthKindOf<V>>;
+  /** Set a request header (overwrites; wrap in `headerOr` to keep a caller-supplied value). */
+  header(name: string, value: AuthRequestValue): void;
+  query(name: string, value: AuthRequestValue): void;
+  /** Fail the request (class invalid_input) when value is empty. */
+  require(value: AuthRequestValue, message?: string): void;
+}
+
+/**
+ * A response-driven rule. On every response, if `header` is present its
+ * value is stored under `into` (persisting across requests and visible to
+ * `apply` as `refs.<into>`, empty until first seen). If the status is also
+ * in `retryOn` and the value changed, the request is re-signed once, including
+ * writes. The rule asserts that authentication rejected the operation before
+ * it was applied.
+ * This is the DPoP-Nonce / challenge-header shape; it is not a retry policy.
+ */
+export interface AuthReactRule {
+  readonly header: string;
+  readonly into: string;
+  readonly retryOn?: readonly number[];
+}
+
+/**
+ * The frozen http.v1 auth surface, retained for existing connectors.
+ *
+ * @deprecated Author new connectors against `http.v2` ({@link HttpAuthV2}).
+ * v1 to v2: `oauth2`/`oauth_app` are `oauth2_client_credentials`;
+ * `bearer_dynamic`, `discover`, and `oauth2_password` are `fetch` steps;
+ * the vendor HMAC types are `type: "request"` with apply ops.
+ */
+export type BuiltinHttpAuthSpec =
   | {
       name?: string;
       type: "bearer";
@@ -2183,6 +2770,7 @@ export type HttpAuthSpec =
     }
   | {
       name?: string;
+      /** @deprecated `oauth2` and `oauth_app` are aliases; v2 keeps only `oauth2_client_credentials`. */
       type: "oauth2" | "oauth2_client_credentials" | "oauth_app";
       token_url: AuthValue;
       client_id?: AuthValue;
@@ -2212,6 +2800,7 @@ export type HttpAuthSpec =
     }
   | {
       name?: string;
+      /** @deprecated v2: a `fetch` step posting `grant_type=password` and the credentials as `form`. */
       type: "oauth2_password";
       token_url: AuthValue;
       username: AuthValue;
@@ -2226,6 +2815,7 @@ export type HttpAuthSpec =
     }
   | {
       name?: string;
+      /** @deprecated v2: a `fetch` step (`url`, `form`, `headers`, `value`, `expires`). */
       type: "bearer_dynamic";
       token_url: AuthValue;
       username?: AuthValue;
@@ -2255,6 +2845,7 @@ export type HttpAuthSpec =
     }
   | {
       name?: string;
+      /** @deprecated v2: a `fetch` step with `method: "GET"` and `expires: "never"`. */
       type: "discover";
       token_url: AuthValue;
       token_field: AuthValue;
@@ -2262,12 +2853,14 @@ export type HttpAuthSpec =
     }
   | {
       name?: string;
+      /** @deprecated v2: `type: "request"` with the ACS3 canonical request as apply ops. */
       type: "alibaba_acs3_hmac_sha256";
       username: AuthValue;
       password: AuthValue;
     }
   | {
       name?: string;
+      /** @deprecated v2: `type: "request"` with the ss-* HMAC headers as apply ops. */
       type: "sendsafely_hmac_sha256";
       /** SendSafely API key (public identifier), sent as the ss-api-key header. */
       username: AuthValue;
@@ -2288,23 +2881,349 @@ export type HttpAuthSpec =
       sign_out?: HttpSessionRequestSpec;
     }
   | {
-      steps: readonly HttpAuthSpec[];
+      steps: readonly BuiltinHttpAuthSpec[];
     };
 
+/** @deprecated The http.v1 auth union; see {@link HttpAuthV2}. */
+export type HttpAuthSpec = BuiltinHttpAuthSpec;
+
+/** @deprecated The http.v1 transport spec; see {@link HttpTransportSpecV2}. */
+export interface HttpTransportSpec<A> {
+  baseUrl?: PublicConfigString;
+  base_url?: PublicConfigString;
+  auth?: A;
+  headers?: Record<string, PublicConfigString>;
+  retry?: RetryConfig;
+}
+
+// ---------------------------------------------------------------------------
+// http.v2
+//
+// The consolidated auth surface: readable names for the common cases plus the
+// two primitives everything lowers onto (`fetch` to acquire, `request` to
+// shape). Field names are camelCase like the rest of the DSL; the runtime
+// renames them onto the wire. Values are plain expressions, never callbacks:
+// anything that needs an earlier step's output is written inside
+// `auth.flow(...).step(name, (refs) => ...)`, where `refs` is exactly typed.
+// ---------------------------------------------------------------------------
+
+/** A value an http.v2 auth field accepts: a string, a config ref, a step ref, or an `auth.*` expression. */
+export type AuthExpr = AuthConfigString | AuthStepRef | RuntimeValueExpression<"static", AuthValueKind>;
+
+type AuthReactNames<R> = R extends { readonly into: infer V extends string } ? V : never;
+
+export interface NoneAuthV2 {
+  readonly type: "none";
+}
+
+/** `Authorization: Bearer <token>`. */
+export interface BearerAuthV2 {
+  readonly type: "bearer";
+  readonly token: AuthExpr;
+}
+
+/** `Authorization: Basic base64(username:password)`. */
+export interface BasicAuthV2 {
+  readonly type: "basic";
+  readonly username: AuthExpr;
+  readonly password: AuthExpr;
+}
+
+/** A credential in a header (`<header>: <prefix> <token>`) or, with `query`, a query parameter. */
+export interface ApiKeyAuthV2 {
+  readonly type: "api_key";
+  readonly token: AuthExpr;
+  /** Header name; default Authorization. */
+  readonly header?: AuthExpr;
+  /** Value prefix, e.g. "Bearer" or "Token"; default none. */
+  readonly prefix?: AuthExpr;
+  /** When set, send the token as this query parameter instead of a header. */
+  readonly query?: string;
+}
+
+/**
+ * RFC 6749 client_credentials grant against `tokenUrl`, cached until
+ * `expires_in`. `clientAuthStyle` is how the client authenticates: "basic"
+ * (HTTP Basic, the default), "body" (form fields), or "client_assertion"
+ * (an RFC 7523 JWT signed with `privateKey`; `clientSecret` is not sent).
+ */
+interface OAuth2ClientCredentialsFields {
+  readonly type: "oauth2_client_credentials";
+  readonly tokenUrl: AuthExpr;
+  readonly clientId?: AuthExpr;
+  readonly scope?: AuthExpr;
+  readonly scopes?: readonly AuthExpr[];
+  /** Override the grant_type form field (default client_credentials). */
+  readonly grantType?: AuthExpr;
+  readonly headers?: Record<string, AuthExpr>;
+  readonly form?: Record<string, AuthExpr>;
+  /** Seconds before expiry to refresh; default 30. */
+  readonly tokenExpiryPadding?: number;
+}
+
+/** The client secret goes in a Basic header (default) or in the form body. */
+interface OAuth2ClientSecretAuth extends OAuth2ClientCredentialsFields {
+  readonly clientId: AuthExpr;
+  readonly clientAuthStyle?: "basic" | "body";
+  readonly clientSecret: AuthExpr;
+  readonly privateKey?: never;
+  readonly algorithm?: never;
+  readonly expirySeconds?: never;
+  readonly claims?: never;
+  readonly jwtHeaders?: never;
+}
+
+/** RFC 7523 client_assertion: the client proves itself with a JWT signed by `privateKey`. */
+interface OAuth2ClientAssertionAuth extends OAuth2ClientCredentialsFields {
+  readonly clientAuthStyle: "client_assertion";
+  readonly clientSecret?: never;
+  /** PEM signing key for the assertion. */
+  readonly privateKey: AuthExpr;
+  /** Default RS256. */
+  readonly algorithm?: AuthSignAlgorithm;
+  readonly expirySeconds?: number;
+  readonly claims?: Record<string, AuthExpr>;
+  readonly jwtHeaders?: Record<string, unknown>;
+}
+
+export type OAuth2ClientCredentialsAuthV2 = OAuth2ClientSecretAuth | OAuth2ClientAssertionAuth;
+
+/** A self-minted JWT (RSA or EC) presented as the bearer token or fed to a later step. */
+export interface JwtAuthV2 {
+  readonly type: "jwt";
+  readonly privateKey: AuthExpr;
+  readonly issuer: AuthExpr;
+  /** Default RS256. */
+  readonly algorithm?: AuthSignAlgorithm;
+  readonly expirySeconds?: number;
+  readonly claims?: Record<string, AuthExpr>;
+  /** Extra JOSE header parameters (kid, x5t, x5c); "alg" cannot be overridden. */
+  readonly jwtHeaders?: Record<string, unknown>;
+}
+
+/**
+ * Acquire a value with one HTTP request and read it out of the response.
+ * This is the one acquire primitive: a proprietary login endpoint, a
+ * refresh-token grant, a discovery call, a DPoP-bound token request.
+ *
+ * `Names` is the set of refs visible to this step's own `apply` (its
+ * position in an {@link AuthFlow}); at the top level there are none.
+ */
+interface FetchAuthFields<Names extends string, R extends AuthReactRule> {
+  readonly type: "fetch";
+  readonly url: AuthExpr;
+  /** Default POST. GET/HEAD send no body. */
+  readonly method?: "POST" | "GET" | "PUT" | "PATCH" | "HEAD";
+  readonly headers?: Record<string, AuthExpr>;
+  /**
+   * When the value expires. Required, so the choice is visible:
+   * `auth.after(...)` for a relative lifetime (`expires_in`), `auth.at(...)`
+   * for an absolute time, or `"never"` for a value that is cached until a
+   * 401 invalidates it (a discovered id or URL, a session cookie the vendor
+   * does not time out). Strict: an expiry that does not parse fails the
+   * fetch.
+   */
+  readonly expires: AuthExpiryExpression<"static" | "response"> | "never";
+  /** Further response values, published on `refs` under their own names. */
+  readonly outputs?: Record<string, AuthExtractValue>;
+  readonly tokenExpiryPadding?: number;
+  /** Shape (sign) the token request itself. */
+  readonly apply?: (refs: AuthStepRefs<Names | R["into"]>, a: AuthApplyBuilder) => void;
+  /** Absorb the token endpoint's challenges (DPoP-Nonce). */
+  readonly react?: readonly R[];
+}
+/**
+ * JSON defaults to the top-level `access_token` field. XML drops namespace
+ * prefixes and exposes attributes as `-name`; text has no parsed body tree.
+ */
+type FetchAuthResponse =
+  | { readonly parseAs?: "json"; readonly value?: AuthExtractValue }
+  | { readonly parseAs: "xml" | "text"; readonly value: AuthExtractValue };
+
+export type AuthJSONBody = null | boolean | number | AuthExpr | readonly AuthJSONBody[] | { readonly [key: string]: AuthJSONBody };
+type FetchAuthBody =
+  | { readonly form?: Record<string, AuthExpr>; readonly json?: never; readonly body?: never }
+  | { readonly form?: never; readonly json: AuthJSONBody; readonly body?: never }
+  | { readonly form?: never; readonly json?: never; readonly body: AuthExpr };
+type FetchAuthSpec<Names extends string, R extends AuthReactRule, O extends Record<string, AuthExtractValue>> =
+  Omit<FetchAuthFields<Names, R>, "outputs"> & FetchAuthBody & FetchAuthResponse & { readonly outputs?: O };
+export type FetchAuthV2<Names extends string = never, R extends AuthReactRule = never> = FetchAuthFields<Names, R> & FetchAuthBody & FetchAuthResponse;
+
+
+/**
+ * Shape every outbound request from static credentials: extra credential
+ * headers, query-string credentials, canonical-request signing. `refs`
+ * carries one handle per `credentials` key and per `react` var. For a
+ * request auth that first acquires values, use {@link AuthFlow}.
+ */
+export interface RequestAuthV2<
+  C extends Record<string, AuthExpr> = Record<never, never>,
+  R extends AuthReactRule = never,
+> {
+  readonly type: "request";
+  /** Request auth uses named credentials; legacy credential slots are forbidden. */
+  readonly token?: never;
+  readonly username?: never;
+  readonly password?: never;
+  readonly credentials?: C;
+  readonly apply: (refs: AuthStepRefs<(keyof C & string) | AuthReactNames<R>>, a: AuthApplyBuilder) => void;
+  readonly react?: readonly R[];
+}
+
+export type AuthFlowStep<Names extends string> =
+  | BearerAuthV2
+  | JwtAuthV2
+  | OAuth2ClientCredentialsAuthV2
+  | FetchAuthV2<Names>;
+
+type AuthFlowStepNames<S> =
+  | (S extends { readonly outputs: infer O } ? keyof O & string : never)
+  | (S extends { readonly react: readonly (infer R)[] } ? AuthReactNames<R> : never);
+
+export type AuthFetchRequest = Pick<FetchAuthFields<never, never>, "url" | "method" | "headers"> & FetchAuthBody;
+type AuthFlowFetch<Names extends string, R extends AuthReactRule, O extends Record<string, AuthExtractValue>> =
+  Pick<FetchAuthFields<Names, R>, "expires" | "tokenExpiryPadding" | "react" | "apply"> & FetchAuthResponse & {
+    readonly request: AuthFetchRequest | ((refs: AuthStepRefs<Names>) => AuthFetchRequest);
+    readonly outputs?: O;
+  };
+
+/**
+ * A multi-step auth built by `auth.flow(...)`. Steps run in order; each
+ * named step (and each of its `outputs`) becomes a property
+ * of `refs` for every later step and for `apply`. With no `apply`, the last
+ * step's value is sent as `Authorization: Bearer`.
+ *
+ *   auth: auth.flow()
+ *     .step("jwt", { type: "jwt", privateKey: cfg.key(), issuer: cfg.appId(), algorithm: "RS256" })
+ *     .step("installation", (refs) => ({
+ *       type: "fetch", method: "GET", url: `${base}/app/installations`,
+ *       value: auth.response.body(["0", "id"]), expires: "never",
+ *       headers: { Authorization: auth.bearer(refs.jwt) },
+ *     }))
+ *     .step("token", (refs) => ({
+ *       type: "fetch", url: auth.concat(base, "/app/installations/", refs.installation, "/access_tokens"),
+ *       value: auth.response.body("token"), expires: auth.at(auth.response.body("expires_at")),
+ *       headers: { Authorization: auth.bearer(refs.jwt) },
+ *     }))
+ */
+export interface AuthFlow<Names extends string = never, ResourceNames extends string = never> {
+  /** Acquire a named value; request sees prior refs, apply also sees local reaction names. */
+  fetch<const N extends string, const R extends AuthReactRule = never, const O extends Record<string, AuthExtractValue> = Record<never, never>>(
+    name: N, spec: AuthFlowFetch<Names, R, O>,
+  ): AuthFlow<Names | N | (keyof O & string), ResourceNames>;
+  step<const N extends string, const R extends AuthReactRule = never, const O extends Record<string, AuthExtractValue> = Record<never, never>>(
+    name: N, spec: FetchAuthSpec<Names, R, O>,
+  ): AuthFlow<Names | N | (keyof O & string), ResourceNames>;
+  step<const N extends string, const R extends AuthReactRule = never, const O extends Record<string, AuthExtractValue> = Record<never, never>>(
+    name: N, build: (refs: AuthStepRefs<Names>) => FetchAuthSpec<Names, R, O>,
+  ): AuthFlow<Names | N | (keyof O & string), ResourceNames>;
+  readonly __batonAuthKind: "flow";
+  step<const N extends string, const S extends Exclude<AuthFlowStep<Names>, { readonly type: "fetch" }>>(
+    name: N,
+    spec: S & NoExcessAuthStepKeys<Names, S>,
+  ): AuthFlow<Names | N | AuthFlowStepNames<S>, ResourceNames>;
+  step<const N extends string, const S extends Exclude<AuthFlowStep<Names>, { readonly type: "fetch" }>>(
+    name: N,
+    build: (refs: AuthStepRefs<Names>) => S & NoExcessAuthStepKeys<Names, S>,
+  ): AuthFlow<Names | N | AuthFlowStepNames<S>, ResourceNames>;
+  /** Shape every outbound request from the acquired refs. Closes the flow: no further steps. */
+  apply(build: (refs: AuthStepRefs<Names | ResourceNames>, a: AuthApplyBuilder) => void): AuthFlowComplete;
+}
+
+/** A flow closed by `.apply(...)`; only usable as an `auth:` value. */
+export interface AuthFlowComplete {
+  readonly __batonAuthKind: "flow";
+  readonly __batonAuthFlowComplete: true;
+}
+
+type AuthFlowStepByType<Names extends string, T> = Extract<AuthFlowStep<Names>, { readonly type: T }>;
+/**
+ * Top-level keys of a step literal that its `type` does not declare, mapped
+ * to never: a v1 spelling (`token_field`) or a typo is a compile error in
+ * both the object and the callback form (the generic surfaces infer the
+ * literal wholesale, so ordinary excess-property checking never fires).
+ */
+type NoExcessAuthStepKeys<Names extends string, S> =
+  S extends { readonly type: infer T }
+    ? { readonly [K in Exclude<keyof S, keyof AuthFlowStepByType<Names, T>>]: never }
+    : never;
+
+// Forbid fields owned by another auth variant even through variables/spreads.
+// Distribute over both unions so each variant keeps its own contextual types.
+type AuthVariantKeys<T> = T extends unknown ? keyof T : never;
+type ExclusiveAuthVariant<T, All = T> = T extends unknown
+  ? T & { readonly [K in Exclude<AuthVariantKeys<All>, keyof T>]?: never }
+  : never;
+
+type HttpAuthV2Variants =
+  | NoneAuthV2
+  | BearerAuthV2
+  | BasicAuthV2
+  | ApiKeyAuthV2
+  | OAuth2ClientCredentialsAuthV2
+  | JwtAuthV2
+  | FetchAuthV2
+  | AuthFlow<any>
+  | AuthFlowComplete;
+
+export type HttpAuthV2 = ExclusiveAuthVariant<HttpAuthV2Variants>;
+
+/** Token-bucket client-side rate limiting, optionally steered by the provider's rate-limit headers. */
+export interface HttpRateLimitsV2 {
+  readonly requestsPerSecond?: number;
+  readonly burstSize?: number;
+  readonly responseDetection?: {
+    /** Statuses that mean "rate limited" on their own (429, a vendor's 403-with-quota): back off by the reset header, else Retry-After, else 5s. */
+    readonly statusCodes?: readonly number[];
+    /** Header carrying the remaining budget; at 0 the transport backs off. Default X-RateLimit-Remaining. */
+    readonly headerNameRemaining?: string;
+    /** Header carrying the reset time (epoch seconds or delta seconds). Default X-RateLimit-Reset. */
+    readonly headerNameReset?: string;
+  };
+}
+
+export interface HttpTlsV2 {
+  readonly insecureSkipVerify?: boolean;
+  readonly caCert?: PublicConfigString;
+  readonly caCertPath?: PublicConfigString;
+  readonly clientCert?: PublicConfigString;
+  readonly clientCertPath?: PublicConfigString;
+  readonly clientKey?: AuthConfigString;
+  readonly clientKeyPath?: PublicConfigString;
+}
+
+export interface HttpTransportSpecV2<A> {
+  readonly baseUrl: PublicConfigString;
+  readonly auth?: A;
+  readonly headers?: Record<string, PublicConfigString>;
+  readonly retry?: RetryConfigV2;
+  /** Per-request timeout as a Go duration ("30s"). */
+  readonly timeout?: string;
+  readonly rateLimits?: HttpRateLimitsV2;
+  readonly proxyUrl?: PublicConfigString;
+  readonly tls?: HttpTlsV2;
+}
+
 export declare const http: {
-  v1(spec: {
-    baseUrl?: PublicConfigString;
-    base_url?: PublicConfigString;
-    auth?: HttpAuthSpec;
-    headers?: Record<string, PublicConfigString>;
-    retry?: {
-      max_retries?: number;
-      retry_interval?: string;
-      retry_multiplier?: number;
-      max_retry_interval?: string;
-      retryable_classes?: readonly string[];
-    };
-  }): HttpTransport;
+  /**
+   * http.v2: the consolidated auth surface (see {@link HttpAuthV2}) and the
+   * transport knobs the runtime actually reads. `C` and `R` are inferred
+   * from a `type: "request"` auth so its `apply` sees exactly the names it
+   * declares; multi-step auth is `auth.flow(...)`.
+   */
+  v2<
+    const C extends Record<string, AuthExpr> = Record<never, never>,
+    const R extends AuthReactRule = never,
+  >(spec: HttpTransportSpecV2<ExclusiveAuthVariant<Exclude<HttpAuthV2, FetchAuthV2> | FetchAuthV2<never, R> | RequestAuthV2<C, R>>>): HttpTransportV2;
+
+  /**
+   * @deprecated http.v1 is frozen. New connectors use `http.v2`, which has
+   * one auth surface (see {@link HttpAuthV2}) and camelCase fields; see
+   * docs/HTTP_V2_ROLLOUT.md for the per-type rewrite. The runtime rejects
+   * v2-only auth (`request`, `fetch`, `react`, the `auth.*` helpers beyond
+   * `bearer`/`concat`) under v1.
+   */
+  v1(spec: HttpTransportSpec<BuiltinHttpAuthSpec>): HttpTransport;
 };
 
 export namespace events {
