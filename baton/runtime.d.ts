@@ -1,6 +1,10 @@
 import type {
   AccountInfo,
   CapabilityDetailCredentialOption,
+  CredentialIssueOptions,
+  CredentialIssueOptionDescriptor,
+  CredentialResourceMode,
+  KeyGenerationProfile,
   CreateAccountResultResponse,
   CreateResourceResponse,
   CredentialRotationResultResponse,
@@ -107,6 +111,7 @@ export type EndpointKind =
   | "createResource"
   | "deleteResource"
   | "createAccount"
+  | "issueCredential"
   | "rotateCredential"
   | "validate"
   | "listTicketSchemas"
@@ -196,6 +201,15 @@ export interface Scope {
   readonly credentialRotation: {
     readonly resourceId: RequestArg<ResourceId, "resourceId", "rotateCredential">;
     readonly credentialOptions: RequestArg<LocalCredentialOptions, "credentialOptions", "rotateCredential">;
+  };
+
+  readonly credentialIssue: {
+    readonly identityId: RequestArg<ResourceId, "identityId", "issueCredential">;
+    readonly credentialOptions: RequestArg<Omit<CredentialIssueOptions, "@type" | "keypair"> & {
+      readonly keypair?: { readonly profile?: Omit<KeyGenerationProfile, "@type"> };
+    }, "credentialOptions", "issueCredential">;
+    readonly requestId: RequestArg<string, "requestId", "issueCredential">;
+    readonly expiresAt: RequestArg<string | undefined, "expiresAt", "issueCredential">;
   };
 
   readonly ticket: {
@@ -2051,6 +2065,7 @@ export type RuntimeResourceTypeSpec<
     readonly supportedCredentialOptions?: readonly CapabilityDetailCredentialOption[];
     readonly preferredCredentialOption?: CapabilityDetailCredentialOption;
   };
+  readonly credentialIssue?: CredentialIssueImplementationSpec;
 };
 
 export type WalkSpec<R extends DependencyShape> =
@@ -2204,6 +2219,36 @@ export type CredentialRotationEndpointSpec<
   | undefined
 >;
 
+/** Plaintext is returned only from the issue walk, never from a sync resource. */
+export interface CredentialIssueResult {
+  readonly secret: Resource;
+  readonly resourceMode: CredentialResourceMode;
+  readonly plaintextData: readonly {
+    readonly name: string;
+    readonly bytes: string;
+    readonly description?: string;
+    readonly schema?: string;
+  }[];
+}
+
+export type CredentialIssueEndpointSpec<
+  I extends Record<string, DependencyRef> = Record<string, DependencyRef>,
+> = WalkFor<"issueCredential", CredentialIssueResult>;
+
+export interface CredentialIssueImplementationSpec {
+  readonly walk: CredentialIssueEndpointSpec<Record<string, DependencyRef>>;
+  readonly options: readonly (Pick<CredentialIssueOptionDescriptor, "option" | "secretResourceTypeId" | "resourceMode"> & {
+    readonly keyProfiles?: readonly Omit<KeyGenerationProfile, "@type">[];
+    readonly expiry?: { readonly min?: string; readonly max?: string };
+    readonly scopes?: readonly string[];
+    readonly audiences?: readonly string[];
+    readonly customScopesAllowed?: boolean;
+    readonly customAudiencesAllowed?: boolean;
+    readonly preferred?: boolean;
+  })[];
+  readonly preferredOption: CapabilityDetailCredentialOption;
+}
+
 export type ConnectorValidateEndpointSpec<
   I extends Record<string, DependencyRef> = Record<string, DependencyRef>,
 > = WalkFor<"validate", ConnectorServiceValidateResponse | undefined>;
@@ -2255,6 +2300,7 @@ export type AuthoredResourceTypeSpec = ResourceTypeBaseSpec & {
     readonly supportedCredentialOptions?: readonly CapabilityDetailCredentialOption[];
     readonly preferredCredentialOption?: CapabilityDetailCredentialOption;
   };
+  readonly credentialIssue?: CredentialIssueImplementationSpec;
 };
 
 export interface ConnectorSpec {
@@ -2371,6 +2417,7 @@ type ResourceTypeSpecShape = ResourceTypeBaseSpec & {
     readonly supportedCredentialOptions?: readonly CapabilityDetailCredentialOption[];
     readonly preferredCredentialOption?: CapabilityDetailCredentialOption;
   };
+  readonly credentialIssue?: CredentialIssueImplementationSpec;
 };
 
 export declare function resourceType<
