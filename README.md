@@ -27,10 +27,8 @@ compatibility with a particular hosted runtime.
   content by the resolved commit.
 - `v0` is the floating latest-bundle tag, created at the `v0.0.37` sync commit.
   It will advance with each release through the baton-axiomatic sync automation.
-- `v0.1.0` is the retired September 5 skills-milestone tag, not the latest
-  runtime/types bundle. Its higher semantic version shadows the `v0.0.x` train
-  in semver-based "latest" resolution. It is scheduled for deletion after the
-  [C1 pin change](https://github.com/ductone/c1/pull/26950) merges.
+- `v0.1.0` is a retired early skills-milestone tag, not the latest runtime/types
+  bundle.
 
 Pin exact release tags for reproducible builds. Use `v0` only for latest-bundle
 tracking.
