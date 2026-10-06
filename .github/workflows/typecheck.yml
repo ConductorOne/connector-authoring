@@ -22,4 +22,9 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --audit=false --fund=false
       - run: npm run typecheck
+      - run: npm run typecheck:decl
       - run: npm run eval:test
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.9.x
+      - run: npm run typecheck:parity

@@ -1,0 +1,14 @@
+{
+  "imports": {
+    "@baton/runtime": "./.sdk-types/%40baton/runtime/index.d.ts",
+    "@baton/runtime/": "./.sdk-types/%40baton/runtime/",
+    "@baton/helpers": "./.sdk-types/%40baton/helpers/index.d.ts",
+    "@baton/helpers/": "./.sdk-types/%40baton/helpers/",
+    "@baton/types": "./.sdk-types/%40baton/types/index.d.ts",
+    "@baton/types/": "./.sdk-types/%40baton/types/"
+  },
+  "unstable": ["sloppy-imports"],
+  "compilerOptions": {
+    "lib": ["esnext", "dom"]
+  }
+}

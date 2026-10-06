@@ -68,3 +68,12 @@ the declarations:
 npm ci --ignore-scripts --audit=false --fund=false
 npm run typecheck
 ```
+
+The declarations themselves are checked strictly (no `skipLibCheck`), both with
+the pinned `tsc` and with Deno 2.9.x against the per-module layout the hosted
+product serves (`@baton/<module>/index.d.ts` plus sibling declarations):
+
+```sh
+npm run typecheck:decl
+npm run typecheck:parity
+```
