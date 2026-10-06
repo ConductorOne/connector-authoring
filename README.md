@@ -20,6 +20,19 @@ the hosted ConductorOne product; connector source imports the modules but does
 not bundle their implementations. This repository does not by itself establish
 compatibility with a particular hosted runtime.
 
+## Tags and consumer pins
+
+- `v0.0.x` tags are runtime/types releases mirrored from baton-axiomatic by the
+  sync pipeline. These release tags are immutable; consumers address their
+  content by the resolved commit.
+- `v0` is the floating latest-bundle tag, created at the `v0.0.37` sync commit.
+  It will advance with each release through the baton-axiomatic sync automation.
+- `v0.1.0` is a retired early skills-milestone tag, not the latest runtime/types
+  bundle.
+
+Pin exact release tags for reproducible builds. Use `v0` only for latest-bundle
+tracking.
+
 ## Declarative execution model
 
 ```text
@@ -67,4 +80,13 @@ the declarations:
 ```sh
 npm ci --ignore-scripts --audit=false --fund=false
 npm run typecheck
+```
+
+The declarations themselves are checked strictly (no `skipLibCheck`), both with
+the pinned `tsc` and with Deno 2.9.x against the per-module layout the hosted
+product serves (`@baton/<module>/index.d.ts` plus sibling declarations):
+
+```sh
+npm run typecheck:decl
+npm run typecheck:parity
 ```

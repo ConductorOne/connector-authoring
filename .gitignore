@@ -1,3 +1,4 @@
 /node_modules
 evals/results/*.jsonl
 evals/results/*/
+fixtures/declarations/.sdk-types/

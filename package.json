@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p evals/tsconfig.json",
+    "typecheck:decl": "tsc --noEmit -p tsconfig.declarations.json",
+    "typecheck:parity": "node fixtures/declarations/prepare.mjs && deno check --no-remote --no-npm --cached-only --config fixtures/declarations/deno.json fixtures/declarations/consumer/connector.ts",
     "eval:baseline": "node --experimental-strip-types evals/runner/baseline.ts",
     "eval:fixture": "node --experimental-strip-types evals/fixture/server.ts --port 18080",
     "eval:verify": "bash evals/fixture/verify.sh",
