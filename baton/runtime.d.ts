@@ -1,19 +1,19 @@
+/// <reference path="./transport-defaults.d.ts" />
+/// <reference path="./cache-scope.d.ts" />
+
 import type {
-  AccountInfo,
-  CapabilityDetailCredentialOption,
-  CredentialIssueOptions,
-  CredentialIssueOptionDescriptor,
-  CredentialResourceMode,
-  KeyGenerationProfile,
   CreateAccountResultResponse,
   CreateResourceResponse,
   CredentialRotationResultResponse,
   DeleteResourceResponse,
   Entitlement,
   EntitlementAnnotation,
+  EventType,
   Grant,
+  GrantAnnotation,
   GrantManagerServiceGrantResponse,
   GrantManagerServiceRevokeResponse,
+  PrincipalResource,
   ProtoAnnotation,
   Resource,
   ResourceGetterServiceGetResourceResponse,
@@ -21,7 +21,6 @@ import type {
   ResourceTypeAnnotation,
   ResourceTypeReference,
   ResourceTypeTrait,
-  LocalCredentialOptions,
   ConnectorServiceValidateResponse,
   Ticket,
   TicketRequest,
@@ -33,6 +32,15 @@ import type {
   TicketsServiceGetTicketSchemaResponse,
   TicketsServiceListTicketSchemasResponse,
 } from "@baton/types";
+import type {
+  AccountInfo,
+  CapabilityDetailCredentialOption,
+  CredentialIssueOptions,
+  CredentialIssueOptionDescriptor,
+  CredentialResourceMode,
+  KeyGenerationProfile,
+  LocalCredentialOptions,
+} from "./sdk-types";
 
 /**
  * A named typed position in the dataflow graph.
@@ -256,7 +264,7 @@ export interface Transport {
 // TransportKind / OperationKind are generated from pkg/transport.
 // Connectors continue importing them from @baton/runtime; the local
 // re-exports forward to the ambient TransportDefaults namespace
-// declared in runtime/engine/transport-defaults.generated.ts so
+// declared in transport-defaults.d.ts so
 // the Go-side constants stay the single source of truth.
 export type TransportKind = TransportDefaults.TransportKind;
 export type OperationKind = TransportDefaults.OperationKind;
@@ -486,7 +494,7 @@ type BoundRecord<B> = B extends Slot<infer T, infer Name>
     ? Record<Name, T>
   : never;
 
-type ResolveBindings<B extends readonly Slot<any, any>[]> = Simplify<
+type ResolveBindings<B extends readonly SupplyRef[]> = Simplify<
   UnionToIntersection<BoundRecord<B[number]>>
 >;
 
@@ -1410,7 +1418,7 @@ export type AnyRunModule<TRow = any> =
 // CacheScope is generated from pkg/jsconnector. The re-export keeps
 // the @baton/runtime module surface stable while forwarding to the
 // ambient CacheRuntime namespace declared in
-// runtime/engine/cache-scope.generated.ts so the Go constants stay
+// cache-scope.d.ts so the Go constants stay
 // the single source of truth for connector-authoring and for runtime.
 export type CacheScope = CacheRuntime.CacheScope;
 export type MemoScope = CacheScope;
@@ -1441,7 +1449,7 @@ export interface ValidationDirective {
 }
 
 interface NodeBaseSpec<TRow extends Record<string, unknown>> extends Record<string, unknown> {
-  readonly name: string;
+  readonly name?: string;
   readonly when?: (dependencies: TRow) => boolean;
   readonly execution?: ActionExecutionPolicy;
   readonly memo?: ActionMemoPolicy<TRow>;
@@ -3342,6 +3350,8 @@ export namespace events {
     readonly events: (args: ResolveDependencyObject<I>) => Result;
   }
 }
+
+export type EventFeedSpec<I extends Record<string, DependencyRef>> = events.Spec<I>;
 
 export declare function eventFeed<const I extends Record<string, DependencyRef>>(
     spec: EventFeedSpec<I>,

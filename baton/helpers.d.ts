@@ -46,6 +46,7 @@ import type {
   CreateAccountResponse_AlreadyExistsResult,
   CreateAccountResponse_InProgressResult,
   CreateAccountResponse_SuccessResult,
+  ExternalLink,
   PlaintextData,
 } from "./sdk-types";
 

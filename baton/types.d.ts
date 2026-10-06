@@ -1,3 +1,11 @@
+import type {
+    CreateAccountResponse_ActionRequiredResult,
+    CreateAccountResponse_AlreadyExistsResult,
+    CreateAccountResponse_InProgressResult,
+    CreateAccountResponse_SuccessResult,
+    PlaintextData,
+} from "./sdk-types";
+
 export interface ProtoAnnotation {
     readonly "@type": string;
 
@@ -31,14 +39,9 @@ export interface ResourceId {
 
 export function resourceIdLiteral(
     data: Omit<ResourceId, "@type">
-): ResourceId {
-    return {
-        "@type": "type.googleapis.com/c1.connector.v2.ResourceId",
-        ...data,
-    };
-}
+): ResourceId;
 
-export const createResourceId = resourceIdLiteral;
+export declare const createResourceId: typeof resourceIdLiteral;
 
 export interface NewResourceOptions {
     readonly parentResourceId?: ResourceId;
@@ -335,14 +338,9 @@ export interface Grant {
 
 export function resourceLiteral(
     data: Omit<Resource, "@type">
-): Resource {
-    return {
-        "@type": "type.googleapis.com/c1.connector.v2.Resource",
-        ...data,
-    };
-}
+): Resource;
 
-export const createResource = resourceLiteral;
+export declare const createResource: typeof resourceLiteral;
 
 export function newResource(
     displayName: string,
@@ -393,21 +391,11 @@ export function newSecretResource(
 
 export function createEntitlement(
     data: Omit<Entitlement, "@type">
-): Entitlement {
-    return {
-        "@type": "type.googleapis.com/c1.connector.v2.Entitlement",
-        ...data,
-    };
-}
+): Entitlement;
 
 export function createGrant(
     data: Omit<Grant, "@type">
-): Grant {
-    return {
-        "@type": "type.googleapis.com/c1.connector.v2.Grant",
-        ...data,
-    };
-}
+): Grant;
 
 export type TicketAnnotation = ProtoAnnotation;
 
