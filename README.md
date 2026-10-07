@@ -25,13 +25,12 @@ compatibility with a particular hosted runtime.
 - `v0.0.x` tags are runtime/types releases mirrored from baton-axiomatic by the
   sync pipeline. These release tags are immutable; consumers address their
   content by the resolved commit.
-- `v0` is the floating latest-bundle tag, created at the `v0.0.37` sync commit.
-  It will advance with each release through the baton-axiomatic sync automation.
+- The floating `v0` tag is retired. Its only consumer, ConductorOne's skill
+  vendoring, now tracks `main`.
 - `v0.1.0` is a retired early skills-milestone tag, not the latest runtime/types
   bundle.
 
-Pin exact release tags for reproducible builds. Use `v0` only for latest-bundle
-tracking.
+Pin exact release tags for declarations. Track `main` for skills.
 
 ## Declarative execution model
 
