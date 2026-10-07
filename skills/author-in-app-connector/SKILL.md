@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # author-in-app-connector
@@ -113,8 +113,11 @@ Net-new provider: before S1, run both pre-1 skills - `source-openapi-spec`
 ## Human boundary
 
 After S11's deploy + mint, present `activation_url` to a human tenant OWNER
-and STOP. Never redeem the approval token, never poll `REVISION_STATUS_ACTIVE`,
-never call `force_sync` - S11b/S11c are `skipped_human_boundary`.
+and STOP. Never redeem the approval token, never call `force_sync` -
+S11b/S11c are `skipped_human_boundary`. A host with activation completion
+notification wakes you with the epoch; never poll `REVISION_STATUS_ACTIVE`
+in the funnel run. Direct API callers poll only in a later post-activation
+session, bounded per deploy-and-activate.
 
 ## Exit criteria
 
