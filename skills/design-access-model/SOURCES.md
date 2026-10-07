@@ -16,3 +16,7 @@ decisions 2-3); the port source below is what this skill quotes.
 | Worked build — access-model shape | baton-axiomatic-openrouter#1 | The access-model shape (resource types, traits, entitlements, grants) this worked build demonstrates. |
 | Worked build — access-model shape | baton-axiomatic-litellm#1 | The access-model shape (resource types, traits, entitlements, grants) this worked build demonstrates. |
 | Worked build — access-model shape | baton-axiomatic-shopify | The access-model shape (resource types, traits, entitlements, grants) this worked build demonstrates. |
+
+## Eval wiring
+
+- The pre1 eval checks that `id_compatibility` is non-empty and that every `provisioning` entry carries a non-empty `justification`.

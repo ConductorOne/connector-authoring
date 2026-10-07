@@ -1,7 +1,7 @@
 ---
 name: design-access-model
 description: Use when designing the access model (resource types, traits, entitlements, grants, provisioning scope) for a net-new provider before authoring connector source. Do not use when you are already mid-funnel or authoring source - invoke write-connector-source instead.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # design-access-model
@@ -63,10 +63,8 @@ Emit the `access_model` half of the pre1.json artifact:
 - `id_compatibility`: table of `{resource_type, id_shape, stable}` rows.
 - `provisioning`: list of `{resource_type, provisionable, justification}` rows.
 
-## Eval-alignment contract
-
-- `id_compatibility` must be non-empty.
-- Every `provisioning` entry must carry a non-empty `justification`.
+`id_compatibility` must be non-empty, and every `provisioning` entry must
+carry a non-empty `justification`.
 
 ## Exit criteria
 

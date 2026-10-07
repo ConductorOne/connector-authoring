@@ -1,7 +1,7 @@
 ---
 name: read-authoring-contract
 description: Use when starting a connector authoring session and you need the authoritative contract before writing any source. Do not use when you already hold a fresh get_authoring_guide response for this session and are mid-funnel.
-version: 0.2.0
+version: 0.2.1
 ---
 
 # read-authoring-contract
@@ -49,15 +49,10 @@ abbreviates them (e.g. `get_authoring_guide` for
 ## Exit criteria
 
 - S0 passes: at least one successful
-  `c1_connector_authoring_get_authoring_guide` call in the transcript.
-- The skill body instructs the resume check
-  (`c1_connector_authoring_list_authored_catalog_entries` +
-  `c1_connector_authoring_list_drafts`) before any
-  `c1_connector_authoring_create_draft` call (string check; the scorer's S1
-  gate does not enforce it).
-- The body contains the literal tool names `list_sdk_types_versions`,
-  `get_sdk_types`, `list_authored_catalog_entries`, `list_drafts`, and the
-  literal strings `runtime_pin_matched` and `default_tag`.
+  `c1_connector_authoring_get_authoring_guide` call.
+- The resume check (`c1_connector_authoring_list_authored_catalog_entries` +
+  `c1_connector_authoring_list_drafts`) runs before any
+  `c1_connector_authoring_create_draft` call.
 
 ## Anti-patterns
 

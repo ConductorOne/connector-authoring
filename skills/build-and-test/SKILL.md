@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # build-and-test
@@ -30,7 +30,7 @@ the exact tenant MCP titles; the served guide abbreviates them.
    wait for the completion notification if your host provides one; do not poll
    while waiting. If your session resumes with an outstanding dispatch and no
    completion notification, check `c1_connector_authoring_get_run` once before
-   re-dispatching. Direct API callers without host wakeup poll
+   re-dispatching. Otherwise (direct API callers): poll
    `c1_connector_authoring_get_run` with `run_id` every 5-10s, up to ~10 polls;
    if no terminal state, STOP and report the run state rather than redispatching
    the build. GATE:
@@ -42,14 +42,12 @@ the exact tenant MCP titles; the served guide abbreviates them.
    one; do not poll while waiting. If your session resumes with an outstanding
    dispatch and no completion notification, check
    `c1_connector_authoring_get_test_run_evidence` once before re-dispatching.
-   Direct API callers without host wakeup poll
+   Otherwise (direct API callers): poll
    `c1_connector_authoring_get_test_run_evidence` with the full key
    `(catalog_id, revision_id, test_run_id)` every 5-10s, up to ~10 polls
    (`NotFound` while pending); if no row, STOP and report pending rather than
    redispatching the test. GATE:
-   `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value on the
-   real surface; the eval fixture records the string `"PASS"`). STOP if the
-   row reports FAIL -
+   `result == CONNECTOR_TEST_RUN_RESULT_PASS`. STOP if the row reports FAIL -
    read the error field, fix, and re-run from the correct step with a FRESH
    `test_run_id`; never re-mint on a failed run.
 5. Re-run-from-correct-step rules: a failed build re-runs from the build
@@ -66,10 +64,7 @@ the exact tenant MCP titles; the served guide abbreviates them.
 - S5 passes: `RUN_STATE_SUCCEEDED` and `revision_id` non-empty.
 - S9 passes: `test_run_id` non-empty, at least one successful
   `c1_connector_authoring_run_draft_test_sync`.
-- S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`
-  (the scorer's S10 gate checks the fixture's string `"PASS"`).
-- The body contains the literal `required_source_files`, `upload_targets`,
-  `required_headers`, `RUN_STATE_SUCCEEDED`, and `test_run_id`.
+- S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`.
 
 ## Anti-patterns
 
