@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.2.0
+version: 0.3.0
 ---
 
 # build-and-test
@@ -28,20 +28,25 @@ the exact tenant MCP titles; the served guide abbreviates them.
    first.
 3. Build: call `c1_connector_authoring_build_bundle`, capture `run_id`, then
    wait for the completion notification if your host provides one; do not poll
-   while waiting. Direct API callers without host wakeup poll
-   `c1_connector_authoring_get_run` with `run_id` until the build reaches a
-   terminal state, using backoff and a bounded wait; report pending if the wait
-   bound is reached rather than redispatching the build. GATE:
+   while waiting. If your session resumes with an outstanding dispatch and no
+   completion notification, check `c1_connector_authoring_get_run` once before
+   re-dispatching. Direct API callers without host wakeup poll
+   `c1_connector_authoring_get_run` with `run_id` every 5-10s, up to ~10 polls;
+   if no terminal state, STOP and report the run state rather than redispatching
+   the build. GATE:
    `RUN_STATE_SUCCEEDED`; the successful run returns the immutable
    `revision_id`. STOP if the build fails - fix the source and rebuild with
    a fresh `run_id`; never reuse a failed run's id.
 4. Draft test: call `c1_connector_authoring_run_draft_test_sync`, capture
    `test_run_id`, then wait for the completion notification if your host provides
-   one; do not poll while waiting. Direct API callers without host wakeup poll
+   one; do not poll while waiting. If your session resumes with an outstanding
+   dispatch and no completion notification, check
+   `c1_connector_authoring_get_test_run_evidence` once before re-dispatching.
+   Direct API callers without host wakeup poll
    `c1_connector_authoring_get_test_run_evidence` with the full key
-   `(catalog_id, revision_id, test_run_id)` until the durable PASS/FAIL row exists
-   (`NotFound` while pending), using backoff and a bounded wait. Report pending
-   if the wait bound is reached rather than redispatching the test. GATE:
+   `(catalog_id, revision_id, test_run_id)` every 5-10s, up to ~10 polls
+   (`NotFound` while pending); if no row, STOP and report pending rather than
+   redispatching the test. GATE:
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value on the
    real surface; the eval fixture records the string `"PASS"`). STOP if the
    row reports FAIL -
