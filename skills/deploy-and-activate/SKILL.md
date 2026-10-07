@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.2.0
+version: 0.3.1
 ---
 
 # deploy-and-activate
@@ -39,9 +39,10 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
 5. Mint approval: call `c1_connector_authoring_mint_approval_token` with
    `expires_in_seconds` in 1-14400 (max 4 hours); capture `activation_url`.
    GATE: non-empty `activation_url`. STOP if empty.
-6. HARD STOP at the human boundary: present `activation_url` to a human
-   tenant OWNER and stop. Never redeem the approval token, never attempt
-   activation yourself. S11b/S11c are `skipped_human_boundary`.
+6. Present `activation_url` to a human tenant OWNER, record the handoff
+   table, and stop - do not wait for activation first. Never redeem the
+   approval token or attempt activation yourself. S11b/S11c are
+   `skipped_human_boundary`.
 
 ## Post-activation reference (NEVER performed in the funnel run)
 
@@ -50,13 +51,19 @@ or the human/operator. Performing either in the funnel run fails the S11 gate
 (any non-handoff call after mint, including `list_revision_summaries` or
 `force_sync`).
 
-- Verification: after the OWNER confirms approval, poll
-  `c1_connector_authoring_list_revision_summaries` until the target
-  revision's status is `REVISION_STATUS_ACTIVE`; record its
-  `activation_epoch`. GATE: ACTIVE. STOP if not ACTIVE - if approval reports
-  `evidence is unsatisfied`, return to the test step and confirm a PASS row
-  binds this revision before minting a fresh approval URL. Poll with
-  backoff; if no ACTIVE row after ~10 polls, STOP and report.
+- Verification: if your host provides activation notifications, a
+  notification resuming you means the revision is ACTIVE - record the
+  `activation_epoch` it carries; do not poll. If you resume with an
+  outstanding activation and no notification, check
+  `c1_connector_authoring_list_revision_summaries` once; if
+  `REVISION_STATUS_ACTIVE` record `activation_epoch`, otherwise STOP and
+  report. Otherwise (direct API callers): once the OWNER reports
+  activation, poll `c1_connector_authoring_list_revision_summaries` every
+  5-10s, up to ~10 polls, until the target revision's status is
+  `REVISION_STATUS_ACTIVE`; record its `activation_epoch`. GATE: ACTIVE.
+  STOP if not ACTIVE - if approval reports `evidence is unsatisfied`, return
+  to the test step and confirm a PASS row binds this revision before minting
+  a fresh approval URL. If no ACTIVE row after ~10 polls, STOP and report.
 - Sync leg: the full lifecycle continues with
   `c1_connector_service_force_sync` and verification via
   `c1_connector_service_get` that `status.status` is `SYNC_STATUS_DONE` (a
