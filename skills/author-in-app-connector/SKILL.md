@@ -39,8 +39,10 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    gate; "re-run from S2" always means the full upload dance.
 4. S4 build: call `c1_connector_authoring_build_bundle`; extract `run_id`.
    STOP if empty.
-5. S5 build result: poll `c1_connector_authoring_get_run` with `run_id` until
-   terminal. GATE: `RUN_STATE_SUCCEEDED`; extract the immutable
+5. S5 build result: wait for the completion notification if your host provides
+   one; do not poll while waiting. Direct API callers without host wakeup poll
+   `c1_connector_authoring_get_run` with `run_id` until terminal.
+   GATE: `RUN_STATE_SUCCEEDED`; extract the immutable
    `revision_id`. STOP on failure - fix source; if the source changed,
    re-run from S2 (re-upload) with a fresh `run_id`, otherwise re-run from
    the failing step per build-and-test.
@@ -51,7 +53,9 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    deploy-and-activate). STOP if any credential is missing.
 9. S9 draft test: call `c1_connector_authoring_run_draft_test_sync`; extract
    `test_run_id`. STOP if empty.
-10. S10 evidence: poll `c1_connector_authoring_get_test_run_evidence` with
+10. S10 evidence: wait for the completion notification if your host provides
+    one; do not poll while waiting. Direct API callers without host wakeup poll
+    `c1_connector_authoring_get_test_run_evidence` with
     `(catalog_id, revision_id, test_run_id)` until the durable row exists.
     GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value;
     the eval fixture records the string `"PASS"`). STOP if FAIL - fix
