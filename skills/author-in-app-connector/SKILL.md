@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.2.1
+version: 0.3.0
 ---
 
 # author-in-app-connector
@@ -39,8 +39,12 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    gate; "re-run from S2" always means the full upload dance.
 4. S4 build: call `c1_connector_authoring_build_bundle`; extract `run_id`.
    STOP if empty.
-5. S5 build result: poll `c1_connector_authoring_get_run` with `run_id` until
-   terminal. GATE: `RUN_STATE_SUCCEEDED`; extract the immutable
+5. S5 build result: wait for the completion notification if your host provides
+   one; do not poll while waiting. If your session resumes with an outstanding
+   dispatch and no completion notification, check `get_run` once before
+   re-dispatching. Direct API callers without host wakeup poll
+   `c1_connector_authoring_get_run` with `run_id` every 5-10s, up to ~10 polls.
+   GATE: `RUN_STATE_SUCCEEDED`; extract the immutable
    `revision_id`. STOP on failure - fix source; if the source changed,
    re-run from S2 (re-upload) with a fresh `run_id`, otherwise re-run from
    the failing step per build-and-test.
@@ -51,8 +55,12 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    deploy-and-activate). STOP if any credential is missing.
 9. S9 draft test: call `c1_connector_authoring_run_draft_test_sync`; extract
    `test_run_id`. STOP if empty.
-10. S10 evidence: poll `c1_connector_authoring_get_test_run_evidence` with
-    `(catalog_id, revision_id, test_run_id)` until the durable row exists.
+10. S10 evidence: wait for the completion notification if your host provides
+    one; do not poll while waiting. If your session resumes with an outstanding
+    dispatch and no completion notification, check `get_test_run_evidence` once
+    before re-dispatching. Direct API callers without host wakeup poll
+    `c1_connector_authoring_get_test_run_evidence` with
+    `(catalog_id, revision_id, test_run_id)` every 5-10s, up to ~10 polls.
     GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value;
     the eval fixture records the string `"PASS"`). STOP if FAIL - fix
     source; if the source changed, re-run from S2 (re-upload) with a FRESH
