@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # update-and-rollback
@@ -24,13 +24,19 @@ the exact tenant MCP titles.
    (`expires_in_seconds` 1-14400). GATE: non-empty `activation_url`.
 5. HARD STOP at the human boundary: present the URL to a human tenant OWNER
    and stop. Do not redeem the approval token for activation.
-6. After the OWNER activates, poll
-   `c1_connector_authoring_list_revision_summaries` until the target
-   revision is `REVISION_STATUS_ACTIVE`; record its `activation_epoch`.
-   GATE: ACTIVE. STOP if not ACTIVE - if approval reports `evidence is unsatisfied`,
-   return to the draft-test step and confirm a fresh PASS row binds this
-   revision before minting a new approval URL. Poll with backoff (e.g. every
-   5-10s); if no ACTIVE row after ~10 polls, STOP and report.
+6. After the handoff, wait for the activation completion notification if
+   your host provides one; do not poll while waiting. The notification
+   confirms the target revision's `REVISION_STATUS_ACTIVE` readback;
+   record its `activation_epoch`. If your session resumes with an
+   outstanding activation and no notification, check
+   `c1_connector_authoring_list_revision_summaries` once before re-minting.
+   Direct API callers without host wakeup poll
+   `c1_connector_authoring_list_revision_summaries` every 5-10s, up to ~10
+   polls, until the target revision is `REVISION_STATUS_ACTIVE`; record
+   its `activation_epoch`. GATE: ACTIVE. STOP if not ACTIVE - if approval
+   reports `evidence is unsatisfied`, return to the draft-test step and
+   confirm a fresh PASS row binds this revision before minting a new
+   approval URL; if no ACTIVE row after ~10 polls, STOP and report.
 7. Call `c1_connector_service_force_sync`; poll `c1_connector_service_get`
    with backoff (e.g. every 5-10s) until `status.status` is
    `SYNC_STATUS_DONE`, `SYNC_STATUS_ERROR`, or `SYNC_STATUS_DISABLED`; if

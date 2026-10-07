@@ -40,10 +40,12 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    `expires_in_seconds` in 1-14400 (max 4 hours); capture `activation_url`.
    GATE: non-empty `activation_url`. STOP if empty.
 6. HARD STOP at the human boundary: present `activation_url` to a human
-   tenant OWNER and stop. Never redeem the approval token, never attempt
-   activation yourself. S11b/S11c are `skipped_human_boundary`. After
-   minting, wait for the activation completion notification if your host
-   provides one; do not poll while waiting. The notification is not a call:
+   tenant OWNER and complete the S11 handoff write immediately, BEFORE
+   waiting for activation. End the turn; never hold the handoff until the
+   human activates. Never redeem the approval token or attempt activation
+   yourself. S11b/S11c are `skipped_human_boundary`. After the handoff,
+   wait for the activation completion notification if your host provides
+   one; do not poll while waiting. The notification is not a call:
    it replaces the readback rather than adding one.
 
 ## Post-activation reference (NEVER performed in the funnel run)
