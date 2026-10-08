@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # diagnose-authoring-failure
@@ -39,10 +39,9 @@ tooling is replaced by the tenant MCP tools named below.
 
 ## Draft-test FAIL reading
 
-The evidence row is authoritative: poll
-`c1_connector_authoring_get_test_run_evidence` and read the `result` (PASS
-or FAIL) and the `error` field. Poll with backoff (e.g. every 5-10s); if no
-row after ~10 polls, stop and report `NotFound`/pending. The FAIL reason
+The evidence row is authoritative: wait for the draft test as build-and-test
+describes, then read `c1_connector_authoring_get_test_run_evidence` - the
+`result` (PASS or FAIL) and the `error` field. The FAIL reason
 lives on the evidence row; it is not always logged when the read activity
 succeeds but the outcome evaluation returns FAIL. PASS requires all of:
 
@@ -68,13 +67,6 @@ authoritative outcome for a sync.
 - Every one of the nine common-failures rows routes to its documented fix.
 - A draft-test FAIL is read from the evidence row, not from completion.
 - The logs location and the status row are named.
-- The body contains the literals `262144 byte compile limit`,
-  `1048576 byte limit`, `is_secret`, `credential re-entry required`,
-  `missing type`, `unregistered transport`,
-  `ticketing.enabled must be true when ticketing is configured`,
-  `activation evidence is unsatisfied`, `Invalid token provided`,
-  `ConnectionOK`, `HostCallOK`, `c1_connector_service_get`, and
-  `status.lastError`.
 
 ## Anti-patterns
 

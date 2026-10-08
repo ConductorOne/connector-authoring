@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four-file source contract (connector.ts, config-schema.json, runtime-schema.json, capabilities.json) for an in-app connector draft, before the S2 upload. Do not use when the source files are already uploaded and you are mid-funnel - invoke build-and-test instead.
-version: 0.2.0
+version: 0.2.1
 ---
 
 # write-connector-source
@@ -156,9 +156,7 @@ Field-name parity between `config-schema.json` and `runtime-schema.json`;
 - [ ] Every `config("...")` literal in `connector.ts` declared in BOTH schemas (parity covers config refs, not just the two schemas).
 - [ ] `ticketing.enabled` - no `ticketing` block the connector code does not back (`ticketing.enabled must be true when ticketing is configured`).
 
-## Eval-alignment contract
-
-Taught as contract rules, not eval-gaming literals:
+## Contract rules
 
 - Scope list calls - pass the tenant-scoping query param the API requires structurally in the query object (e.g. `account_id`); a comment mention does not count.
 - Handle nullable fields - e.g. `user.title` may be null; project defensively.

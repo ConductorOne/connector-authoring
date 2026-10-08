@@ -13,3 +13,11 @@ model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 | In-repo SDK declarations | connector-authoring `b7e8a616cbbb1e336b788f807a3810b08ae00bc7` | The `config("field-name")` names the `configuration` keys must match (see `examples/http/connector.ts`: `base-url`, `account-email`, `api-token`). |
 | SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
 | baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
+
+## Eval wiring
+
+- In agent-driven eval runs the scorer's S8 gate reads the config set via the API (Path A).
+- The scorer's S11 gate fails a run with any call after mint other than the handoff write, including `list_revision_summaries` and `force_sync`.
+- `evals/runner/stages.ts` rejects any `force_sync` in the authoring transcript, including a notification-resumed session. The locked sync prohibition now covers the entire authoring session; the human/operator runs production sync after the OWNER activates.
+- The scorer's SKIPPED_STAGES disposition records S11b/S11c as `skipped_human_boundary`; the skill states only the behavior (hand off and stop).
+- The SKILL.md content literals (`deployment_instance_id`, `activation_url`, `REVISION_STATUS_ACTIVE`, `activation_epoch`, `SYNC_STATUS_DONE`, and the never-redeem / never-force_sync / never-list_revision_summaries instructions) are enforced by `evals/runner/skills_bundle.test.ts`.

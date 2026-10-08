@@ -13,3 +13,8 @@ model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 | In-repo SDK declarations | connector-authoring `b7e8a616cbbb1e336b788f807a3810b08ae00bc7` | The `.d.ts` module surface (`@baton/runtime`, `@baton/helpers`, `@baton/types`) the tagged declarations cover. |
 | SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
 | baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
+
+## Eval wiring
+
+- The resume check before `create_draft` is a SKILL.md string check; the scorer's S1 gate does not enforce it.
+- The SKILL.md content literals (`list_sdk_types_versions`, `get_sdk_types`, `list_authored_catalog_entries`, `list_drafts`, `runtime_pin_matched`, `default_tag`) are enforced by `evals/runner/skills_bundle.test.ts`.

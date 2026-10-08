@@ -22,3 +22,7 @@ at the pinned SHA still carry the presence-only capabilities wording.
 | baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
 | baton-admin DSL skill | baton-admin `author-js-dsl-connector` @ `6fe6886f607ed0d2e48a616c30e7ce4bffc32489` | The JS DSL authoring rules this skill's source-file contract aligns with. |
 | baton-admin DSL skill | baton-admin `author-auth-config-surface` @ `6fe6886f607ed0d2e48a616c30e7ce4bffc32489` | The auth-config surface rules this skill's config-schema contract aligns with. |
+
+## Eval wiring
+
+- The Contract rules section mirrors the eval scorer's source checks (tenant-scoped list calls, nullable fields, total-count pagination, dual-schema config declarations, user helper construction, hygiene); they are taught as contract rules, not eval literals.

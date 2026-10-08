@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.2
+version: 0.3.5
 ---
 
 # author-in-app-connector
@@ -31,18 +31,12 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    four `required_source_files` (connector.ts, config-schema.json,
    runtime-schema.json, capabilities.json) must be true. STOP if any is
    false.
-   Step-boundary note: the served 12-step contract (agent prompt) splits
-   this differently - its step 2 is upload+PUTs and its step 3 is
-   finalize+get_draft. The call sets are identical; only the boundary
-   differs. In this skill S2 is the full upload dance
-   (create_draft_source_upload + PUTs + finalize) and S3 is the get_draft
-   gate; "re-run from S2" always means the full upload dance.
 4. S4 build: call `c1_connector_authoring_build_bundle`; extract `run_id`.
    STOP if empty.
 5. S5 build result: wait for the completion notification if your host provides
    one; do not poll while waiting. If your session resumes with an outstanding
    dispatch and no completion notification, check `get_run` once before
-   re-dispatching. Direct API callers without host wakeup poll
+   re-dispatching. Otherwise (direct API callers): poll
    `c1_connector_authoring_get_run` with `run_id` every 5-10s, up to ~10 polls.
    GATE: `RUN_STATE_SUCCEEDED`; extract the immutable
    `revision_id`. STOP on failure - fix source; if the source changed,
@@ -58,11 +52,10 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
 10. S10 evidence: wait for the completion notification if your host provides
     one; do not poll while waiting. If your session resumes with an outstanding
     dispatch and no completion notification, check `get_test_run_evidence` once
-    before re-dispatching. Direct API callers without host wakeup poll
+    before re-dispatching. Otherwise (direct API callers): poll
     `c1_connector_authoring_get_test_run_evidence` with
     `(catalog_id, revision_id, test_run_id)` every 5-10s, up to ~10 polls.
-    GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS` (the PASS enum value;
-    the eval fixture records the string `"PASS"`). STOP if FAIL - fix
+    GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS`. STOP if FAIL - fix
     source; if the source changed, re-run from S2 (re-upload) with a FRESH
     `test_run_id`, otherwise re-run from the failing step per build-and-test.
 11. S11 handoff discipline: call
@@ -113,27 +106,26 @@ Net-new provider: before S1, run both pre-1 skills - `source-openapi-spec`
 ## Human boundary
 
 After S11's deploy + mint, present `activation_url` to a human tenant OWNER,
-record the handoff table, and STOP. Never redeem the approval token, never
-call `force_sync` - S11b/S11c are `skipped_human_boundary`. Never poll
-`REVISION_STATUS_ACTIVE` in the funnel run: if a notification later resumes
-you, the revision is ACTIVE - record the `activation_epoch` it carries.
-Direct API callers verify per deploy-and-activate once the OWNER reports
-activation.
+record the handoff table, and STOP. Never redeem the approval token.
+Do not call `force_sync` in the authoring session; the human/operator runs
+it after the OWNER activates. Never poll `REVISION_STATUS_ACTIVE` before
+the OWNER activates. If a notification later resumes you, the revision is
+already ACTIVE: record its `activation_epoch`, but still do not force-sync
+in this authoring session. Direct API callers verify per deploy-and-activate
+once the OWNER reports activation.
 
 ## Exit criteria
 
 - S0-S11 all pass per the stage table above.
-- S11's handoff-discipline gate passes: all 10 handoff fields, no calls after
-  mint except the handoff write, no redemption.
-- The body contains the literal `skipped_human_boundary` and all 10 handoff
-  field names.
+- S11 handoff: all 10 handoff fields, no calls after mint except the
+  handoff write, no redemption.
 
 ## Anti-patterns
 
 - Do not skip a stage.
 - Do not fabricate handoff values.
 - Do not redeem the approval token.
-- Do not call `force_sync` at any point in the funnel run.
+- Do not call `force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
 - Do not write the handoff before deploy + mint.
 
 ## Blocker protocol

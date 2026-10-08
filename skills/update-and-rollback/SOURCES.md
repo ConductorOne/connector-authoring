@@ -12,3 +12,7 @@ model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 | c1 Go source (same pin) | c1 `2e5f53eb441a93087d9754085ca17a5061e125ea` | The `SYNC_STATUS_ERROR` / `SYNC_STATUS_DISABLED` terminal-state semantics: `ConnectorStatusToAPI` derives DISABLED only from an ERROR-classified sync; `sync_disabled_reason` distinguishes the data-anomaly auto-pause from deliberate pauses. |
 | SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
 | baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
+
+## Eval wiring
+
+- The SKILL.md content literals (the rotation error string, `/api/v1/connector-authoring/rollbacks`, `target_revision_id`, `approval_token_id`, `activation_epoch`, `image digest`) are enforced by `evals/runner/skills_bundle.test.ts`.

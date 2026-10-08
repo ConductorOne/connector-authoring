@@ -1,14 +1,14 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.1
+version: 0.2.2
 ---
 
 # update-and-rollback
 
-Update and rollback for an activated authored connector. Runs in a
-post-activation session - never during the funnel run. Tool names below are
-the exact tenant MCP titles.
+Update and rollback for an activated authored connector. Runs only after the
+OWNER has activated the connector. Tool names below are the exact tenant MCP
+titles.
 
 ## Update flow (same-catalog rerun)
 
@@ -100,9 +100,6 @@ fix cycles, stop and report the exact error text (see Blocker protocol).
   `target_revision_id`, `instance_app_id`, `instance_connector_id`, and
   `approval_token_id`; the target revision is ACTIVE under a strictly
   greater activation epoch.
-- The body contains the literals `serve image does not match the revision-pinned runtime image`, `/api/v1/connector-authoring/rollbacks`,
-  `target_revision_id`, `approval_token_id`, `activation_epoch`, and
-  `image digest`.
 
 ## Anti-patterns
 

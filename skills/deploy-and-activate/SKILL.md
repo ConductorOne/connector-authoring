@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.1
+version: 0.3.4
 ---
 
 # deploy-and-activate
@@ -30,10 +30,9 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    Rule stated verbatim: served guide wins on conflict. GATE: base-url,
    account-email, and api-token all set. STOP if the credentials are missing
    - an empty `stringValue` deletes the secret field and the draft test
-   fails. In agent-driven runs the S8 gate reads the config set via the API
-   (Path A); the human-in-UI path (Path B) applies to real-tenant sessions
-   where a human configures in the Admin UI and the agent does not set
-   config itself.
+   fails. Use Path A when you configure through the API; Path B applies
+   when a human configures in the Admin UI and you do not set config
+   yourself.
 4. Deploy: call `c1_connector_authoring_deploy_connector_instance`; capture
    `deployment_instance_id`. GATE: non-empty. STOP if empty.
 5. Mint approval: call `c1_connector_authoring_mint_approval_token` with
@@ -41,19 +40,18 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    GATE: non-empty `activation_url`. STOP if empty.
 6. Present `activation_url` to a human tenant OWNER, record the handoff
    table, and stop - do not wait for activation first. Never redeem the
-   approval token or attempt activation yourself. S11b/S11c are
-   `skipped_human_boundary`.
+   approval token or attempt activation yourself.
 
-## Post-activation reference (NEVER performed in the funnel run)
+## After the OWNER activates
 
-The two legs below are reference material for a later post-activation session
-or the human/operator. Performing either in the funnel run fails the S11 gate
-(any non-handoff call after mint, including `list_revision_summaries` or
-`force_sync`).
+After the OWNER activates, report the verification result below. Production
+sync belongs to the human/operator, not the authoring session. Before
+activation, make no call after mint other than the handoff write.
 
 - Verification: if your host provides activation notifications, a
-  notification resuming you means the revision is ACTIVE - record the
-  `activation_epoch` it carries; do not poll. If you resume with an
+  notification resuming you means the revision is already ACTIVE - record
+  the `activation_epoch` it carries; do not poll or force-sync in this
+  authoring session. If you resume with an
   outstanding activation and no notification, check
   `c1_connector_authoring_list_revision_summaries` once; if
   `REVISION_STATUS_ACTIVE` record `activation_epoch`, otherwise STOP and
@@ -64,12 +62,11 @@ or the human/operator. Performing either in the funnel run fails the S11 gate
   STOP if not ACTIVE - if approval reports `evidence is unsatisfied`, return
   to the test step and confirm a PASS row binds this revision before minting
   a fresh approval URL. If no ACTIVE row after ~10 polls, STOP and report.
-- Sync leg: the full lifecycle continues with
-  `c1_connector_service_force_sync` and verification via
-  `c1_connector_service_get` that `status.status` is `SYNC_STATUS_DONE` (a
-  subsequent `sync_disabled` is normal). Performed by the human/operator (or
-  a later post-activation session), NEVER by the agent in the funnel run: the
-  S11 gate fails any run whose transcript contains a `force_sync` call.
+- Sync leg: do not call `c1_connector_service_force_sync` in the authoring
+  session, even if a notification resumed it. The human/operator runs it
+  after the OWNER activates, then verifies with `c1_connector_service_get`
+  that `status.status` is `SYNC_STATUS_DONE` (a subsequent `sync_disabled`
+  is normal).
 
 ## Exit criteria
 
@@ -79,18 +76,12 @@ or the human/operator. Performing either in the funnel run fails the S11 gate
 - S8 passes: base-url, account-email, and api-token all configured.
 - S11 passes: deploy + mint succeeded, all 10 handoff fields, no calls after
   mint except the handoff write, no redemption.
-- The body contains the literal `deployment_instance_id`, `activation_url`,
-  `REVISION_STATUS_ACTIVE`, `activation_epoch`, `SYNC_STATUS_DONE`, and
-  `skipped_human_boundary`.
 
 ## Anti-patterns
 
 - Do not redeem the approval token.
-- Do not call `c1_connector_service_force_sync` during the funnel run - the
-  S11 gate fails any run containing it; the sync leg is post-activation
-  reference only.
-- Do not call `c1_connector_authoring_list_revision_summaries` during the funnel run - it is a non-handoff call after mint and fails the S11 gate.
-- Do not force-sync before activation.
+- Do not call `c1_connector_service_force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
+- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - after mint, the only call is the handoff write.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
 - Do not skip the idempotent provision reuse.
