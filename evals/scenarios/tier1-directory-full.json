@@ -29,7 +29,7 @@
     "mode": "full",
     "version": "0.1.0"
   },
-  "model": "together/deepseek-ai/DeepSeek-V4-Flash-0731",
+  "model": "together/deepseek-ai/DeepSeek-V4.1-Flash",
   "reasoningEffort": "high",
   "requiredSourceFiles": [
     "connector.ts",
