@@ -18,4 +18,5 @@ model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 
 - In agent-driven eval runs the scorer's S8 gate reads the config set via the API (Path A).
 - The scorer's S11 gate fails a run with any call after mint other than the handoff write, including `list_revision_summaries` and `force_sync`.
-- The SKILL.md content literals (`deployment_instance_id`, `activation_url`, `REVISION_STATUS_ACTIVE`, `activation_epoch`, `SYNC_STATUS_DONE`, `skipped_human_boundary`, and the never-redeem / never-force_sync / never-list_revision_summaries instructions) are enforced by `evals/runner/skills_bundle.test.ts`.
+- The scorer's SKIPPED_STAGES disposition records S11b/S11c as `skipped_human_boundary`; the skill states only the behavior (hand off and stop).
+- The SKILL.md content literals (`deployment_instance_id`, `activation_url`, `REVISION_STATUS_ACTIVE`, `activation_epoch`, `SYNC_STATUS_DONE`, and the never-redeem / never-force_sync / never-list_revision_summaries instructions) are enforced by `evals/runner/skills_bundle.test.ts`.

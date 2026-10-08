@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.2
+version: 0.3.3
 ---
 
 # deploy-and-activate
@@ -40,8 +40,7 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    GATE: non-empty `activation_url`. STOP if empty.
 6. Present `activation_url` to a human tenant OWNER, record the handoff
    table, and stop - do not wait for activation first. Never redeem the
-   approval token or attempt activation yourself. S11b/S11c are
-   `skipped_human_boundary`.
+   approval token or attempt activation yourself.
 
 ## After the OWNER activates
 
