@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.4
+version: 0.3.5
 ---
 
 # author-in-app-connector
@@ -106,12 +106,13 @@ Net-new provider: before S1, run both pre-1 skills - `source-openapi-spec`
 ## Human boundary
 
 After S11's deploy + mint, present `activation_url` to a human tenant OWNER,
-record the handoff table, and STOP. Never redeem the approval token, never
-call `force_sync`. Never poll
-`REVISION_STATUS_ACTIVE` before the OWNER activates: if a notification later resumes
-you, the revision is ACTIVE - record the `activation_epoch` it carries.
-Direct API callers verify per deploy-and-activate once the OWNER reports
-activation.
+record the handoff table, and STOP. Never redeem the approval token.
+Do not call `force_sync` in the authoring session; the human/operator runs
+it after the OWNER activates. Never poll `REVISION_STATUS_ACTIVE` before
+the OWNER activates. If a notification later resumes you, the revision is
+already ACTIVE: record its `activation_epoch`, but still do not force-sync
+in this authoring session. Direct API callers verify per deploy-and-activate
+once the OWNER reports activation.
 
 ## Exit criteria
 
@@ -124,7 +125,7 @@ activation.
 - Do not skip a stage.
 - Do not fabricate handoff values.
 - Do not redeem the approval token.
-- Do not call `force_sync` before the OWNER activates.
+- Do not call `force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
 - Do not write the handoff before deploy + mint.
 
 ## Blocker protocol

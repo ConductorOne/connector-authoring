@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.3
+version: 0.3.4
 ---
 
 # deploy-and-activate
@@ -44,13 +44,14 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
 
 ## After the OWNER activates
 
-The two legs below run only after the OWNER activates - in a later session
-or by the human/operator. Before activation, make no call after mint other
-than the handoff write (no `list_revision_summaries`, no `force_sync`).
+After the OWNER activates, report the verification result below. Production
+sync belongs to the human/operator, not the authoring session. Before
+activation, make no call after mint other than the handoff write.
 
 - Verification: if your host provides activation notifications, a
-  notification resuming you means the revision is ACTIVE - record the
-  `activation_epoch` it carries; do not poll. If you resume with an
+  notification resuming you means the revision is already ACTIVE - record
+  the `activation_epoch` it carries; do not poll or force-sync in this
+  authoring session. If you resume with an
   outstanding activation and no notification, check
   `c1_connector_authoring_list_revision_summaries` once; if
   `REVISION_STATUS_ACTIVE` record `activation_epoch`, otherwise STOP and
@@ -61,11 +62,11 @@ than the handoff write (no `list_revision_summaries`, no `force_sync`).
   STOP if not ACTIVE - if approval reports `evidence is unsatisfied`, return
   to the test step and confirm a PASS row binds this revision before minting
   a fresh approval URL. If no ACTIVE row after ~10 polls, STOP and report.
-- Sync leg: the full lifecycle continues with
-  `c1_connector_service_force_sync` and verification via
-  `c1_connector_service_get` that `status.status` is `SYNC_STATUS_DONE` (a
-  subsequent `sync_disabled` is normal). Performed by the human/operator (or
-  a later session) after the OWNER activates, never before.
+- Sync leg: do not call `c1_connector_service_force_sync` in the authoring
+  session, even if a notification resumed it. The human/operator runs it
+  after the OWNER activates, then verifies with `c1_connector_service_get`
+  that `status.status` is `SYNC_STATUS_DONE` (a subsequent `sync_disabled`
+  is normal).
 
 ## Exit criteria
 
@@ -79,7 +80,7 @@ than the handoff write (no `list_revision_summaries`, no `force_sync`).
 ## Anti-patterns
 
 - Do not redeem the approval token.
-- Do not call `c1_connector_service_force_sync` before the OWNER activates.
+- Do not call `c1_connector_service_force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
 - Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - after mint, the only call is the handoff write.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
