@@ -199,9 +199,15 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 
 The control-group baseline (CXF-217) is six scored Tier-1 runs — scenario
 `tier1-directory` × skill-bundle modes {`none`, `guide-only`} × 3 runs each —
-with the model pinned to `together/deepseek-ai/DeepSeek-V4-Flash-0731` and
-`reasoningEffort: "high"` in both scenario files. Each run writes a JSONL
-record to `evals/results/<run-id>.jsonl` (gitignored).
+at `reasoningEffort: "high"`. Each run writes a JSONL record to
+`evals/results/<run-id>.jsonl` (gitignored).
+
+The scenario files are pinned to `together/deepseek-ai/DeepSeek-V4.1-Flash`;
+the committed reference (`evals/results/baseline.json`) was recorded on
+`together/deepseek-ai/DeepSeek-V4-Flash-0731`. Re-record the baseline at the
+pinned model before comparing new runs against it: `baseline.ts` validates
+`model_version` consistency across records, and the reference's `model` must
+match the scenario model for a meaningful comparison.
 
 Regenerate the committed reference with:
 
