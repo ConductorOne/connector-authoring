@@ -19,9 +19,9 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    arguments) and read the served guide. STOP if it errors.
 1. S1 draft: call `c1_connector_authoring_create_draft`; extract `catalog_id`
    and `draft_id`. STOP if either is empty.
-   Before S2: invoke `write-connector-source` to author the four source
-   files (connector.ts, config-schema.json, runtime-schema.json,
-   capabilities.json).
+   Before S2: invoke `write-connector-source` to author the four build-required
+   files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json)
+   plus the two test-required frozen files (openapi.json, reviewed-ops.json).
 2. S2 upload: `wc -c` each source file, call
    `c1_connector_authoring_create_draft_source_upload` with the file list,
    PUT each file to its `upload_targets` URL with `required_headers`
@@ -55,9 +55,12 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
     before re-dispatching. Otherwise (direct API callers): poll
     `c1_connector_authoring_get_test_run_evidence` with
     `(catalog_id, revision_id, test_run_id)` every 5-10s, up to ~10 polls.
-    GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS`. STOP if FAIL - fix
-    source; if the source changed, re-run from S2 (re-upload) with a FRESH
+    GATE: `result == CONNECTOR_TEST_RUN_RESULT_PASS` for S10. STOP if FAIL -
+    fix source; if the source changed, re-run from S2 (re-upload) with a FRESH
     `test_run_id`, otherwise re-run from the failing step per build-and-test.
+    Before S11 deploy or mint, the same durable evidence must also report
+    `transport_judge_verdict == "accepted"`. STOP on any other or missing
+    verdict and follow the build-and-test verdict table; PASS alone is not enough.
 11. S11 handoff discipline: call
     `c1_connector_authoring_deploy_connector_instance` (extract
     `deployment_instance_id`), then

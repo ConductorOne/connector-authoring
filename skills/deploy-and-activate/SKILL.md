@@ -61,8 +61,11 @@ activation, make no call after mint other than the handoff write.
   5-10s, up to ~10 polls, until the target revision's status is
   `REVISION_STATUS_ACTIVE`; record its `activation_epoch`. GATE: ACTIVE.
   STOP if not ACTIVE - if approval reports `evidence is unsatisfied`, return
-  to the test step and confirm a PASS row binds this revision before minting
-  a fresh approval URL. If no ACTIVE row after ~10 polls, STOP and report.
+  to the review/judgment and draft-test path per the build-and-test verdict
+  table. Correct the verdict's cause; do not just re-mint. Confirm evidence
+  binds this revision with both `result == CONNECTOR_TEST_RUN_RESULT_PASS`
+  and `transport_judge_verdict == "accepted"` before minting a fresh approval
+  URL. If no ACTIVE row after ~10 polls, STOP and report.
 - Sync leg: do not call `c1_connector_service_force_sync` in the authoring
   session, even if a notification resumed it. The human/operator runs it
   after the OWNER activates, then verifies with `c1_connector_service_get`

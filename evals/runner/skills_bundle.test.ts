@@ -79,6 +79,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not call `force_sync` in the authoring session",
     "write-connector-source",
+    'transport_judge_verdict == "accepted"',
   ],
   "read-authoring-contract": [
     "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
@@ -86,6 +87,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
   ],
   "build-and-test": [
     "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
+    'transport_judge_verdict == "accepted"',
   ],
   "deploy-and-activate": [
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
@@ -93,6 +95,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not call `c1_connector_service_force_sync` in the authoring session",
     "Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates",
+    'transport_judge_verdict == "accepted"',
+    "Correct the verdict's cause; do not just re-mint",
   ],
   "write-connector-source": [
     "Do not call fetch",
@@ -156,6 +160,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
+    'transport_judge_verdict == "accepted"',
+    "Correct the verdict's cause; do not just re-mint",
     "If no ACTIVE row after ~10 polls, STOP and report",
     "no terminal status after ~10 polls, STOP and report",
     "SYNC_STATUS_ERROR",

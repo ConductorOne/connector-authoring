@@ -59,6 +59,29 @@ test("buildPrompt carries the stop rule, handoff path, and credentials", () => {
   assert.ok(prompt.includes("3-user unscoped subset"))
 })
 
+test("buildPrompt uploads the build-required files and frozen test contract", () => {
+  const prompt = buildPrompt(SCENARIO, "run", "http://fixture", CHANNEL)
+  const upload = prompt.split("\n").find((line) => line.startsWith("Step 2:"))!
+  assert.ok(SCENARIO.requiredSourceFiles)
+  for (const file of [...SCENARIO.requiredSourceFiles, "openapi.json", "reviewed-ops.json"]) {
+    assert.ok(upload.includes(file), `upload instruction missing ${file}`)
+  }
+  assert.ok(upload.includes("four build-required files"))
+  assert.ok(upload.includes("two test-required frozen files"))
+  assert.ok(upload.includes("output_slice"))
+  assert.ok(upload.includes("camelCase"))
+})
+
+test("buildPrompt requires matching PASS and accepted evidence before deploy or mint", () => {
+  const prompt = buildPrompt(SCENARIO, "run", "http://fixture", CHANNEL)
+  const evidence = prompt.split("\n").find((line) => line.startsWith("Step 10:"))!
+  assert.ok(evidence.includes("Before Step 11 deploy or mint"))
+  assert.ok(evidence.includes("same durable evidence"))
+  assert.ok(evidence.includes('result == CONNECTOR_TEST_RUN_RESULT_PASS and transport_judge_verdict == "accepted"'))
+  assert.ok(evidence.includes("stop on any other or missing verdict"))
+  assert.ok(evidence.includes("build-and-test verdict table"))
+})
+
 test("buildPrompt skill-bundle modes render", () => {
   const none = buildPrompt({...SCENARIO, skillBundle: {mode: "none", version: "0.0.0"}}, "r", "http://x", CHANNEL)
   assert.ok(none.includes("No skill bundle"))
