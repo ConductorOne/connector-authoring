@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json) plus the two test-required frozen files (openapi.json, reviewed-ops.json) for an in-app connector draft, before the S2 upload. Do not use when the source files are already uploaded and you are mid-funnel - invoke build-and-test instead.
-version: 0.2.1
+version: 0.2.2
 ---
 
 # write-connector-source

@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.4
+version: 0.3.5
 ---
 
 # deploy-and-activate
@@ -19,21 +19,21 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    already exists under the app, reuse it. GATE: non-empty `connector_id`.
    STOP if empty.
 3. Configure - the named credential decision point. Teach BOTH paths:
-   - Path A (external agent-via-API, from the lifecycle doc): call
+   - API path (external agent-via-API, from the lifecycle doc): call
      `c1_connector_service_get` to read the connector, then
      `c1_connector_service_update` with `updateMask: "config"` and the
      `EnvConfig` `configuration` JSON - the keys must match the
      `config("field-name")` names in `connector.ts`.
-   - Path B (human-in-UI, from the served guide): a human configures
+   - UI path (human-in-UI, from the served guide): a human configures
      credentials in Details -> Settings in the Admin UI; never ask a human
      to paste secrets into agent chat. The hosted C1AI specialist has no
-     credential-update tool, so Path B is the only path in that session.
+     credential-update tool, so the UI path is the only path in that session.
    Rule stated verbatim: served guide wins on conflict. GATE: base-url,
    account-email, and api-token all set. STOP if the credentials are missing
    - an empty `stringValue` deletes the secret field and the draft test
-   fails. Use Path A for an external agent with the credential-update API;
-   use Path B when a human configures credentials, including every hosted
-   C1AI specialist session.
+   fails. Use the API path for an external agent with the credential-update
+   API; use the UI path when a human configures credentials, including every
+   hosted C1AI specialist session.
 4. Deploy: call `c1_connector_authoring_deploy_connector_instance`; capture
    `deployment_instance_id`. GATE: non-empty. STOP if empty.
 5. Mint approval: call `c1_connector_authoring_mint_approval_token` with

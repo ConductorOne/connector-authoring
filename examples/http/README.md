@@ -52,6 +52,8 @@ The companion files describe how the graph is hosted:
   each with `output_slice: "items"` and camelCase offset pagination
   (`style`, `pageParam`, `sizeParam`). Group members bind `{groupId}` from
   the parent groups projection.
+  This single-HTTP example omits transport names in the frozen operation list;
+  the operations use the default binding to `connect.directory`.
 
 The first three companion files plus `connector.ts` are build-required.
 The two frozen files are optional for build but required for a draft-test

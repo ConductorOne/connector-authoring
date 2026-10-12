@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.5
+version: 0.3.6
 ---
 
 # author-in-app-connector
@@ -31,6 +31,7 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    four `required_source_files` (connector.ts, config-schema.json,
    runtime-schema.json, capabilities.json) must be true. STOP if any is
    false.
+   S3b: follow build-and-test's hosted-only review; reads are GET-only without it; source edits invalidate review.
 4. S4 build: call `c1_connector_authoring_build_bundle`; extract `run_id`.
    STOP if empty.
 5. S5 build result: wait for the completion notification if your host provides

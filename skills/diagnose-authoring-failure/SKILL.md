@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.1
+version: 0.1.2
 ---
 
 # diagnose-authoring-failure
@@ -34,7 +34,7 @@ tooling is replaced by the tenant MCP tools named below.
 | Draft test: `connector config field X is missing type` | Add `"type": "string"` (etc.) to the field in `runtime.config_schema`. |
 | Sync error mentions an `unregistered transport` | A `node` or `reuse` references a transport missing from `connector({ transports: ... })`. Register that same transport object, rebuild, and retest. |
 | Draft test: `ticketing.enabled must be true when ticketing is configured` | The runtime-schema carries a `ticketing` block the connector code does not back. Remove the block (and any `actions` / `policy_surface` entries referencing dropped code); `enabled: false` is not a valid off-switch. |
-| Activation reports `activation evidence is unsatisfied` | No PASS test-sync evidence binds this revision. Run the draft test (with credentials set) and confirm it passed before asking the OWNER to review a fresh approval URL. |
+| Activation reports `activation evidence is unsatisfied` | No matching PASS evidence, or `transport_judge_verdict` missing/not accepted. Follow the build-and-test verdict table: correct the verdict's cause; do not just re-mint. Confirm a new accepted PASS row binds this revision before asking the OWNER to review a fresh approval URL. |
 | Production sync `Invalid token provided` | The API token is wrong or truncated. Re-configure with the full token, then re-run. |
 
 ## Draft-test FAIL reading
@@ -50,9 +50,12 @@ succeeds but the outcome evaluation returns FAIL. PASS requires all of:
 - No read error and no write attempt
 - The config version handle matches the candidate revision
 - The runtime image digest matches the revision-pinned image
+- `transport_judge_verdict == "accepted"` exactly
+- Both frozen files (`openapi.json`, `reviewed-ops.json`) are present
+- Nonempty declared projections have full coverage
 
-A FAIL row (or no row yet) means activation stays `evidence is unsatisfied`
-until a new draft test writes PASS.
+A FAIL row, missing evidence, or a missing/non-accepted verdict keeps activation
+`evidence is unsatisfied` until a new accepted PASS row binds the revision.
 
 ## Where logs live
 

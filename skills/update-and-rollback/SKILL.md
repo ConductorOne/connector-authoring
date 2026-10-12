@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.2
+version: 0.2.3
 ---
 
 # update-and-rollback
