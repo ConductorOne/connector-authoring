@@ -20,7 +20,7 @@ model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 
 ## Eval wiring
 
-- In agent-driven eval runs the scorer's S8 gate reads the config set via the API (Path A).
+- In agent-driven eval runs the scorer's S8 gate reads the config set via the API (API path).
 - The scorer's S11 gate fails a run with any call after mint other than the handoff write, including `list_revision_summaries` and `force_sync`.
 - `evals/runner/stages.ts` rejects any `force_sync` in the authoring transcript, including a notification-resumed session. The locked sync prohibition now covers the entire authoring session; the human/operator runs production sync after the OWNER activates.
 - The scorer's SKIPPED_STAGES disposition records S11b/S11c as `skipped_human_boundary`; the skill states only the behavior (hand off and stop).
