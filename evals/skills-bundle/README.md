@@ -6,8 +6,8 @@ This directory is the skill-bundle mount point for the eval harness.
 
 The current bundle targets the 25-tool tenant MCP surface and teaches four
 build-required files plus two test-required frozen files (`openapi.json`,
-`reviewed-ops.json`). This supersedes the historical 23-tool/four-file
-descriptions in the release entries below.
+`reviewed-ops.json`). This supersedes the tool-count and source-file contract
+descriptions in the historical release entries below.
 
 - Source authoring requires named top-level `connect` entries and typed
   reviewed operations with `output_slice` on every projection.
