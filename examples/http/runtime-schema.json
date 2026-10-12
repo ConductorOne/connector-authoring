@@ -2,6 +2,11 @@
   "version": "1",
   "name": "http-directory",
   "description": "Fictional declarative HTTP directory example.",
+  "connect": {
+    "directory": {
+      "type": "http"
+    }
+  },
   "runtime": {
     "connector": "connector.js",
     "config_schema": {

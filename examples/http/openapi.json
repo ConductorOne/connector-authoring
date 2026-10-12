@@ -1,0 +1,154 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Fictional Directory API",
+    "version": "1.0.0",
+    "description": "Example contract only; directory.example is not a hosted test service."
+  },
+  "servers": [{ "url": "https://directory.example" }],
+  "security": [{ "basicAuth": [] }],
+  "paths": {
+    "/v1/users": {
+      "get": {
+        "operationId": "users",
+        "summary": "List users",
+        "parameters": [
+          { "$ref": "#/components/parameters/Offset" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of users",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UserPage" } }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups": {
+      "get": {
+        "operationId": "groups",
+        "summary": "List groups",
+        "parameters": [
+          { "$ref": "#/components/parameters/Offset" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of groups",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/GroupPage" } }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members": {
+      "get": {
+        "operationId": "group-members",
+        "summary": "List group members",
+        "parameters": [
+          { "name": "groupId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/Offset" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of group members",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/MemberPage" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": { "type": "http", "scheme": "basic" }
+    },
+    "parameters": {
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 0, "default": 0 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "default": 100 }
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["id", "name", "email", "active"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "active": { "type": "boolean" }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "Member": {
+        "type": "object",
+        "required": ["userId"],
+        "properties": { "userId": { "type": "string" } }
+      },
+      "PageMetadata": {
+        "type": "object",
+        "required": ["offset", "limit", "total"],
+        "properties": {
+          "offset": { "type": "integer", "minimum": 0 },
+          "limit": { "type": "integer", "minimum": 1 },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "UserPage": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PageMetadata" },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }
+            }
+          }
+        ]
+      },
+      "GroupPage": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PageMetadata" },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/Group" } }
+            }
+          }
+        ]
+      },
+      "MemberPage": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PageMetadata" },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/Member" } }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
