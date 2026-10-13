@@ -1,7 +1,7 @@
 ---
 name: verify-connector-output
 description: Use when verifying a post-activation connector's sync output: resource/entitlement/grant counts, grant wiring, ID stability across re-sync, and the UI spot-check. Do not use when updating or rolling back a live connector - use update-and-rollback; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.1.2
+version: 0.1.3
 ---
 
 # verify-connector-output
@@ -44,8 +44,8 @@ MCP titles.
 5. UI spot-check: open the canonical authoring page
    `/admin/connectors/authoring/<catalog_id>` on the product base URL and
    confirm the connector's resources and grants appear. The legacy alias
-   `/admin/connector/<catalog_id>/<app_id>/<connector_id>` redirects to this
-   page when authoring is enabled. GATE: resources and grants visible.
+   `/admin/connector/<catalog_id>/<app_id>/<connector_id>` renders the authored
+   connector view when authoring is enabled. GATE: resources and grants visible.
 
 Investigate empty or unexpected results; never invent data to make a demo appear complete.
 
@@ -59,8 +59,8 @@ Investigate empty or unexpected results; never invent data to make a demo appear
 - IDs are stable across a re-sync.
 - The UI spot-check at `/admin/connectors/authoring/<catalog_id>` shows the
   connector's resources and grants (the legacy
-  `/admin/connector/<catalog_id>/<app_id>/<connector_id>` alias redirects
-  when authoring is enabled).
+  `/admin/connector/<catalog_id>/<app_id>/<connector_id>` alias renders the
+  authored connector view when authoring is enabled).
 
 ## Anti-patterns
 

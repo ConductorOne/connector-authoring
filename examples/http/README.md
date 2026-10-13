@@ -46,7 +46,9 @@ The companion files describe how the graph is hosted:
 - [`capabilities.json`](./capabilities.json) declares connector and resource-type capabilities.
 - [`config-schema.json`](./config-schema.json) declares the tenant configuration form.
 - [`runtime-schema.json`](./runtime-schema.json) declares the hosted bundle entrypoint,
-  runtime configuration contract, and top-level `connect.directory` HTTP transport.
+  runtime configuration contract, and top-level `connect.directory` HTTP transport
+  (read by C1's draft-test probe and host-grant derivation; the runtime itself
+  takes transports from `connector.ts`).
 - [`openapi.json`](./openapi.json) freezes the fictional endpoint and response contract.
 - [`reviewed-ops.json`](./reviewed-ops.json) freezes the three GET projections,
   each with `output_slice: "items"` and camelCase offset pagination

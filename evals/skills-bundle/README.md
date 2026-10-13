@@ -9,8 +9,9 @@ build-required files plus two test-required frozen files (`openapi.json`,
 `reviewed-ops.json`). This supersedes the tool-count and source-file contract
 descriptions in the historical release entries below.
 
-- Source authoring requires named top-level `connect` entries and typed
-  reviewed operations with `output_slice` on every projection.
+- Draft testing requires a top-level `connect` entry naming the registered
+  HTTP transport (a C1 probe/serve contract, not a runtime directive) and
+  typed reviewed operations with `output_slice` on every projection.
 - Activation, update, and failure diagnosis require matching PASS evidence
   with `transport_judge_verdict == "accepted"`; non-accepted or missing
   verdicts follow the build-and-test stop rules rather than just re-minting.
