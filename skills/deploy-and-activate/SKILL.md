@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.4
+version: 0.3.5
 ---
 
 # deploy-and-activate
@@ -19,20 +19,21 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    already exists under the app, reuse it. GATE: non-empty `connector_id`.
    STOP if empty.
 3. Configure - the named credential decision point. Teach BOTH paths:
-   - Path A (agent-via-API, from the lifecycle doc): call
+   - API path (external agent-via-API, from the lifecycle doc): call
      `c1_connector_service_get` to read the connector, then
      `c1_connector_service_update` with `updateMask: "config"` and the
      `EnvConfig` `configuration` JSON - the keys must match the
      `config("field-name")` names in `connector.ts`.
-   - Path B (human-in-UI, from the served guide): the served guide says
-     configure credentials in the Admin UI; never ask a human to paste
-     secrets into agent chat.
+   - UI path (human-in-UI, from the served guide): a human configures
+     credentials in Details -> Settings in the Admin UI; never ask a human
+     to paste secrets into agent chat. The hosted C1AI specialist has no
+     credential-update tool, so the UI path is the only path in that session.
    Rule stated verbatim: served guide wins on conflict. GATE: base-url,
    account-email, and api-token all set. STOP if the credentials are missing
    - an empty `stringValue` deletes the secret field and the draft test
-   fails. Use Path A when you configure through the API; Path B applies
-   when a human configures in the Admin UI and you do not set config
-   yourself.
+   fails. Use the API path for an external agent with the credential-update
+   API; use the UI path when a human configures credentials, including every
+   hosted C1AI specialist session.
 4. Deploy: call `c1_connector_authoring_deploy_connector_instance`; capture
    `deployment_instance_id`. GATE: non-empty. STOP if empty.
 5. Mint approval: call `c1_connector_authoring_mint_approval_token` with
@@ -60,8 +61,11 @@ activation, make no call after mint other than the handoff write.
   5-10s, up to ~10 polls, until the target revision's status is
   `REVISION_STATUS_ACTIVE`; record its `activation_epoch`. GATE: ACTIVE.
   STOP if not ACTIVE - if approval reports `evidence is unsatisfied`, return
-  to the test step and confirm a PASS row binds this revision before minting
-  a fresh approval URL. If no ACTIVE row after ~10 polls, STOP and report.
+  to the review/judgment and draft-test path per the build-and-test verdict
+  table. Correct the verdict's cause; do not just re-mint. Confirm evidence
+  binds this revision with both `result == CONNECTOR_TEST_RUN_RESULT_PASS`
+  and `transport_judge_verdict == "accepted"` before minting a fresh approval
+  URL. If no ACTIVE row after ~10 polls, STOP and report.
 - Sync leg: do not call `c1_connector_service_force_sync` in the authoring
   session, even if a notification resumed it. The human/operator runs it
   after the OWNER activates, then verifies with `c1_connector_service_get`

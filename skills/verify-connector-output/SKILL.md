@@ -1,7 +1,7 @@
 ---
 name: verify-connector-output
 description: Use when verifying a post-activation connector's sync output: resource/entitlement/grant counts, grant wiring, ID stability across re-sync, and the UI spot-check. Do not use when updating or rolling back a live connector - use update-and-rollback; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.1.1
+version: 0.1.3
 ---
 
 # verify-connector-output
@@ -41,9 +41,11 @@ MCP titles.
    `SYNC_STATUS_DISABLED`; if no terminal status after ~10 polls, STOP and
    report. Confirm the emitted resource and entitlement IDs are stable
    across the re-sync - no churn in identity fields. GATE: IDs unchanged.
-5. UI spot-check: open `/admin/connector/<catalog_id>/<app_id>/<connector_id>`
-   on the product base URL and confirm the connector's resources and grants
-   appear. GATE: resources and grants visible.
+5. UI spot-check: open the canonical authoring page
+   `/admin/connectors/authoring/<catalog_id>` on the product base URL and
+   confirm the connector's resources and grants appear. The legacy alias
+   `/admin/connector/<catalog_id>/<app_id>/<connector_id>` renders the authored
+   connector view when authoring is enabled. GATE: resources and grants visible.
 
 Investigate empty or unexpected results; never invent data to make a demo appear complete.
 
@@ -55,8 +57,10 @@ Investigate empty or unexpected results; never invent data to make a demo appear
 - Every grant principal references an emitted resource; every grant
   entitlement ID references an emitted entitlement.
 - IDs are stable across a re-sync.
-- The UI spot-check at `/admin/connector/<catalog_id>/<app_id>/<connector_id>`
-  shows the connector's resources and grants.
+- The UI spot-check at `/admin/connectors/authoring/<catalog_id>` shows the
+  connector's resources and grants (the legacy
+  `/admin/connector/<catalog_id>/<app_id>/<connector_id>` alias renders the
+  authored connector view when authoring is enabled).
 
 ## Anti-patterns
 

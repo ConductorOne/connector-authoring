@@ -43,10 +43,26 @@ The connector declares a graph:
 
 The companion files describe how the graph is hosted:
 
-- `capabilities.json` declares connector and resource-type capabilities.
-- `config-schema.json` declares the tenant configuration form.
-- `runtime-schema.json` declares the hosted bundle entrypoint and runtime
-  configuration contract.
+- [`capabilities.json`](./capabilities.json) declares connector and resource-type capabilities.
+- [`config-schema.json`](./config-schema.json) declares the tenant configuration form.
+- [`runtime-schema.json`](./runtime-schema.json) declares the hosted bundle entrypoint,
+  runtime configuration contract, and top-level `connect.directory` HTTP transport
+  (read by C1's draft-test probe and host-grant derivation; the runtime itself
+  takes transports from `connector.ts`).
+- [`openapi.json`](./openapi.json) freezes the fictional endpoint and response contract.
+- [`reviewed-ops.json`](./reviewed-ops.json) freezes the three GET projections,
+  each with `output_slice: "items"` and camelCase offset pagination
+  (`style`, `pageParam`, `sizeParam`). Group members bind `{groupId}` from
+  the parent groups projection.
+  This single-HTTP example omits transport names in the frozen operation list;
+  the operations use the default binding to `connect.directory`.
+
+The first three companion files plus `connector.ts` are build-required.
+The two frozen files are optional for build but required for a draft-test
+PASS and activation. They do not turn this fixture into a live test service:
+testing requires an API implementing this contract and configured credentials,
+with non-empty records covering every declared projection. Activation also
+requires an `accepted` transport judge verdict alongside matching PASS evidence.
 
 This example is read-only. It declares sync surfaces and emits membership
 entitlements and grants, but it does not implement grant or revoke operations.

@@ -1,5 +1,9 @@
 # Sources — source-openapi-spec
 
+The lifecycle documentation has been restructured; see the product
+documentation hub for the current authoring guides. The historical pins
+below remain unchanged for provenance; verified re-pinning is a separate pass.
+
 Authored against the pinned sources below (decision 13: nothing written from
 model memory). The 5-rung authority ladder, the programmatic IAM go/no-go
 gate, and the park-with-evidence contract are the locked intent of this batch

@@ -2,6 +2,30 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.0 - current authoring contract
+
+The current bundle targets the 25-tool tenant MCP surface and teaches four
+build-required files plus two test-required frozen files (`openapi.json`,
+`reviewed-ops.json`). This supersedes the tool-count and source-file contract
+descriptions in the historical release entries below.
+
+- Draft testing requires a top-level `connect` entry naming the registered
+  HTTP transport (a C1 probe/serve contract, not a runtime directive) and
+  typed reviewed operations with `output_slice` on every projection.
+- Activation, update, and failure diagnosis require matching PASS evidence
+  with `transport_judge_verdict == "accepted"`; non-accepted or missing
+  verdicts follow the build-and-test stop rules rather than just re-minting.
+- Hosted-only operation review is an S3b step; without review reads are
+  GET-only, and source edits invalidate review.
+- Credential configuration distinguishes the external API path from the
+  human UI path required by the hosted C1AI specialist.
+- Verification uses `/admin/connectors/authoring/<catalog_id>`.
+- The fictional HTTP example includes the frozen pair; the eval upload and
+  evidence instructions match this contract.
+
+Skill versions advance for all seven changed bodies, including the
+failure-diagnosis correction. Historical source pins remain unchanged.
+
 ## v0.4.0 - the ten skills
 
 The bundle ships ten skills: the seven prior skills plus three post-funnel
@@ -61,4 +85,4 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Private drivers mount per the manifest —
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.4.0`); the runner records both in every run record.
+`skillBundle.version` (`0.12.0`); the runner records both in every run record.

@@ -15,7 +15,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.11.0"
+const VERSION = "0.12.0"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string}[]}
@@ -79,6 +79,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not call `force_sync` in the authoring session",
     "write-connector-source",
+    'transport_judge_verdict == "accepted"',
   ],
   "read-authoring-contract": [
     "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
@@ -86,6 +87,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
   ],
   "build-and-test": [
     "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
+    'transport_judge_verdict == "accepted"',
   ],
   "deploy-and-activate": [
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
@@ -93,6 +95,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not call `c1_connector_service_force_sync` in the authoring session",
     "Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates",
+    'transport_judge_verdict == "accepted"',
+    "Correct the verdict's cause; do not just re-mint",
   ],
   "write-connector-source": [
     "Do not call fetch",
@@ -105,6 +109,12 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "connector.js",
     "CAPABILITY_SYNC",
     "baton-axiomatic capabilities",
+    "the build rejects any other shape",
+    "Metadata only - it grants nothing at runtime",
+    "not a build requirement and the hosted runtime does not read it",
+    "reviewed operations declarations are invalid",
+    "not read by the runtime",
+    "strictly validated metadata",
     "ticketing.enabled",
     "account_id",
     "user.title",
@@ -145,6 +155,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "entitlement ID references an emitted entitlement",
     "ID stability",
     "/admin/connector/",
+    "renders the authored",
   ],
   "update-and-rollback": [
     "serve image does not match the revision-pinned runtime image",
@@ -156,6 +167,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
+    'transport_judge_verdict == "accepted"',
+    "Correct the verdict's cause; do not just re-mint",
     "If no ACTIVE row after ~10 polls, STOP and report",
     "no terminal status after ~10 polls, STOP and report",
     "SYNC_STATUS_ERROR",
@@ -171,6 +184,10 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "unregistered transport",
     "ticketing.enabled must be true when ticketing is configured",
     "activation evidence is unsatisfied",
+    'transport_judge_verdict == "accepted"',
+    "correct the verdict's cause; do not just re-mint",
+    "Nonempty declared projections have full coverage",
+    "until a new accepted PASS row binds the revision",
     "Invalid token provided",
     "ConnectionOK",
     "HostCallOK",
@@ -197,7 +214,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.11.0")
+  assert.equal(full.skillBundle.version, "0.12.0")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -246,7 +263,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.11.0")
+    assert.equal(meta.skill_bundle_version, "0.12.0")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

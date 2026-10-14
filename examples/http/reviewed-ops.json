@@ -1,0 +1,47 @@
+{
+  "operations": [
+    {
+      "operation_id": "users",
+      "method": "GET",
+      "path_template": "/v1/users",
+      "read": true,
+      "id_path": "id",
+      "output_slice": "items",
+      "pagination": {
+        "style": "offset",
+        "pageParam": "offset",
+        "sizeParam": "limit",
+        "totalPath": "total"
+      }
+    },
+    {
+      "operation_id": "groups",
+      "method": "GET",
+      "path_template": "/v1/groups",
+      "read": true,
+      "id_path": "id",
+      "output_slice": "items",
+      "pagination": {
+        "style": "offset",
+        "pageParam": "offset",
+        "sizeParam": "limit",
+        "totalPath": "total"
+      }
+    },
+    {
+      "operation_id": "group-members",
+      "method": "GET",
+      "path_template": "/v1/groups/{groupId}/members",
+      "read": true,
+      "parent": { "operation_id": "groups", "id_path": "id", "param": "groupId" },
+      "id_path": "userId",
+      "output_slice": "items",
+      "pagination": {
+        "style": "offset",
+        "pageParam": "offset",
+        "sizeParam": "limit",
+        "totalPath": "total"
+      }
+    }
+  ]
+}

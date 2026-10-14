@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.2
+version: 0.2.3
 ---
 
 # update-and-rollback
@@ -19,7 +19,10 @@ titles.
    digest match. STOP if the digests differ - see the rotation limitation
    below.
 3. Pass a fresh draft test with the instance credentials (steps 9-10).
-   GATE: durable PASS evidence binds the new revision.
+   GATE: durable evidence binds the new revision with both
+   `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
+   `transport_judge_verdict == "accepted"`. STOP on any other or missing
+   verdict and follow the build-and-test verdict table before minting.
 4. Mint a new approval URL with `c1_connector_authoring_mint_approval_token`
    (`expires_in_seconds` 1-14400). GATE: non-empty `activation_url`.
 5. HARD STOP at the human boundary: present the URL to a human tenant OWNER
@@ -35,8 +38,11 @@ titles.
    5-10s, up to ~10 polls, until the target revision is
    `REVISION_STATUS_ACTIVE`; record its `activation_epoch`. GATE: ACTIVE.
    STOP if not ACTIVE - if approval reports `evidence is unsatisfied`,
-   return to the draft-test step and confirm a fresh PASS row binds this
-   revision before minting a new approval URL.
+   return to the review/judgment and draft-test path per the build-and-test
+   verdict table. Correct the verdict's cause; do not just re-mint.
+   Confirm fresh evidence binds this revision with both
+   `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
+   `transport_judge_verdict == "accepted"` before minting a new approval URL.
    If no ACTIVE row after ~10 polls, STOP and report.
 7. Call `c1_connector_service_force_sync`; poll `c1_connector_service_get`
    with backoff (e.g. every 5-10s) until `status.status` is
@@ -93,7 +99,8 @@ fix cycles, stop and report the exact error text (see Blocker protocol).
 ## Exit criteria
 
 - Same-catalog rerun: new revision ACTIVE with a recorded `activation_epoch`,
-  fresh PASS evidence, and a completed force sync.
+  fresh PASS evidence with `transport_judge_verdict == "accepted"`, and a
+  completed force sync.
 - The rotation STOP fired verbatim (`serve image does not match the revision-pinned runtime image`) with the escalation record: tenant,
   catalog, app, connector, and target revision IDs.
 - Rollback: `POST /api/v1/connector-authoring/rollbacks` accepted with

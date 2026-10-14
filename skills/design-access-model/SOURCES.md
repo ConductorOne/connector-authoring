@@ -1,5 +1,9 @@
 # Sources — design-access-model
 
+The lifecycle documentation has been restructured; see the product
+documentation hub for the current authoring guides. The historical pins
+below remain unchanged for provenance; verified re-pinning is a separate pass.
+
 Authored against the pinned sources below (decision 13: nothing written from
 model memory). The three decision tables, the stable-ID rules, and the
 `WithExternalID` deprecation are the locked intent of this batch (plan

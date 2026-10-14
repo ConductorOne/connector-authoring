@@ -1,5 +1,9 @@
 # Sources — read-authoring-contract
 
+The lifecycle documentation has been restructured; see the product
+documentation hub for the current authoring guides. The historical pins
+below remain unchanged for provenance; verified re-pinning is a separate pass.
+
 Authored against the pinned sources below (decision 8: nothing written from
 model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 `authoring.proto`, (c) lifecycle doc, (d) in-repo `baton/*.d.ts` +

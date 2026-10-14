@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.1
+version: 0.3.2
 ---
 
 # build-and-test
@@ -14,7 +14,7 @@ the exact tenant MCP titles; the served guide abbreviates them.
 
 1. Upload dance (out-of-band path): run `wc -c <file>` for each source file,
    then call `c1_connector_authoring_create_draft_source_upload` declaring
-   every file the build needs (path + size_bytes), then PUT each file to its
+   every file needed for build and test (path + size_bytes), then PUT each file to its
    `upload_targets[path].url` sending `required_headers` verbatim, then call
    `c1_connector_authoring_finalize_draft_source_upload` with the same
    `catalog_id`/`draft_id`/`upload_id` and the file list with `sizeBytes`.
@@ -47,12 +47,39 @@ the exact tenant MCP titles; the served guide abbreviates them.
    `(catalog_id, revision_id, test_run_id)` every 5-10s, up to ~10 polls
    (`NotFound` while pending); if no row, STOP and report pending rather than
    redispatching the test. GATE:
-   `result == CONNECTOR_TEST_RUN_RESULT_PASS`. STOP if the row reports FAIL -
-   read the error field, fix, and re-run from the correct step with a FRESH
-   `test_run_id`; never re-mint on a failed run.
+   `result == CONNECTOR_TEST_RUN_RESULT_PASS` only for S10. Activation also
+   requires `transport_judge_verdict == "accepted"` on matching evidence;
+   PASS alone does not authorize activation. STOP on any other result or
+   verdict; use the verdict table below. For FAIL, read the error field,
+   fix, and re-run from the correct step with a FRESH `test_run_id`; never
+   re-mint on a failed run.
 5. Re-run-from-correct-step rules: a failed build re-runs from the build
    step; a failed test re-runs from the test step; never re-mint a draft or
    re-upload the whole set unless the source set changed.
+
+## S3b: operation review
+
+Freeze `openapi.json` and `reviewed-ops.json` before building and testing.
+`review_connector_operations` is hosted-only (the C1AI assistant); external
+agents do not have that tool. Without a review, reads are GET-only. Source
+edits invalidate a review: re-review changed inputs in a hosted session,
+then rebuild and retest.
+
+## Transport verdict gate
+
+Read `transport_judge_verdict` from the durable test evidence. Only
+`accepted` AND `CONNECTOR_TEST_RUN_RESULT_PASS` on matching evidence permit
+activation; never treat a missing or non-accepted verdict as acceptance.
+
+| Verdict | Required action / stop rule |
+|---------|-----------------------------|
+| `accepted` | Proceed only with a matching PASS row; failed or incomplete evidence is not acceptance. |
+| `needs_author` | Stop; correct source or operation list, re-review changed inputs, rebuild, and retest. |
+| `scope_stop` | Hard stop; investigate the unreviewed call. Do not retry unchanged. |
+| `insufficient_evidence` | Stop; identify missing evidence. Do not deploy or activate. |
+| `setup_blocked` | Stop; resolve the named tenant/vendor setup or runtime dependency before retesting. |
+| `infrastructure_failure` | Stop; resolve the infrastructure failure. Never call it connector acceptance. |
+| missing | Stop; the evidence has not been judged. Unjudged evidence is FAIL. |
 
 ## Exit criteria
 
@@ -64,7 +91,9 @@ the exact tenant MCP titles; the served guide abbreviates them.
 - S5 passes: `RUN_STATE_SUCCEEDED` and `revision_id` non-empty.
 - S9 passes: `test_run_id` non-empty, at least one successful
   `c1_connector_authoring_run_draft_test_sync`.
-- S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`.
+- S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`
+  only. The separate activation gate requires this PASS AND
+  `transport_judge_verdict == "accepted"` on matching evidence.
 
 ## Anti-patterns
 
