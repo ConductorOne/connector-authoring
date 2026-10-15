@@ -123,6 +123,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "totalPath",
     "newUserResource",
     "user.id",
+    "http.v2",
+    "Offset pagination requires a stopping condition",
     "config(\"base-url\")",
   ],
   "design-access-model": [

@@ -32,10 +32,15 @@ configuration-proto shape into the snake_case runtime schema.
 The connector declares a graph:
 
 1. `config(...)` creates opaque public and secret references.
-2. `http.v1(...)` declares native basic authentication. Connector code never
+2. `http.v2(...)` declares native basic authentication. Connector code never
    reads the account email or API token.
 3. Each `node` returns a `directory.GET(...)` descriptor with offset
    pagination. The hosted runtime executes requests and advances pages.
+   v2 requires an explicit stopping condition: this example uses
+   `totalPath: ["total"]` with `pageSize: 100` (and the response's `limit`
+   through `maxResultsPath`). It does not infer completion from a short page.
+   For other APIs use `isLastPath`, or opt into `shortPage: true` only when
+   the API guarantees full pages until the last. `http.v1` is deprecated.
 4. Node results populate slots. Walks map slot rows to users and groups, then
    map membership rows to grants.
 5. `connector({ transports: {directory} })` registers the same transport

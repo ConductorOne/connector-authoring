@@ -4,6 +4,7 @@ import {
     connector,
     http,
     node,
+    type OffsetQueryPaginationSpecV2,
     type PublicConfigField,
     resourceType,
     type RuntimeGrant,
@@ -38,7 +39,7 @@ const baseUrl = config("base-url") as PublicConfigField<string, "base-url">
 const accountEmail = config("account-email") as PublicConfigField<string, "account-email">
 const apiToken = config("api-token") as SecretConfigField<string, "api-token">
 
-const directory = http.v1({
+const directory = http.v2({
     baseUrl,
     auth: {type: "basic", username: accountEmail, password: apiToken},
     headers: {Accept: "application/json"},
@@ -51,8 +52,9 @@ const offsetPagination = {
     pageSize: 100,
     startAtPath: ["offset"] as const,
     maxResultsPath: ["limit"] as const,
+    // v2 requires an explicit stopping condition; this API reports total rows.
     totalPath: ["total"] as const,
-}
+} satisfies OffsetQueryPaginationSpecV2
 
 const userRow = slot<DirectoryUser>()
 const groupRow = slot<DirectoryGroup>()

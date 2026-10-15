@@ -39,7 +39,7 @@ config + auth -> registered transport -> node outputs/slots -> walk mappings
               -> resource types (resources, entitlements, grants)
 ```
 
-Authored TypeScript declares a graph. `http.v1(...)` declares a transport,
+Authored TypeScript declares a graph. `http.v2(...)` declares a transport,
 `node.run` returns an execution descriptor, slots carry returned rows, and
 `walk` maps those rows into ConductorOne values. The hosted runtime owns
 execution and pagination.
