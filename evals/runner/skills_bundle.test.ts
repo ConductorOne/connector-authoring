@@ -275,19 +275,23 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
   }
 })
 
-test("(f) every skill ships a non-empty SOURCES.md naming its pinned sources", () => {
+test("(f) every skill's SOURCES.md references in-repo content by resolvable relative path and names an immutable public release tag", () => {
   const skillsRoot = resolve("skills")
   for (const name of SKILLS) {
     const sourcesPath = join(skillsRoot, name, "SOURCES.md")
     assert.ok(existsSync(sourcesPath), `missing SOURCES.md: ${name}`)
     const content = readFileSync(sourcesPath, "utf8")
     assert.ok(content.length > 0, `empty SOURCES.md: ${name}`)
-  }
-  // Every skill must retain a fetchable immutable public source, not merely
-  // a non-empty provenance file or an inaccessible implementation pin.
-  const publicPin = "https://github.com/ConductorOne/connector-authoring/tree/8c5d8bd1e48fbdb2e1502420cdf3d7939fb1010d"
-  for (const name of SKILLS) {
-    const content = readFileSync(join(skillsRoot, name, "SOURCES.md"), "utf8")
-    assert.ok(content.includes(publicPin), `${name}: SOURCES.md does not name the public SDK pin`)
+    // Self-SHA pins are forbidden because they are stale by construction;
+    // branch pins are forbidden because they are mutable. Keep an immutable release tag.
+    assert.match(content, /https:\/\/github\.com\/ConductorOne\/connector-authoring\/tree\/v\d+\.\d+\.\d+/, `${name}: SOURCES.md does not name an immutable public release tag`)
+    assert.doesNotMatch(content, /connector-authoring\/tree\/[0-9a-f]{7,40}\b/, `${name}: SOURCES.md contains a self-SHA pin`)
+    assert.doesNotMatch(content, /connector-authoring\/tree\/main\b/, `${name}: SOURCES.md contains a mutable branch pin`)
+    const relativePaths = [...content.matchAll(/\.\.\/\.\.\/[^\s`),|]+/g)]
+    assert.ok(relativePaths.length > 0, `${name}: SOURCES.md does not reference in-repo content by relative path`)
+    for (const [relativePath] of relativePaths) {
+      const path = relativePath.replace(/[^/]*[*?{\[].*$/, "")
+      assert.ok(existsSync(resolve(skillsRoot, name, path)), `${name}: SOURCES.md path does not resolve: ${relativePath}`)
+    }
   }
 })

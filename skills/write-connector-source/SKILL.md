@@ -36,7 +36,7 @@ Top-level `connect` (sibling of `runtime`, `{"<transport-name>": {"type": "http"
 4. The bundle targets ES5 - no `u` regex flag; goja quirks apply.
 5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers` (`@baton/*` resolution).
 
-Worked skeletons: `examples/http/connector.ts` (transport + offset pagination + users/groups/membership grants) and `examples/static/connector.ts` (zero-config); see the public declaration pin in SOURCES.md.
+Worked skeletons: `examples/http/connector.ts` (transport + offset pagination + users/groups/membership grants) and `examples/static/connector.ts` (zero-config); see SOURCES.md.
 
 ## config-schema.json rules
 

@@ -41,8 +41,8 @@ and cross-cutting skills at `0.1.0`:
   where logs live.
 
 The seven prior skills were unchanged in this release; the bundle version
-was `0.4.0`. Each skill's SOURCES.md distinguishes public declaration pins
-from tenant-served behavior.
+was `0.4.0`. Each skill's SOURCES.md distinguishes checkout-relative declarations
+and examples, immutable historical release tags, and tenant-served behavior.
 
 ## v0.3.0 — the seven skills
 

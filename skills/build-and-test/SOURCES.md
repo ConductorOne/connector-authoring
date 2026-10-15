@@ -5,9 +5,11 @@ static documentation. Tenant lifecycle behavior is read live, not inferred
 from a public SDK release. Internal design discussion informed the evidence
 boundaries; it is not a fetchable public source.
 
+In-repo content is referenced by relative path and is always current with the checkout; skills and examples evolve in the same commit.
+
 | Source | Public pin / access | What this skill uses |
 |---|---|---|
-| SDK declarations and examples | [connector-authoring at 8c5d8bd](https://github.com/ConductorOne/connector-authoring/tree/8c5d8bd1e48fbdb2e1502420cdf3d7939fb1010d) | `baton/*.d.ts` and the source files uploaded for build and test. |
+| SDK declarations and examples | `../../baton/*.d.ts`, `../../examples/http/`, `../../examples/static/` (this checkout) | `baton/*.d.ts` and the source files uploaded for build and test. |
 | Historical SDK baseline | [v0.0.26](https://github.com/ConductorOne/connector-authoring/tree/v0.0.26) | Historical declaration release, not proof of compatibility with the current tenant runtime. |
 | Tenant-served authoring guide | Read through `c1_connector_authoring_get_authoring_guide` | Upload targets and signed headers, size caps, required files, build state, durable test evidence, operation review, and transport verdicts. |
 
