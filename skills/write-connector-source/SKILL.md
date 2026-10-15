@@ -74,7 +74,7 @@ containing `token`, `secret`, `password`, `api-key`, and similar) MUST carry
 secret; the `secret:` spelling is not read; `runtime.connector: "connector.js"`.
 Top-level `connect` uses the registered transport name: `directory` for
 `const directory = http.v2(...)` and `transports: {directory}`; HTTP uses `"type": "http"`.
-Example shape (from the lifecycle doc's source-file contract section):
+Example shape (from the served guide's source-file contract section):
 
 ```json
 {
@@ -152,7 +152,7 @@ connector image is available; move its output to `capabilities.json`.
 ## Dual-schema parity (pre-upload checklist)
 
 Field-name parity between `config-schema.json` and `runtime-schema.json`;
-`api-token` `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
+every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
 
 - [ ] `connector.ts` source under the 262144-byte compile limit.
 - [ ] Built bundle with embedded runtime specs under the 1048576-byte limit (see `build-and-test`).
@@ -176,7 +176,7 @@ Field-name parity between `config-schema.json` and `runtime-schema.json`;
 - Use `http.v2`; `http.v1` is deprecated. Offset pagination requires a stopping condition (`totalPath`, e.g. `["total"]`, or `isLastPath`; `shortPage: true` only if full pages until the last are guaranteed) and `pageSize` or `maxResultsPath`.
 - Declare every `config("...")` literal the code reads in BOTH schemas (e.g. `config("base-url")` / `config("account-email")` / `config("api-token")`).
 - Construct users with the runtime's user helper + the user id (e.g. `newUserResource` + `user.id`).
-- Hygiene: four build-required files; two frozen files for PASS/activation; dual-schema parity; `api-token` `is_secret` in both schemas; no fixture/test credentials in source; upload caps (16 MiB total / 12 MiB per file / 256 files).
+- Hygiene: four build-required files; two frozen files for PASS/activation; dual-schema parity; every secret field (e.g. `api-token`) `is_secret` in BOTH schemas; no fixture/test credentials in source; upload caps (16 MiB total / 12 MiB per file / 256 files).
 
 ## Exit criteria
 

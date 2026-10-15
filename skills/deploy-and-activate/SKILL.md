@@ -19,7 +19,7 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    already exists under the app, reuse it. GATE: non-empty `connector_id`.
    STOP if empty.
 3. Configure - the named credential decision point. Teach BOTH paths:
-   - API path (external agent-via-API, from the lifecycle doc): call
+   - API path (external agent-via-API, from the served guide): call
      `c1_connector_service_get` to read the connector, then
      `c1_connector_service_update` with `updateMask: "config"` and the
      `EnvConfig` `configuration` JSON - the keys must match the

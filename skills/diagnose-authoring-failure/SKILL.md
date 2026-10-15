@@ -7,10 +7,9 @@ version: 0.1.2
 # diagnose-authoring-failure
 
 Symptom -> cause -> fix router for authored-connector failures. Built on the
-lifecycle doc's common-failures table, the draft-test evidence reading, and
-where logs live. Ports the taxonomy approach of baton-admin
-`diagnose-connector-failure`; the baton-admin skill's repo-local CLI
-tooling is replaced by the tenant MCP tools named below.
+served guide's common-failures table, the draft-test evidence reading, and
+where logs live. Ports a symptom-first taxonomy; repo-local CLI tooling is
+replaced by the tenant MCP tools named below.
 
 ## Workflow
 

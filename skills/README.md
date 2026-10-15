@@ -9,15 +9,15 @@ pins from the tenant-served guide and generic design provenance.
 
 | Skill | Stage coverage | Source basis |
 |---|---|---|
-| `author-in-app-connector` | Orchestrator — the full S0–S11 funnel | MCP-served guide, `authoring.proto`, lifecycle doc |
+| `author-in-app-connector` | Orchestrator — the full S0–S11 funnel | MCP-served guide, `authoring.proto` |
 | `read-authoring-contract` | Stage 0 — guide + SDK contract read | MCP-served guide, `authoring.proto` |
 | `write-connector-source` | Source authoring before S2 - the four build-required files plus the two test-required frozen files (`openapi.json`, `reviewed-ops.json`) | MCP-served guide, public SDK declarations and examples |
-| `build-and-test` | Stages 2–5, 9–10 — upload, build, draft test | MCP-served guide, `authoring.proto`, lifecycle doc |
-| `deploy-and-activate` | Stages 6–8, 11 — app, provision, configure, deploy, mint, handoff | MCP-served guide, `authoring.proto`, lifecycle doc |
+| `build-and-test` | Stages 2–5, 9–10 — upload, build, draft test | MCP-served guide, `authoring.proto` |
+| `deploy-and-activate` | Stages 6–8, 11 — app, provision, configure, deploy, mint, handoff | MCP-served guide, `authoring.proto` |
 | `design-access-model` | Pre-1 - access-model design for net-new providers | Public SDK traits/examples, internal design discussion |
 | `source-openapi-spec` | Pre-1 - OpenAPI spec sourcing + IAM go/no-go | Provider documentation, internal design discussion |
 | `verify-connector-output` | Post-11 - post-sync verification (counts, grant wiring, ID stability, UI spot-check) | MCP-served guide, public SDK examples, internal design discussion |
-| `update-and-rollback` | Post-activation - same-catalog update + REST rollback | MCP-served guide, `authoring.proto`, lifecycle doc |
+| `update-and-rollback` | Post-activation - same-catalog update + REST rollback | MCP-served guide, `authoring.proto` |
 | `diagnose-authoring-failure` | Cross-cutting - symptom -> cause -> fix router | MCP-served guide, public SDK examples, internal design discussion |
 
 The eval bundle (`evals/skills-bundle/bundle.json`) is a manifest pointing

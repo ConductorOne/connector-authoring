@@ -102,7 +102,9 @@ produces it:
 | 6-8, 11 | `deploy-and-activate` |
 | pre-1 design (net-new provider) | `design-access-model` |
 | pre-1 spec sourcing | `source-openapi-spec` |
-| verify/update/diagnose (not yet shipped) | follow the served guide |
+| post-activation verification | `verify-connector-output` |
+| update / rollback of an active connector | `update-and-rollback` |
+| failure diagnosis (any stage) | `diagnose-authoring-failure` |
 
 Direct invocation of a stage skill is allowed; the router alone is not
 trusted to recover mid-funnel.
