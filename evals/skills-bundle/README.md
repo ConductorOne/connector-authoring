@@ -145,12 +145,12 @@ npm run bundle:update
 
 The updater refreshes manifest versions and content pins together. For existing
 skills, it refuses changed files unless their frontmatter version is greater
-than the recorded version. For a new skill path, add the entry with the
-frontmatter version and no `sha256`; the updater pins it and reports a first pin.
-Paths already present in HEAD's manifest must retain their recorded hash;
-deleting an existing pin is an error, not a first pin.
-The updater requires Git HEAD's committed manifest to distinguish new paths and
-fails closed if it is unavailable or invalid; the eval gate remains git-free.
+than the recorded version. When adding a skill, add the entry with its
+frontmatter version and no `sha256`, then run
+`npm run bundle:update -- --new <name>` to record and report its first pin.
+Repeat `--new <name>` for multiple additions. Missing pins without `--new` are
+rejected; the flag declares maintainer intent, not historical provenance.
+The updater and eval gate are both git-free.
 All entries are validated before writing, and SKILL.md files are left alone.
 Unchanged files keep their versions. Also bump the bundle version, update its
 scenario/test pins, and add a history entry here as for any bundle release.
