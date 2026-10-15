@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json) plus the two test-required frozen files (openapi.json, reviewed-ops.json) for an in-app connector draft, before the S2 upload. Do not use when the source files are already uploaded and you are mid-funnel - invoke build-and-test instead.
-version: 0.2.3
+version: 0.2.4
 ---
 
 # write-connector-source
@@ -36,7 +36,7 @@ Top-level `connect` (sibling of `runtime`, `{"<transport-name>": {"type": "http"
 4. The bundle targets ES5 - no `u` regex flag; goja quirks apply.
 5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers` (`@baton/*` resolution).
 
-Worked skeletons: `examples/http/connector.ts` (transport + offset pagination + users/groups/membership grants), `examples/static/connector.ts` (zero-config), and the lifecycle doc's Okta example (pin in SOURCES.md).
+Worked skeletons: `examples/http/connector.ts` (transport + offset pagination + users/groups/membership grants) and `examples/static/connector.ts` (zero-config); see SOURCES.md.
 
 ## config-schema.json rules
 
@@ -73,8 +73,8 @@ containing `token`, `secret`, `password`, `api-key`, and similar) MUST carry
 `is_secret: true` - the build rejects a credential-class field not marked
 secret; the `secret:` spelling is not read; `runtime.connector: "connector.js"`.
 Top-level `connect` uses the registered transport name: `directory` for
-`const directory = http.v1(...)` and `transports: {directory}`; HTTP uses `"type": "http"`.
-Example shape (from the lifecycle doc's source-file contract section):
+`const directory = http.v2(...)` and `transports: {directory}`; HTTP uses `"type": "http"`.
+Example shape (from the served guide's source-file contract section):
 
 ```json
 {
@@ -152,7 +152,7 @@ connector image is available; move its output to `capabilities.json`.
 ## Dual-schema parity (pre-upload checklist)
 
 Field-name parity between `config-schema.json` and `runtime-schema.json`;
-`api-token` `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
+every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
 
 - [ ] `connector.ts` source under the 262144-byte compile limit.
 - [ ] Built bundle with embedded runtime specs under the 1048576-byte limit (see `build-and-test`).
@@ -173,10 +173,10 @@ Field-name parity between `config-schema.json` and `runtime-schema.json`;
 
 - Scope list calls with the tenant-scoping query param (e.g. `account_id`); a comment mention does not count.
 - Handle nullable fields (e.g. `user.title`) defensively.
-- Terminate offset pagination with the API's total-count path (`totalPath`).
+- Use `http.v2`; `http.v1` is deprecated. Offset pagination requires a stopping condition (`totalPath`, e.g. `["total"]`, or `isLastPath`; `shortPage: true` only if full pages until the last are guaranteed) and `pageSize` or `maxResultsPath`.
 - Declare every `config("...")` literal the code reads in BOTH schemas (e.g. `config("base-url")` / `config("account-email")` / `config("api-token")`).
 - Construct users with the runtime's user helper + the user id (e.g. `newUserResource` + `user.id`).
-- Hygiene: four build-required files; two frozen files for PASS/activation; dual-schema parity; `api-token` `is_secret` in both schemas; no fixture/test credentials in source; upload caps (16 MiB total / 12 MiB per file / 256 files).
+- Hygiene: four build-required files; two frozen files for PASS/activation; dual-schema parity; every secret field (e.g. `api-token`) `is_secret` in BOTH schemas; no fixture/test credentials in source; upload caps (16 MiB total / 12 MiB per file / 256 files).
 
 ## Exit criteria
 

@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.4.0 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.1 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
@@ -70,10 +70,11 @@ The agent must write `handoff.json` (all 10 fields: `catalog_id`, `draft_id`,
 `upload_id`, `run_id`, `revision_id`, `app_id`, `connector_id`,
 `test_run_id`, `deployment_instance_id`, `activation_url`) to the run
 channel's `handoffPath` (`<out>/<run-id>/handoff.json` for Tier-0) via the
-driver's transport, then STOP. It never redeems the approval token, never
-polls `REVISION_STATUS_ACTIVE`, never calls `c1_connector_service_force_sync`
-(activation is human-only; `REVISION_STATUS_ACTIVE` and `SYNC_STATUS_DONE`
-are recorded as `skipped_human_boundary`).
+driver's transport, then STOP. This fixture run ends before human activation:
+it never redeems the approval token, polls `REVISION_STATUS_ACTIVE`, or calls
+`c1_connector_service_force_sync`. The activation and sync legs are recorded
+as `skipped_human_boundary`; a real post-activation session follows the
+single verification-sync policy in deploy-and-activate.
 
 ## Record schema (JSONL)
 
@@ -197,7 +198,7 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 
 ## Baseline + regression gate
 
-The control-group baseline (CXF-217) is six scored Tier-1 runs — scenario
+The control-group baseline is six scored Tier-1 runs - scenario
 `tier1-directory` × skill-bundle modes {`none`, `guide-only`} × 3 runs each —
 with the model pinned to `together/deepseek-ai/DeepSeek-V4-Flash-0731` and
 `reasoningEffort: "high"` in both scenario files. Each run writes a JSONL
@@ -234,8 +235,8 @@ pinned scenarios on a skill PR and fails if the measured pass rate drops below
 gate workflow itself is not built in this batch; the committed file plus this
 consumption rule is the reference.
 
-**Reference status (CXF-233).** The six-run matrix is no longer blocked: the
-E2E ran 2026-09-04/05 on the private squire driver (omp agent harness, model
+**Reference status.** The six-run matrix ran on 2026-09-04/05 using an
+external agent driver (model
 `together/deepseek-ai/DeepSeek-V4-Flash-0731`, `reasoningEffort: "high"`),
 producing 3 scored `none` runs + 3 scored `guide-only` runs, and the generated
 `evals/results/baseline.json` is committed as the control-group reference.
@@ -245,16 +246,15 @@ first-pass rate 0.47 (`none`) / 0.61 (`guide-only`); the failure pareto is S2
 handoff discipline), S5 (build-run state). Stage gates S0/S1/S3/S4/S6/S7/S9/
 S10 passed in every run of both arms. Known measurement caveats, documented so
 the gate is read correctly: S2's PUT-200 leg only observes bash `-X PUT`
-results, while the omp agent uploads through code-mode programs (the
+results, while the agent uploads through code-mode programs (the
 `upload_id` + `create_draft_source_upload` legs of S2 pass; the PUT leg reads
 0-with-0); S8's `api-token` reads EMPTY from `c1_connector_service_get`
 (secret-masked responses). The generator remains covered by unit smokes
 (`evals/runner/baseline.test.ts`).
 
-Full per-run records (run ids, funnels, per-stage evidence) live in the
-private harness repo (`ductone/squire-evals`, branch
-`bjorn/CXF-233/collector-transport-override`); the `*.jsonl` records behind
-`baseline.json` are copied into this directory but stay gitignored.
+The per-run records behind `baseline.json` are not published in this
+repository. Locally generated `*.jsonl` records in this directory stay
+gitignored; the public Tier-0 replay does not reproduce the real-tenant runs.
 
 ## Non-goals
 
@@ -263,11 +263,11 @@ private harness repo (`ductone/squire-evals`, branch
   fields are `skipped_human_boundary`.
 - CI regression gating workflow — the gate workflow itself is a later PR;
   the committed `baseline.json` plus the consumption rule above is the
-  reference it will consume (the baseline matrix itself ran — CXF-233).
+  reference it will consume.
 - The `/v2` fixture surface (bearer + link pagination) is fixture capability
   asserted by `verify.sh` only; the Tier-1 agent uses `/v1` (basic + offset).
-- Tier-1+ end-to-end runs require a private driver (credentials + a real
-  agent transport); that driver is out of scope for the public repo.
+- Tier-1+ end-to-end runs require an external driver (credentials + a real
+  agent transport); this repository ships only the Tier-0 local driver.
 
 ## Implementation notes
 
@@ -278,16 +278,12 @@ private harness repo (`ductone/squire-evals`, branch
   `examples/**/*.ts` and `baton/**/*.d.ts` surface — the evals options do not
   leak into the repo-wide type environment. `npm run typecheck` runs both
   configs; the CI workflow is unmodified.
-- **E2E status.** The Tier-1 end-to-end run RAN (2026-09-04/05, CXF-233) via
-  the private squire driver (`ductone/squire-evals`, omp agent harness against
-  real dev-tenant envs); the six scored records behind the committed
-  `baseline.json` come from those runs. The earlier CXF-217 structural blocker
-  (fresh c1-image envs exposing no `c1_connector_authoring_*` tools) was NOT
-  observed in this dispatch: every env's readiness probe found the full
-  authoring surface. The public repo still ships only the Tier-0 local driver;
-  the squire driver (credentials + agent transport) remains in the private
-  harness repo, out of scope here. The runner, scorer, and stage gates stay
-  covered by the committed unit smokes (`npm run eval:test`).
+- **E2E status.** The committed `baseline.json` summarizes six scored
+  real-tenant runs from 2026-09-04/05. Those runs found the full authoring
+  surface during readiness checks. Their driver and per-run records are not
+  distributed here, so the public Tier-0 replay is fixture proof, not a
+  reproduction of that real-tenant evidence. The runner, scorer, and stage
+  gates remain covered by the committed unit smokes (`npm run eval:test`).
 - **Score-input boundary.** `score-input.json` is written by a collector
   agent that transcribes tenant tool responses; the scorer type-validates but
   cannot verify truthfulness. The collector reads the agent-written handoff

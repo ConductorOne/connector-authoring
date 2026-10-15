@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.5
+version: 0.3.6
 ---
 
 # deploy-and-activate
@@ -19,7 +19,7 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    already exists under the app, reuse it. GATE: non-empty `connector_id`.
    STOP if empty.
 3. Configure - the named credential decision point. Teach BOTH paths:
-   - API path (external agent-via-API, from the lifecycle doc): call
+   - API path (external agent-via-API, from the served guide): call
      `c1_connector_service_get` to read the connector, then
      `c1_connector_service_update` with `updateMask: "config"` and the
      `EnvConfig` `configuration` JSON - the keys must match the
@@ -28,8 +28,9 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
      credentials in Details -> Settings in the Admin UI; never ask a human
      to paste secrets into agent chat. The hosted C1AI specialist has no
      credential-update tool, so the UI path is the only path in that session.
-   Rule stated verbatim: served guide wins on conflict. GATE: base-url,
-   account-email, and api-token all set. STOP if the credentials are missing
+   Rule stated verbatim: served guide wins on conflict. GATE: configure every
+   credential field named in `config-schema.json` (e.g. base-url,
+   account-email, api-token for the directory example). STOP if any is missing
    - an empty `stringValue` deletes the secret field and the draft test
    fails. Use the API path for an external agent with the credential-update
    API; use the UI path when a human configures credentials, including every
@@ -45,14 +46,13 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
 
 ## After the OWNER activates
 
-After the OWNER activates, report the verification result below. Production
-sync belongs to the human/operator, not the authoring session. Before
-activation, make no call after mint other than the handoff write.
+After the OWNER activates, perform one verification sync and report its
+result. Subsequent syncs belong to the human/operator. Before activation,
+make no call after mint other than the handoff write.
 
 - Verification: if your host provides activation notifications, a
   notification resuming you means the revision is already ACTIVE - record
-  the `activation_epoch` it carries; do not poll or force-sync in this
-  authoring session. If you resume with an
+  the `activation_epoch` it carries; do not poll. If you resume with an
   outstanding activation and no notification, check
   `c1_connector_authoring_list_revision_summaries` once; if
   `REVISION_STATUS_ACTIVE` record `activation_epoch`, otherwise STOP and
@@ -66,26 +66,32 @@ activation, make no call after mint other than the handoff write.
   binds this revision with both `result == CONNECTOR_TEST_RUN_RESULT_PASS`
   and `transport_judge_verdict == "accepted"` before minting a fresh approval
   URL. If no ACTIVE row after ~10 polls, STOP and report.
-- Sync leg: do not call `c1_connector_service_force_sync` in the authoring
-  session, even if a notification resumed it. The human/operator runs it
-  after the OWNER activates, then verifies with `c1_connector_service_get`
-  that `status.status` is `SYNC_STATUS_DONE` (a subsequent `sync_disabled`
-  is normal).
+- Sync leg: after confirming ACTIVE, call `c1_connector_service_force_sync`
+  exactly once to verify this activation, including when an activation
+  notification resumed the session. Poll `c1_connector_service_get` with
+  backoff (e.g. every 5-10s) until `status.status` is `SYNC_STATUS_DONE`,
+  `SYNC_STATUS_ERROR`, or `SYNC_STATUS_DISABLED`; if no terminal status after
+  ~10 polls, STOP and report. On ERROR, read `status.lastError` and route
+  through diagnose-authoring-failure. On DISABLED, read `sync_disabled_reason`
+  and route through diagnose-authoring-failure unless the reason indicates a
+  deliberate pause (customer opt-out or ops). After reporting verification,
+  stop; the human/operator owns subsequent syncs.
 
 ## Exit criteria
 
 - S6 passes: `app_id` non-empty, at least one successful `c1_apps_create`.
 - S7 passes: `connector_id` non-empty, at least one successful
   `c1_connector_authoring_provision_connector`.
-- S8 passes: base-url, account-email, and api-token all configured.
+- S8 passes: every credential field named in `config-schema.json` is configured
+  (e.g. base-url, account-email, api-token for the directory example).
 - S11 passes: deploy + mint succeeded, all 10 handoff fields, no calls after
-  mint except the handoff write, no redemption.
+  mint before activation except the handoff write, no redemption.
 
 ## Anti-patterns
 
 - Do not redeem the approval token.
-- Do not call `c1_connector_service_force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
-- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - after mint, the only call is the handoff write.
+- Do not force-sync before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
+- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - between mint and activation, the only call is the handoff write.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
 - Do not skip the idempotent provision reuse.

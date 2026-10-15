@@ -2,12 +2,31 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.1 - the docs-alignment release
+
+This patch aligns the existing skill bodies with the current authoring contract:
+
+- Credential gates derive required fields from `config-schema.json`.
+- `owner_judgment_required` is a terminal outcome requiring a human handoff.
+- The single post-activation verification sync is the ID-stability baseline;
+  `verify-connector-output` waits for the next human-run sync or reports pending.
+- SOURCES.md uses checkout-relative references without self-SHA, branch pins,
+  or historical SDK baseline rows.
+- The HTTP example uses `http.v2` with an explicit pagination stopping condition.
+
+Eight body-changed skills advance one patch: `author-in-app-connector` (`0.3.7`),
+`read-authoring-contract` (`0.2.2`), `write-connector-source` (`0.2.4`),
+`build-and-test` (`0.3.3`), `deploy-and-activate` (`0.3.6`),
+`verify-connector-output` (`0.1.4`), `update-and-rollback` (`0.2.4`), and
+`diagnose-authoring-failure` (`0.1.3`). `design-access-model` and
+`source-openapi-spec` retain their versions because only SOURCES.md changed.
+
 ## v0.12.0 - current authoring contract
 
 The current bundle targets the 25-tool tenant MCP surface and teaches four
 build-required files plus two test-required frozen files (`openapi.json`,
 `reviewed-ops.json`). This supersedes the tool-count and source-file contract
-descriptions in the historical release entries below.
+descriptions in the earlier bundle-version entries below.
 
 - Draft testing requires a top-level `connect` entry naming the registered
   HTTP transport (a C1 probe/serve contract, not a runtime directive) and
@@ -24,7 +43,7 @@ descriptions in the historical release entries below.
   evidence instructions match this contract.
 
 Skill versions advance for all seven changed bodies, including the
-failure-diagnosis correction. Historical source pins remain unchanged.
+failure-diagnosis correction. See each skill's SOURCES.md for public sources.
 
 ## v0.4.0 - the ten skills
 
@@ -32,7 +51,7 @@ The bundle ships ten skills: the seven prior skills plus three post-funnel
 and cross-cutting skills at `0.1.0`:
 
 - `verify-connector-output` - post-11: post-sync verification (counts,
-  grant wiring, ID stability across re-sync, UI spot-check).
+  grant wiring, ID stability against the next human-run sync (or reported pending), UI spot-check).
 - `update-and-rollback` - post-activation: same-catalog update flow with
   the image-digest reuse rule, the rotation STOP/escalate limitation, and
   REST-only OWNER-gated rollback.
@@ -40,9 +59,9 @@ and cross-cutting skills at `0.1.0`:
   router over the common-failures table, the draft-test FAIL reading, and
   where logs live.
 
-The seven prior skills are unchanged; the bundle version is `0.4.0`. The
-three new skills pin the c1 contract sources at `2e5f53eb…` (see each
-skill's SOURCES.md).
+The seven prior skills were unchanged in this release; the bundle version
+was `0.4.0`. Each skill's SOURCES.md references in-repo declarations and examples
+by checkout-relative path and distinguishes them from tenant-served behavior.
 
 ## v0.3.0 — the seven skills
 
@@ -58,7 +77,7 @@ The five funnel skills are unchanged; the bundle version is `0.3.0`.
 
 ## v0.2.0 — the five funnel skills
 
-The bundle ships five skills, authored against the v0.0.26 DSL contract and
+The bundle ships five skills, authored against the DSL contract and
 the 23-tool tenant MCP surface:
 
 - `author-in-app-connector` — the S0–S11 funnel orchestrator (routing,
@@ -71,18 +90,15 @@ the 23-tool tenant MCP surface:
 - `deploy-and-activate` — stages 6–8, 11: app, provision, configure, deploy,
   mint, handoff.
 
-The four pre-existing skills pin the c1 contract sources at `2502b4cd…`;
-`write-connector-source` pins them at `92f1c2e5…` — the SHA current at
-authoring time. The capabilities-as-real-contract correction the new skill
-quotes is the batch's Linear intent (see its SOURCES.md), not a doc change
-between the two pins; the c1 docs at `92f1c2e5` still carry the stale
-presence-only wording.
+The funnel skills were grounded in the tenant-served contract and public SDK
+declarations. Capability validation is a real metadata contract, not a
+presence-only file check; see `write-connector-source/SOURCES.md`.
 
 ## Mount contract
 
 `bundle.json` is a **manifest**, not a directory copy: each `skills[]` entry
 names a skill and a `path` relative to this directory pointing into
-`skills/` (the canonical home). Private drivers mount per the manifest —
+`skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.0`); the runner records both in every run record.
+`skillBundle.version` (`0.12.1`); the runner records both in every run record.

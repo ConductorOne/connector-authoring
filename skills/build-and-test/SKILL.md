@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.2
+version: 0.3.3
 ---
 
 # build-and-test
@@ -77,9 +77,14 @@ activation; never treat a missing or non-accepted verdict as acceptance.
 | `needs_author` | Stop; correct source or operation list, re-review changed inputs, rebuild, and retest. |
 | `scope_stop` | Hard stop; investigate the unreviewed call. Do not retry unchanged. |
 | `insufficient_evidence` | Stop; identify missing evidence. Do not deploy or activate. |
+| `owner_judgment_required` | Terminal for this run: external provenance requires human owner judgment; human evidence acceptance is not yet available. Hand off evidence and stop; retesting or re-upload does not change attribution. |
 | `setup_blocked` | Stop; resolve the named tenant/vendor setup or runtime dependency before retesting. |
 | `infrastructure_failure` | Stop; resolve the infrastructure failure. Never call it connector acceptance. |
 | missing | Stop; the evidence has not been judged. Unjudged evidence is FAIL. |
+
+External-provenance drafts stop at S10 until human evidence acceptance ships.
+Hand off the durable evidence and recorded IDs; do not proceed to S11 deploy
+or mint, even when the test result is PASS.
 
 ## Exit criteria
 

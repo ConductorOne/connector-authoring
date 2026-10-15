@@ -1,21 +1,17 @@
-# Sources — source-openapi-spec
+# Sources - source-openapi-spec
 
-The lifecycle documentation has been restructured; see the product
-documentation hub for the current authoring guides. The historical pins
-below remain unchanged for provenance; verified re-pinning is a separate pass.
+The five-rung authority ladder, programmatic IAM go/no-go gate, and
+park-with-evidence contract were informed by internal design discussion.
+That discussion is not a fetchable public source. Record the exact provider
+spec URL, fetch time, and byte count for each authoring run; a provider name
+or a moving branch alone is not a reproducible spec pin.
 
-Authored against the pinned sources below (decision 13: nothing written from
-model memory). The 5-rung authority ladder, the programmatic IAM go/no-go
-gate, and the park-with-evidence contract are the locked intent of this batch
-(plan decisions 4-5); the port source below is what this skill quotes.
+In-repo content is referenced by relative path and is always current with the checkout; skills and examples evolve in the same commit.
 
-| Source | Pin / SHA | What this skill quotes |
+| Source | Reference | What this skill uses |
 |---|---|---|
-| claude-marketplace `source-openapi-spec` | `0cc5ac2a2dbe60b430444c59e53016da2c72b3d1` | The sourcing port source: the 5-rung authority ladder, the programmatic IAM go/no-go gate (member/user LISTING at minimum), and park-with-evidence as a success outcome. |
-| c1 `docs/in-app-connector-authoring.md` | `16e0e0fbf0c999e3942f1ea0f8aef95c65e6fbc3` | The bundle caps — the 262144-byte source limit and the 1048576-byte bundle limit (lines 727-728) — and the lifecycle contract the pre-1 judgment phase feeds. |
-| In-repo SDK declarations + examples | connector-authoring `7dc673ac86616503acee3d45f98348370dc155cd` | The `baton/*.d.ts` module surface and the `examples/` spec-driven connector shapes the sourced spec feeds. |
-| SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
-| baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
-| OpenRouter official spec (evidence) | OpenRouter official published spec, vendored verbatim | The authoritative spec evidence for a SaaS provider with an official published spec. |
-| LiteLLM runtime-generated spec (evidence) | `pip install "litellm[proxy]==1.92.0"` → `app.openapi()` | The runtime-generated spec evidence for a self-hosted OSS provider. |
-| Shopify vendored minimal spec (evidence) | `allengrant/shopify_openapi` @ master, discoveredAt 2026-06-04 | The vendored minimal spec evidence for a provider without an official published spec. |
+| SDK declarations and examples | `../../baton/*.d.ts`, `../../examples/http/openapi.json` (this checkout) | `baton/*.d.ts` and `examples/http/openapi.json` for the source shapes a frozen spec feeds. |
+| Tenant-served authoring guide | Read through `c1_connector_authoring_get_authoring_guide` | Current source and bundle limits and lifecycle requirements. |
+
+Provider specs must be verified at their authoritative source during the run;
+no unlinked historical provider artifact is presented here as a public pin.

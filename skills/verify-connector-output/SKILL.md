@@ -1,7 +1,7 @@
 ---
 name: verify-connector-output
-description: Use when verifying a post-activation connector's sync output: resource/entitlement/grant counts, grant wiring, ID stability across re-sync, and the UI spot-check. Do not use when updating or rolling back a live connector - use update-and-rollback; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.1.3
+description: Use when verifying a post-activation connector's sync output: resource/entitlement/grant counts, grant wiring, ID stability against the next human-run sync (or reported pending), and the UI spot-check. Do not use when updating or rolling back a live connector - use update-and-rollback; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
+version: 0.1.4
 ---
 
 # verify-connector-output
@@ -35,12 +35,13 @@ MCP titles.
 3. Grant wiring: verify that every grant principal references an emitted resource
    and every grant entitlement ID references an emitted entitlement. GATE: no
    dangling principal or entitlement ID.
-4. ID stability: call `c1_connector_service_force_sync`, then poll
-   `c1_connector_service_get` with backoff (e.g. every 5-10s) until
-   `status.status` is `SYNC_STATUS_DONE`, `SYNC_STATUS_ERROR`, or
-   `SYNC_STATUS_DISABLED`; if no terminal status after ~10 polls, STOP and
-   report. Confirm the emitted resource and entitlement IDs are stable
-   across the re-sync - no churn in identity fields. GATE: IDs unchanged.
+4. ID stability: do not trigger another sync here. Use the single post-activation
+   verification sync (deploy-and-activate / update-and-rollback) as the baseline:
+   record the resource and entitlement IDs it emitted. When the next human/operator-run
+   sync reports `SYNC_STATUS_DONE` on `c1_connector_service_get`, confirm the same
+   resources and entitlements carry the same IDs - no churn in identity fields.
+   If no later sync exists yet, report ID stability as PENDING rather than forcing
+   one. GATE: IDs unchanged across the two syncs (or explicitly reported pending).
 5. UI spot-check: open the canonical authoring page
    `/admin/connectors/authoring/<catalog_id>` on the product base URL and
    confirm the connector's resources and grants appear. The legacy alias
@@ -56,7 +57,7 @@ Investigate empty or unexpected results; never invent data to make a demo appear
 - Resource, entitlement, and grant counts match the intended scope.
 - Every grant principal references an emitted resource; every grant
   entitlement ID references an emitted entitlement.
-- IDs are stable across a re-sync.
+- IDs are stable between the verification sync and the next human-run sync, or ID stability is explicitly reported as pending.
 - The UI spot-check at `/admin/connectors/authoring/<catalog_id>` shows the
   connector's resources and grants (the legacy
   `/admin/connector/<catalog_id>/<app_id>/<connector_id>` alias renders the
@@ -70,6 +71,7 @@ Investigate empty or unexpected results; never invent data to make a demo appear
   for count parity.
 - Do not run this before the OWNER activates the connector.
 - Do not skip the grant-wiring check because counts look right.
+- Do not call `c1_connector_service_force_sync` here; the one verification sync belongs to deploy-and-activate / update-and-rollback, and subsequent syncs belong to the human/operator.
 
 ## Blocker protocol
 

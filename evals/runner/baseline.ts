@@ -1,4 +1,4 @@
-// baseline.ts — JSONL run records -> baseline.json (CXF-217, locked D16).
+// baseline.ts — JSONL run records -> baseline.json (format is locked; treat as a stable contract).
 // Reads every *.jsonl record in the out dir, computes the locked v1 baseline
 // schema deterministically, and writes baseline.json next to the records.
 // CLI: node evals/runner/baseline.ts [--out <dir>] (default evals/results).

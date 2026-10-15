@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.6
+version: 0.3.7
 ---
 
 # author-in-app-connector
@@ -46,8 +46,9 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
 6. S6 app: call `c1_apps_create`; extract `app_id`. STOP if empty.
 7. S7 provision: call `c1_connector_authoring_provision_connector` under the
    app; extract `connector_id`. STOP if empty.
-8. S8 credentials: configure base-url, account-email, and api-token (see
-   deploy-and-activate). STOP if any credential is missing.
+8. S8 credentials: configure every credential field named in
+   `config-schema.json` (e.g. base-url, account-email, api-token for the
+   directory example; see deploy-and-activate). STOP if any is missing.
 9. S9 draft test: call `c1_connector_authoring_run_draft_test_sync`; extract
    `test_run_id`. STOP if empty.
 10. S10 evidence: wait for the completion notification if your host provides
@@ -62,6 +63,10 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
     Before S11 deploy or mint, the same durable evidence must also report
     `transport_judge_verdict == "accepted"`. STOP on any other or missing
     verdict and follow the build-and-test verdict table; PASS alone is not enough.
+    External-provenance drafts receive `owner_judgment_required` and stop at
+    S10 until human evidence acceptance ships. Hand off the durable evidence
+    and recorded IDs; do not deploy or mint. Retesting or re-upload does not
+    change attribution.
 11. S11 handoff discipline: call
     `c1_connector_authoring_deploy_connector_instance` (extract
     `deployment_instance_id`), then
@@ -97,7 +102,9 @@ produces it:
 | 6-8, 11 | `deploy-and-activate` |
 | pre-1 design (net-new provider) | `design-access-model` |
 | pre-1 spec sourcing | `source-openapi-spec` |
-| verify/update/diagnose (not yet shipped) | follow the served guide |
+| post-activation verification | `verify-connector-output` |
+| update / rollback of an active connector | `update-and-rollback` |
+| failure diagnosis (any stage) | `diagnose-authoring-failure` |
 
 Direct invocation of a stage skill is allowed; the router alone is not
 trusted to recover mid-funnel.
@@ -111,25 +118,25 @@ Net-new provider: before S1, run both pre-1 skills - `source-openapi-spec`
 
 After S11's deploy + mint, present `activation_url` to a human tenant OWNER,
 record the handoff table, and STOP. Never redeem the approval token.
-Do not call `force_sync` in the authoring session; the human/operator runs
-it after the OWNER activates. Never poll `REVISION_STATUS_ACTIVE` before
-the OWNER activates. If a notification later resumes you, the revision is
-already ACTIVE: record its `activation_epoch`, but still do not force-sync
-in this authoring session. Direct API callers verify per deploy-and-activate
-once the OWNER reports activation.
+Do not call `force_sync` or poll `REVISION_STATUS_ACTIVE` before the OWNER
+activates. If an activation notification later resumes you, the revision is
+already ACTIVE: record its `activation_epoch`, then run exactly one
+verification sync per deploy-and-activate. Direct API callers verify once
+the OWNER reports activation. After this verification, the human/operator
+owns subsequent syncs.
 
 ## Exit criteria
 
 - S0-S11 all pass per the stage table above.
-- S11 handoff: all 10 handoff fields, no calls after mint except the
-  handoff write, no redemption.
+- S11 handoff: all 10 handoff fields, no calls after mint before activation
+  except the handoff write, no redemption.
 
 ## Anti-patterns
 
 - Do not skip a stage.
 - Do not fabricate handoff values.
 - Do not redeem the approval token.
-- Do not call `force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
+- Do not call `force_sync` before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
 - Do not write the handoff before deploy + mint.
 
 ## Blocker protocol

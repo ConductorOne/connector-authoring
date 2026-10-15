@@ -15,7 +15,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.0"
+const VERSION = "0.12.1"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string}[]}
@@ -68,17 +68,20 @@ test("(b) every bundle.json path resolves to an existing file", () => {
   }
 })
 
-// Locked content literals per skill (plan B1c/B3f/C1c/C3c string checks).
-// The security negations are asserted too: a regression stripping the
-// never-redeem / never-force_sync / never-list_revision_summaries
-// instructions while keeping the marker literals must fail the gate.
+// Required content literals per skill.
+// Preserve the human-only activation boundary and the single post-activation
+// verification sync; keeping marker literals without these rules must fail.
 const SKILL_LITERALS: Record<string, string[]> = {
   "author-in-app-connector": [
     "catalog_id", "draft_id", "upload_id", "run_id", "revision_id",
     "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url",
     "Do not redeem the approval token",
-    "Do not call `force_sync` in the authoring session",
+    "Do not call `force_sync` before activation or repeat the post-activation verification sync",
+    "owns subsequent syncs",
     "write-connector-source",
+    "| post-activation verification | `verify-connector-output` |",
+    "| update / rollback of an active connector | `update-and-rollback` |",
+    "| failure diagnosis (any stage) | `diagnose-authoring-failure` |",
     'transport_judge_verdict == "accepted"',
   ],
   "read-authoring-contract": [
@@ -93,7 +96,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
     "SYNC_STATUS_DONE",
     "Do not redeem the approval token",
-    "Do not call `c1_connector_service_force_sync` in the authoring session",
+    "Do not force-sync before activation or repeat the post-activation verification sync",
+    "exactly once to verify this activation",
+    "human/operator owns subsequent syncs",
     "Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates",
     'transport_judge_verdict == "accepted"',
     "Correct the verdict's cause; do not just re-mint",
@@ -121,6 +126,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "totalPath",
     "newUserResource",
     "user.id",
+    "http.v2",
+    "Offset pagination requires a stopping condition",
     "config(\"base-url\")",
   ],
   "design-access-model": [
@@ -154,6 +161,10 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "every grant principal references an emitted resource",
     "entitlement ID references an emitted entitlement",
     "ID stability",
+    "do not trigger another sync here",
+    "report ID stability as PENDING",
+    "Do not call `c1_connector_service_force_sync` here",
+    "subsequent syncs belong to the human/operator",
     "/admin/connector/",
     "renders the authored",
   ],
@@ -173,6 +184,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "no terminal status after ~10 polls, STOP and report",
     "SYNC_STATUS_ERROR",
     "SYNC_STATUS_DISABLED",
+    "Do not force-sync before activation or repeat the post-activation verification sync",
+    "human/operator owns subsequent syncs",
     "Do not print, log, or otherwise expose the OWNER bearer token value",
   ],
   "diagnose-authoring-failure": [
@@ -214,7 +227,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.0")
+  assert.equal(full.skillBundle.version, "0.12.1")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -263,25 +276,29 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.0")
+    assert.equal(meta.skill_bundle_version, "0.12.1")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
 })
 
-test("(f) every skill ships a non-empty SOURCES.md naming its pinned sources", () => {
+test("(f) every skill's SOURCES.md references in-repo content by resolvable relative path without self-SHA or branch pins", () => {
   const skillsRoot = resolve("skills")
   for (const name of SKILLS) {
     const sourcesPath = join(skillsRoot, name, "SOURCES.md")
     assert.ok(existsSync(sourcesPath), `missing SOURCES.md: ${name}`)
     const content = readFileSync(sourcesPath, "utf8")
     assert.ok(content.length > 0, `empty SOURCES.md: ${name}`)
-  }
-  // The three new skills must name the c1 pin (decision 5: nothing written
-  // from model memory) so a dropped or truncated pin fails the gate.
-  const c1Pin = "2e5f53eb441a93087d9754085ca17a5061e125ea"
-  for (const name of ["verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]) {
-    const content = readFileSync(join(skillsRoot, name, "SOURCES.md"), "utf8")
-    assert.ok(content.includes(c1Pin), `${name}: SOURCES.md does not name the c1 pin`)
+    // Relative paths are the canonical in-repo reference; no immutable-release row is required.
+    // Release tags exist for declaration consumers, not for skill provenance.
+    // Self-SHA pins are stale by construction; branch pins are mutable.
+    assert.doesNotMatch(content, /connector-authoring\/tree\/[0-9a-f]{7,40}\b/, `${name}: SOURCES.md contains a self-SHA pin`)
+    assert.doesNotMatch(content, /connector-authoring\/tree\/main\b/, `${name}: SOURCES.md contains a mutable branch pin`)
+    const relativePaths = [...content.matchAll(/\.\.\/\.\.\/[^\s`),|]+/g)]
+    assert.ok(relativePaths.length > 0, `${name}: SOURCES.md does not reference in-repo content by relative path`)
+    for (const [relativePath] of relativePaths) {
+      const path = relativePath.replace(/[^/]*[*?{\[].*$/, "")
+      assert.ok(existsSync(resolve(skillsRoot, name, path)), `${name}: SOURCES.md path does not resolve: ${relativePath}`)
+    }
   }
 })

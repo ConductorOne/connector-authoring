@@ -1,27 +1,20 @@
-# Sources — deploy-and-activate
+# Sources - deploy-and-activate
 
-The lifecycle documentation has been restructured; see the product
-documentation hub for the current authoring guides. The historical pins
-below remain unchanged for provenance; verified re-pinning is a separate pass.
+Read the tenant's MCP-served authoring guide at S0; it takes precedence over
+static documentation. Tenant lifecycle behavior is read live, not inferred
+from a public SDK release. Internal design discussion informed the human
+boundary; it is not a fetchable public source.
 
-Authored against the pinned sources below (decision 8: nothing written from
-model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
-`authoring.proto`, (c) lifecycle doc, (d) in-repo `baton/*.d.ts` +
-`examples/http`.
+In-repo content is referenced by relative path and is always current with the checkout; skills and examples evolve in the same commit.
 
-| Source | Pin / SHA | What this skill quotes |
+| Source | Reference | What this skill uses |
 |---|---|---|
-| MCP-served guide | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | The human-only activation rule (configure credentials in the Admin UI; never ask a human to paste secrets into agent chat; activation is a human-only tenant UI step); `mint_approval_token.expires_in_seconds` 1–14400. |
-| Authoring proto | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | `MintApprovalTokenResponse` (`token_id`, `expires_at`, `activation_url`; `expires_in_seconds` gt 0, lte 14400); `RevisionStatus` enum (`REVISION_STATUS_ACTIVE` = 1, `activation_epoch` on the ACTIVE row); `ProvisionConnector` / `DeployConnectorInstance` RPC titles. |
-| Lifecycle doc | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | Step 8's `c1_connector_service_get` + `c1_connector_service_update` with `updateMask: "config"` and the `EnvConfig` `configuration` JSON (keys must match `config("field-name")`); the empty-`stringValue`-deletes-the-secret warning; step 11a–11d (deploy → mint → hand off to human OWNER → poll `list_revision_summaries` until `REVISION_STATUS_ACTIVE` + record `activation_epoch` → `c1_connector_service_force_sync`); "What success looks like" (`SYNC_STATUS_DONE` via `c1_connector_service_get`; a subsequent `sync_disabled` is normal); the common-failures rows (`credential re-entry required`, `activation evidence is unsatisfied`). |
-| In-repo SDK declarations | connector-authoring `b7e8a616cbbb1e336b788f807a3810b08ae00bc7` | The `config("field-name")` names the `configuration` keys must match (see `examples/http/connector.ts`: `base-url`, `account-email`, `api-token`). |
-| SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
-| baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
+| SDK declarations and examples | `../../baton/*.d.ts`, `../../examples/http/config-schema.json` (this checkout) | `baton/*.d.ts`, `examples/http/config-schema.json`, and transport config references. |
+| Tenant-served authoring guide | Read through `c1_connector_authoring_get_authoring_guide` | Provisioning, credential configuration, approval lifetime, deployment, human-only activation, ACTIVE status, and verification sync. |
 
 ## Eval wiring
 
-- In agent-driven eval runs the scorer's S8 gate reads the config set via the API (API path).
-- The scorer's S11 gate fails a run with any call after mint other than the handoff write, including `list_revision_summaries` and `force_sync`.
-- `evals/runner/stages.ts` rejects any `force_sync` in the authoring transcript, including a notification-resumed session. The locked sync prohibition now covers the entire authoring session; the human/operator runs production sync after the OWNER activates.
-- The scorer's SKIPPED_STAGES disposition records S11b/S11c as `skipped_human_boundary`; the skill states only the behavior (hand off and stop).
-- The SKILL.md content literals (`deployment_instance_id`, `activation_url`, `REVISION_STATUS_ACTIVE`, `activation_epoch`, `SYNC_STATUS_DONE`, and the never-redeem / never-force_sync / never-list_revision_summaries instructions) are enforced by `evals/runner/skills_bundle.test.ts`.
+- The fixture scorer checks the directory example's credentials; other providers use their own `config-schema.json` fields.
+- The fixture run ends at the human handoff; its S11 gate rejects calls after mint other than the handoff write. It does not simulate activation notifications or post-activation verification.
+- The scorer records S11b/S11c as `skipped_human_boundary`; a real session resumed after activation performs one verification sync, then hands subsequent syncs to the human/operator.
+- Handoff fields and activation boundaries are enforced by `evals/runner/skills_bundle.test.ts`.

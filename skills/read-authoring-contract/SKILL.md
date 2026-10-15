@@ -1,7 +1,7 @@
 ---
 name: read-authoring-contract
 description: Use when starting a connector authoring session and you need the authoritative contract before writing any source. Do not use when you already hold a fresh get_authoring_guide response for this session and are mid-funnel.
-version: 0.2.1
+version: 0.2.2
 ---
 
 # read-authoring-contract
@@ -17,8 +17,7 @@ abbreviates them (e.g. `get_authoring_guide` for
    the response is the served guide; read it once before composing any
    source. STOP if the call errors or returns no guide body.
    Served-guide-wins rule (verbatim): when the served guide conflicts with
-   any other doc (including this skill or the lifecycle doc), the served
-   guide wins.
+   any other doc (including this skill), the served guide wins.
 2. If `c1_connector_authoring_list_sdk_types_versions` is present in this
    session, call it. GATE: capture `default_tag` and `runtime_pin_matched`
    from the response; STOP if either field is missing. If the tool is
