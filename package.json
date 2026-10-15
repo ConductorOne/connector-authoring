@@ -8,6 +8,7 @@
     "eval:baseline": "node --experimental-strip-types evals/runner/baseline.ts",
     "eval:fixture": "node --experimental-strip-types evals/fixture/server.ts --port 18080",
     "eval:verify": "bash evals/fixture/verify.sh",
+    "bundle:update": "node --experimental-strip-types evals/skills-bundle/update.ts",
     "eval:test": "node --experimental-strip-types --test evals/runner/*.test.ts evals/fixture/data.test.ts 'evals/runner/drivers/**/*.test.ts'",
     "eval:run": "node --experimental-strip-types evals/runner/run.ts"
   },

@@ -2,6 +2,14 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.3 - the content-pin gate
+
+Each manifest entry now pins the SHA-256 of its entire SKILL.md file. The local
+eval gate detects content drift even when the frontmatter and manifest versions
+still agree. This closes the gap found reviewing #19, where unbumped body changes
+passed all checks. No skill content changed in this release, so all skill
+versions remain unchanged.
+
 ## v0.12.2 - the typed Output Contract release
 
 This patch narrows two skill bodies to what the scorer and declarations
@@ -116,4 +124,33 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.2`); the runner records both in every run record.
+`skillBundle.version` (`0.12.3`); the runner records both in every run record.
+
+## Content-pin gate and updates
+
+`npm run eval:test` checks every entry's `sha256` against SHA-256 of the **whole
+SKILL.md file's raw bytes**, including frontmatter, whitespace, line endings, and
+the final newline. There is no decoding or newline normalization before hashing.
+This deliberately catches metadata-only edits as well as body edits; SOURCES.md
+is not part of this pin. Existing frontmatter/version consistency, content
+literals, relative-path resolution, and no self-SHA/branch-pin assertions remain.
+These are content digests, not Git commit pins.
+
+After editing a skill, bump its numeric `major.minor.patch` frontmatter version,
+then run from the repository root:
+
+```sh
+npm run bundle:update
+```
+
+The updater refreshes manifest versions and content pins together. It refuses
+changed files unless their frontmatter version is greater than the recorded
+version, validates all entries before writing, and leaves SKILL.md files alone.
+Unchanged files keep their versions. Also bump the bundle version, update its
+scenario/test pins, and add a history entry here as for any bundle release.
+
+The hash is a **drift detector**, not proof of a historical version bump: someone
+manually replacing a digest could keep both version strings unchanged. The
+guarded updater makes the intended bump-and-pin path the easy path. Unlike a
+PR-base diff check, this gate works offline and without Git history in every
+local eval run; no fetch depth or pull-request event is required.
