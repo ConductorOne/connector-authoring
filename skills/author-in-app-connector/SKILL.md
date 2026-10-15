@@ -46,8 +46,9 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
 6. S6 app: call `c1_apps_create`; extract `app_id`. STOP if empty.
 7. S7 provision: call `c1_connector_authoring_provision_connector` under the
    app; extract `connector_id`. STOP if empty.
-8. S8 credentials: configure base-url, account-email, and api-token (see
-   deploy-and-activate). STOP if any credential is missing.
+8. S8 credentials: configure every credential field named in
+   `config-schema.json` (e.g. base-url, account-email, api-token for the
+   directory example; see deploy-and-activate). STOP if any is missing.
 9. S9 draft test: call `c1_connector_authoring_run_draft_test_sync`; extract
    `test_run_id`. STOP if empty.
 10. S10 evidence: wait for the completion notification if your host provides

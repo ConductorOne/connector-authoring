@@ -28,8 +28,9 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
      credentials in Details -> Settings in the Admin UI; never ask a human
      to paste secrets into agent chat. The hosted C1AI specialist has no
      credential-update tool, so the UI path is the only path in that session.
-   Rule stated verbatim: served guide wins on conflict. GATE: base-url,
-   account-email, and api-token all set. STOP if the credentials are missing
+   Rule stated verbatim: served guide wins on conflict. GATE: configure every
+   credential field named in `config-schema.json` (e.g. base-url,
+   account-email, api-token for the directory example). STOP if any is missing
    - an empty `stringValue` deletes the secret field and the draft test
    fails. Use the API path for an external agent with the credential-update
    API; use the UI path when a human configures credentials, including every
@@ -77,7 +78,8 @@ activation, make no call after mint other than the handoff write.
 - S6 passes: `app_id` non-empty, at least one successful `c1_apps_create`.
 - S7 passes: `connector_id` non-empty, at least one successful
   `c1_connector_authoring_provision_connector`.
-- S8 passes: base-url, account-email, and api-token all configured.
+- S8 passes: every credential field named in `config-schema.json` is configured
+  (e.g. base-url, account-email, api-token for the directory example).
 - S11 passes: deploy + mint succeeded, all 10 handoff fields, no calls after
   mint except the handoff write, no redemption.
 
