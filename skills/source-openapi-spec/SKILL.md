@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # source-openapi-spec

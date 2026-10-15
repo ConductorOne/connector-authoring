@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.1 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.2 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
