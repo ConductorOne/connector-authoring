@@ -2,6 +2,21 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.2 - the typed Output Contract release
+
+This patch narrows two skill bodies to what the scorer and declarations
+enforce (CXF-274):
+
+- `source-openapi-spec` types every Output Contract field: `authority_rung`
+  is a string naming the rung, `spec_version_checked` is the bare version,
+  and `missing_paths` is a non-empty array of literal path templates.
+- `write-connector-source` names the `Grant` trap: `provisioningResponse.grant`
+  takes the `@baton/types` `Grant` (no `"@type"`), not the proto-shaped
+  `sdk-types` one.
+
+Two body-changed skills advance one patch: `source-openapi-spec` (`0.1.1`)
+and `write-connector-source` (`0.2.5`).
+
 ## v0.12.1 - the docs-alignment release
 
 This patch aligns the existing skill bodies with the current authoring contract:
@@ -101,4 +116,4 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.1`); the runner records both in every run record.
+`skillBundle.version` (`0.12.2`); the runner records both in every run record.

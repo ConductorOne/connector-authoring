@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # source-openapi-spec
@@ -58,7 +58,19 @@ is trimmed by selection, never by editing the vendored document.
 Emit the `sourcing` and `park_evidence` halves of the pre1.json artifact:
 
 - `sourcing`: `{spec_url, fetched_at, authority_rung, spec_bytes}`.
+  - `spec_url` (string) and `fetched_at` (string, ISO-8601).
+  - `authority_rung` (string, NOT a number) - the rung named in words, e.g.
+    `"official published spec at a stable URL"` for rung 1.
+  - `spec_bytes` (integer) - from `wc -c`; above 0 and under 1048576.
 - `park_evidence`: `{spec_version_checked, missing_paths, vendor_doc, revisit_trigger}`.
+  - `spec_version_checked` (string) - the provider's bare version value and
+    nothing else, e.g. `"1.2.0"`. Not a sentence, and not a composite carrying
+    hashes, byte counts, or fetch timestamps; those belong in `sourcing`.
+  - `missing_paths` (non-empty array of non-empty strings) - the literal
+    OpenAPI path templates that are absent, e.g. `["/v1/users", "/v1/groups",
+    "/v1/groups/{groupId}/members"]`. Not prose descriptions of the missing
+    capability families.
+  - `vendor_doc` (string) and `revisit_trigger` (string), both non-empty.
 
 ## Exit criteria
 
