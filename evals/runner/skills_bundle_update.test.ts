@@ -1,6 +1,6 @@
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {spawnSync} from "node:child_process"
+import {execFileSync, spawnSync} from "node:child_process"
 import {createHash} from "node:crypto"
 import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
@@ -21,6 +21,9 @@ function withBundle(check: (dir: string, manifest: string) => void): void {
     })
     const manifest = join(dir, "evals/skills-bundle/bundle.json")
     writeFileSync(manifest, JSON.stringify({version: "1.0.0", skills}, null, 2) + "\n")
+    execFileSync("git", ["init", "--quiet"], {cwd: dir})
+    execFileSync("git", ["add", "evals/skills-bundle/bundle.json"], {cwd: dir})
+    execFileSync("git", ["-c", "user.name=Bundle Test", "-c", "user.email=bundle-test@example.com", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Seed bundle fixture"], {cwd: dir})
     check(dir, manifest)
   } finally {
     rmSync(dir, {recursive: true, force: true})
@@ -91,7 +94,109 @@ test("bundle updater refuses missing or malformed frontmatter versions", () => {
       const result = update(dir)
       assert.equal(result.status, 1, result.stderr)
       assert.match(result.stderr, /expected a numeric major.minor.patch/)
+      assert.doesNotMatch(result.stderr, /TypeError/)
       assert.equal(readFileSync(manifest, "utf8"), before)
     }
   })
 })
+
+test("bundle updater records a first pin for a new manifest path at its declared version", () => {
+  withBundle((dir, manifest) => {
+    const before = JSON.parse(readFileSync(manifest, "utf8"))
+    const file = original("new")
+    mkdirSync(join(dir, "skills/new"), {recursive: true})
+    writeFileSync(join(dir, "skills/new/SKILL.md"), file)
+    const entry = {name: "new", version: "1.2.3", path: "../../skills/new/SKILL.md"}
+    writeFileSync(manifest, JSON.stringify({...before, skills: [...before.skills, entry]}))
+    const result = update(dir)
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout, /new: first pin recorded/)
+    const after = JSON.parse(readFileSync(manifest, "utf8"))
+    assert.deepEqual(after, {...before, skills: [...before.skills, {...entry, sha256: hash(file)}]})
+    assert.equal(readFileSync(join(dir, "skills/new/SKILL.md"), "utf8"), file)
+  })
+})
+
+for (const path of ["../../skills/first/SKILL.md", "../../skills/first/../first/SKILL.md"]) {
+  test(`bundle updater rejects a deleted hash on an existing skill path: ${path}`, () => {
+    withBundle((dir, manifest) => {
+      const bundle = JSON.parse(readFileSync(manifest, "utf8"))
+      bundle.skills[0].path = path
+      delete bundle.skills[0].sha256
+      writeFileSync(manifest, JSON.stringify(bundle))
+      const before = readFileSync(manifest, "utf8")
+      const result = update(dir)
+      assert.equal(result.status, 1, result.stderr)
+      assert.match(result.stderr, /first: missing SHA-256 content pin for an existing skill/)
+      assert.equal(readFileSync(manifest, "utf8"), before)
+    })
+  })
+}
+
+test("bundle updater refuses a first pin with mismatched versions without writing", () => {
+  withBundle((dir, manifest) => {
+    const bundle = JSON.parse(readFileSync(manifest, "utf8"))
+    mkdirSync(join(dir, "skills/new"), {recursive: true})
+    writeFileSync(join(dir, "skills/new/SKILL.md"), original("new"))
+    bundle.skills.push({name: "new", version: "1.2.4", path: "../../skills/new/SKILL.md"})
+    writeFileSync(manifest, JSON.stringify(bundle))
+    const before = readFileSync(manifest, "utf8")
+    const result = update(dir)
+    assert.equal(result.status, 1, result.stderr)
+    assert.match(result.stderr, /new: first pin requires matching manifest and frontmatter versions/)
+    assert.equal(readFileSync(manifest, "utf8"), before)
+    assert.equal(result.stdout, "")
+  })
+})
+
+for (const version of [undefined, null, "latest", 123, {}]) {
+  test(`bundle updater cleanly rejects invalid manifest version ${JSON.stringify(version)}`, () => {
+    withBundle((dir, manifest) => {
+      const bundle = JSON.parse(readFileSync(manifest, "utf8"))
+      bundle.skills[0].version = version
+      writeFileSync(manifest, JSON.stringify(bundle))
+      const before = readFileSync(manifest, "utf8")
+      const result = update(dir)
+      assert.equal(result.status, 1, result.stderr)
+      assert.match(result.stderr, /first: expected a numeric major.minor.patch manifest version/)
+      assert.doesNotMatch(result.stderr, /TypeError/)
+      assert.equal(readFileSync(manifest, "utf8"), before)
+    })
+  })
+}
+
+test("bundle updater leaves a pending first pin unwritten and unreported if a later entry fails", () => {
+  withBundle((dir, manifest) => {
+    const bundle = JSON.parse(readFileSync(manifest, "utf8"))
+    mkdirSync(join(dir, "skills/new"), {recursive: true})
+    writeFileSync(join(dir, "skills/new/SKILL.md"), original("new"))
+    bundle.skills.unshift({name: "new", version: "1.2.3", path: "../../skills/new/SKILL.md"})
+    delete bundle.skills[2].version
+    writeFileSync(manifest, JSON.stringify(bundle))
+    const before = readFileSync(manifest, "utf8")
+    const result = update(dir)
+    assert.equal(result.status, 1, result.stderr)
+    assert.match(result.stderr, /second: expected a numeric major.minor.patch manifest version/)
+    assert.doesNotMatch(result.stderr, /TypeError/)
+    assert.equal(readFileSync(manifest, "utf8"), before)
+    assert.equal(result.stdout, "")
+  })
+})
+
+for (const missing of ["HEAD", "committed manifest"]) {
+  test(`bundle updater fails closed when ${missing} is unavailable`, () => {
+    withBundle((dir, manifest) => {
+      if (missing === "HEAD") {
+        rmSync(join(dir, ".git"), {recursive: true, force: true})
+      } else {
+        execFileSync("git", ["rm", "--cached", "evals/skills-bundle/bundle.json"], {cwd: dir})
+        execFileSync("git", ["-c", "user.name=Bundle Test", "-c", "user.email=bundle-test@example.com", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Remove fixture manifest"], {cwd: dir})
+      }
+      const before = readFileSync(manifest, "utf8")
+      const result = update(dir)
+      assert.equal(result.status, 1, result.stderr)
+      assert.match(result.stderr, /bundle:update: cannot read a valid committed manifest from Git HEAD/)
+      assert.equal(readFileSync(manifest, "utf8"), before)
+    })
+  })
+}
