@@ -14,5 +14,5 @@ In-repo content is referenced by relative path and is always current with the ch
 
 ## Eval wiring
 
-- The verification inventory checks per-resource-type counts against the live API and ID stability across re-sync; never invent data to complete a demo.
+- The verification inventory checks per-resource-type counts against the live API and ID stability against the next human-run sync (or reported pending); never invent data to complete a demo.
 - Status, grant-wiring, ID-stability, and UI-path literals are enforced by `evals/runner/skills_bundle.test.ts`.

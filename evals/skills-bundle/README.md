@@ -32,7 +32,7 @@ The bundle ships ten skills: the seven prior skills plus three post-funnel
 and cross-cutting skills at `0.1.0`:
 
 - `verify-connector-output` - post-11: post-sync verification (counts,
-  grant wiring, ID stability across re-sync, UI spot-check).
+  grant wiring, ID stability against the next human-run sync (or reported pending), UI spot-check).
 - `update-and-rollback` - post-activation: same-catalog update flow with
   the image-digest reuse rule, the rotation STOP/escalate limitation, and
   REST-only OWNER-gated rollback.
