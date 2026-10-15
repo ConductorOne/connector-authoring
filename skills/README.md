@@ -1,11 +1,11 @@
 # Agent skills
 
 The ten skills shipped in this batch: the five funnel skills and two
-pre-1 skills authored against the v0.0.26 DSL contract and the 25-tool tenant MCP surface; validated by the eval suite, plus three post-funnel and cross-cutting skills
+pre-1 skills authored against the DSL contract and the 25-tool tenant MCP surface; validated by the eval suite, plus three post-funnel and cross-cutting skills
 (`verify-connector-output`, `update-and-rollback`,
 `diagnose-authoring-failure`) over the tenant connector and authoring
-tool surface. Each skill's `SOURCES.md` distinguishes public declaration
-pins from the tenant-served guide and generic design provenance.
+tool surface. Each skill's `SOURCES.md` distinguishes checkout-relative
+declarations and examples from the tenant-served guide and generic design provenance.
 
 | Skill | Stage coverage | Source basis |
 |---|---|---|

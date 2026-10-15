@@ -282,16 +282,16 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
   }
 })
 
-test("(f) every skill's SOURCES.md references in-repo content by resolvable relative path and names an immutable public release tag", () => {
+test("(f) every skill's SOURCES.md references in-repo content by resolvable relative path without self-SHA or branch pins", () => {
   const skillsRoot = resolve("skills")
   for (const name of SKILLS) {
     const sourcesPath = join(skillsRoot, name, "SOURCES.md")
     assert.ok(existsSync(sourcesPath), `missing SOURCES.md: ${name}`)
     const content = readFileSync(sourcesPath, "utf8")
     assert.ok(content.length > 0, `empty SOURCES.md: ${name}`)
-    // Self-SHA pins are forbidden because they are stale by construction;
-    // branch pins are forbidden because they are mutable. Keep an immutable release tag.
-    assert.match(content, /https:\/\/github\.com\/ConductorOne\/connector-authoring\/tree\/v\d+\.\d+\.\d+/, `${name}: SOURCES.md does not name an immutable public release tag`)
+    // Relative paths are the canonical in-repo reference; no immutable-release row is required.
+    // Release tags exist for declaration consumers, not for skill provenance.
+    // Self-SHA pins are stale by construction; branch pins are mutable.
     assert.doesNotMatch(content, /connector-authoring\/tree\/[0-9a-f]{7,40}\b/, `${name}: SOURCES.md contains a self-SHA pin`)
     assert.doesNotMatch(content, /connector-authoring\/tree\/main\b/, `${name}: SOURCES.md contains a mutable branch pin`)
     const relativePaths = [...content.matchAll(/\.\.\/\.\.\/[^\s`),|]+/g)]

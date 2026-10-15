@@ -7,7 +7,7 @@ This directory is the skill-bundle mount point for the eval harness.
 The current bundle targets the 25-tool tenant MCP surface and teaches four
 build-required files plus two test-required frozen files (`openapi.json`,
 `reviewed-ops.json`). This supersedes the tool-count and source-file contract
-descriptions in the historical release entries below.
+descriptions in the earlier bundle-version entries below.
 
 - Draft testing requires a top-level `connect` entry naming the registered
   HTTP transport (a C1 probe/serve contract, not a runtime directive) and
@@ -41,8 +41,8 @@ and cross-cutting skills at `0.1.0`:
   where logs live.
 
 The seven prior skills were unchanged in this release; the bundle version
-was `0.4.0`. Each skill's SOURCES.md distinguishes checkout-relative declarations
-and examples, immutable historical release tags, and tenant-served behavior.
+was `0.4.0`. Each skill's SOURCES.md references in-repo declarations and examples
+by checkout-relative path and distinguishes them from tenant-served behavior.
 
 ## v0.3.0 — the seven skills
 
@@ -58,7 +58,7 @@ The five funnel skills are unchanged; the bundle version is `0.3.0`.
 
 ## v0.2.0 — the five funnel skills
 
-The bundle ships five skills, authored against the v0.0.26 DSL contract and
+The bundle ships five skills, authored against the DSL contract and
 the 23-tool tenant MCP surface:
 
 - `author-in-app-connector` — the S0–S11 funnel orchestrator (routing,

@@ -7,10 +7,9 @@ the public declarations and worked examples below ground the SDK shapes.
 
 In-repo content is referenced by relative path and is always current with the checkout; skills and examples evolve in the same commit.
 
-| Source | Public pin / access | What this skill uses |
+| Source | Reference | What this skill uses |
 |---|---|---|
 | SDK declarations and examples | `../../baton/types.d.ts`, `../../examples/http/`, `../../examples/static/` (this checkout) | `baton/types.d.ts` trait constants and `examples/{static,http}` resource, entitlement, and grant mappings. |
-| Historical SDK baseline | [v0.0.26](https://github.com/ConductorOne/connector-authoring/tree/v0.0.26) | Historical declaration release, not proof of compatibility with the current tenant runtime. |
 | Spec-sourcing skill | `../source-openapi-spec/SKILL.md` | IAM go/no-go and park-with-evidence handoff. |
 | Tenant-served authoring guide | Read through `c1_connector_authoring_get_authoring_guide` | Current lifecycle requirements and bundle caps. |
 
