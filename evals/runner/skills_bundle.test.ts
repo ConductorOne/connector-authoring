@@ -1,11 +1,12 @@
 // skills_bundle.test.ts — unit smoke for the skill bundle (locked D10/E1).
-// Covers: frontmatter contract of the five SKILL.md files, bundle.json path
-// resolution, section markers + line bound, the full-mode scenario parse,
+// Covers: frontmatter contract and content pins of the ten SKILL.md files,
+// bundle.json path resolution, section markers + line bound, the full-mode scenario parse,
 // and the CLI end-to-end record meta for the full-mode Tier-0 run.
 import {test} from "node:test"
 import assert from "node:assert/strict"
 import {execFile} from "node:child_process"
 import {promisify} from "node:util"
+import {createHash} from "node:crypto"
 import {existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs"
 import {tmpdir} from "node:os"
 import {join, resolve, sep} from "node:path"
@@ -15,10 +16,19 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.2"
+const VERSION = "0.12.3"
 
-function readBundle(): {version: string; skills: {name: string; version: string; path: string}[]} {
-  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string}[]}
+function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
+  return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
+}
+
+function assertContentPin(skill: {name: string; sha256: string}, file: Buffer): void {
+  assert.match(skill.sha256 ?? "", /^[0-9a-f]{64}$/, `${skill.name}: missing or malformed SHA-256 content pin`)
+  assert.equal(
+    createHash("sha256").update(file).digest("hex"),
+    skill.sha256,
+    `${skill.name}: SKILL.md content changed; bump its frontmatter version and run npm run bundle:update`,
+  )
 }
 
 // The repo has no YAML dependency: parse the frontmatter block (between the
@@ -46,7 +56,7 @@ test("(a) each SKILL.md exists with the locked frontmatter contract", () => {
     assert.ok(fm.description.includes("Do not use when"), `${name}: description must carry the anti-trigger sentence`)
     // bundle.json is the single source for per-skill versions: every bundled
     // skill must carry a version entry, and the SKILL.md frontmatter must
-    // match it — bumping a skill body without bumping its bundle entry fails.
+    // match it. Content drift is checked separately below.
     const entryVersion = bundleVersions[name]
     assert.ok(entryVersion !== undefined, `${name}: no version entry in bundle.json`)
     assert.equal(fm.version, entryVersion, `${name}: frontmatter version must equal the bundle.json entry version`)
@@ -65,6 +75,24 @@ test("(b) every bundle.json path resolves to an existing file", () => {
     assert.ok(target.startsWith(skillsRoot + sep), `bundle path escapes the skills root: ${skill.path}`)
     assert.ok(existsSync(target), `bundle path does not resolve: ${skill.path}`)
     assert.ok(readFileSync(target, "utf8").length > 0, `bundle path is empty: ${skill.path}`)
+  }
+})
+
+test("(b2) every SKILL.md matches its whole-file SHA-256 content pin", () => {
+  for (const skill of readBundle().skills) {
+    assertContentPin(skill, readFileSync(resolve("evals/skills-bundle", skill.path)))
+  }
+})
+
+test("(b3) content pins reject body-only edits, frontmatter edits, and missing or malformed pins", () => {
+  const skill = readBundle().skills[0]
+  const file = readFileSync(resolve("evals/skills-bundle", skill.path))
+  assert.throws(() => assertContentPin(skill, Buffer.concat([file, Buffer.from("\nUnversioned body edit.\n")])), /content changed/)
+  const changedFrontmatter = file.toString("utf8").replace(`version: ${skill.version}`, "version: 99.0.0")
+  assert.notEqual(changedFrontmatter, file.toString("utf8"))
+  assert.throws(() => assertContentPin(skill, Buffer.from(changedFrontmatter)), /content changed/)
+  for (const sha256 of ["", "not-a-hash", skill.sha256.toUpperCase()]) {
+    assert.throws(() => assertContentPin({...skill, sha256}, file), /missing or malformed/)
   }
 })
 
@@ -227,7 +255,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.2")
+  assert.equal(full.skillBundle.version, "0.12.3")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -276,7 +304,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.2")
+    assert.equal(meta.skill_bundle_version, "0.12.3")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

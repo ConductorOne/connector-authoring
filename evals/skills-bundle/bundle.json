@@ -1,15 +1,65 @@
 {
-  "version": "0.12.2",
+  "version": "0.12.3",
   "skills": [
-    {"name": "author-in-app-connector", "version": "0.3.7", "path": "../../skills/author-in-app-connector/SKILL.md"},
-    {"name": "read-authoring-contract", "version": "0.2.2", "path": "../../skills/read-authoring-contract/SKILL.md"},
-    {"name": "write-connector-source", "version": "0.2.5", "path": "../../skills/write-connector-source/SKILL.md"},
-    {"name": "build-and-test", "version": "0.3.3", "path": "../../skills/build-and-test/SKILL.md"},
-    {"name": "deploy-and-activate", "version": "0.3.6", "path": "../../skills/deploy-and-activate/SKILL.md"},
-    {"name": "design-access-model", "version": "0.1.1", "path": "../../skills/design-access-model/SKILL.md"},
-    {"name": "source-openapi-spec", "version": "0.1.1", "path": "../../skills/source-openapi-spec/SKILL.md"},
-    {"name": "verify-connector-output", "version": "0.1.4", "path": "../../skills/verify-connector-output/SKILL.md"},
-    {"name": "update-and-rollback", "version": "0.2.4", "path": "../../skills/update-and-rollback/SKILL.md"},
-    {"name": "diagnose-authoring-failure", "version": "0.1.3", "path": "../../skills/diagnose-authoring-failure/SKILL.md"}
+    {
+      "name": "author-in-app-connector",
+      "version": "0.3.7",
+      "path": "../../skills/author-in-app-connector/SKILL.md",
+      "sha256": "cd23a6287f4126264fc6f58cb939779bd9b3f726bf7e6c614939802bc91d7544"
+    },
+    {
+      "name": "read-authoring-contract",
+      "version": "0.2.2",
+      "path": "../../skills/read-authoring-contract/SKILL.md",
+      "sha256": "b5f1d2dfe8db7b5d5164dc7c14ff6353143f525f824aa045c268ddb64c1e8acf"
+    },
+    {
+      "name": "write-connector-source",
+      "version": "0.2.5",
+      "path": "../../skills/write-connector-source/SKILL.md",
+      "sha256": "6199ec68e3d4d16636537a6a2e109189ba1468ff89242cd8357da822ac1ae883"
+    },
+    {
+      "name": "build-and-test",
+      "version": "0.3.3",
+      "path": "../../skills/build-and-test/SKILL.md",
+      "sha256": "af06ea399c2ab47955639abeb91df22ae008e61c5c227f8c56d4b3c7b769b22f"
+    },
+    {
+      "name": "deploy-and-activate",
+      "version": "0.3.6",
+      "path": "../../skills/deploy-and-activate/SKILL.md",
+      "sha256": "2eecef81d2d55a2f54b2d1973d478baf4acf075c97d5fbf0c8e89071e2e98237"
+    },
+    {
+      "name": "design-access-model",
+      "version": "0.1.1",
+      "path": "../../skills/design-access-model/SKILL.md",
+      "sha256": "dff27bd2264e4c69078cce99cc5e84ef9f07dcfd6eaab825e70a8a08a6963a52"
+    },
+    {
+      "name": "source-openapi-spec",
+      "version": "0.1.1",
+      "path": "../../skills/source-openapi-spec/SKILL.md",
+      "sha256": "3cbc0eca62f1ab06db18ac6df54b1bec2030ca66b7dc9a15ca1bb838c0663740"
+    },
+    {
+      "name": "verify-connector-output",
+      "version": "0.1.4",
+      "path": "../../skills/verify-connector-output/SKILL.md",
+      "sha256": "c97cac3376bc8cfd60e805b9108b05d73d095c7a33a8c3ce2ff958ebd89b7684"
+    },
+    {
+      "name": "update-and-rollback",
+      "version": "0.2.4",
+      "path": "../../skills/update-and-rollback/SKILL.md",
+      "sha256": "ff72d877af6d89f07bd0b32756bb14de0df36f6d9093a14856ad2aa48713371c"
+    },
+    {
+      "name": "diagnose-authoring-failure",
+      "version": "0.1.3",
+      "path": "../../skills/diagnose-authoring-failure/SKILL.md",
+      "sha256": "e1e9b8ce9d351c1257c13a32f3e39dc0fe6f10509580a1928b9ab0c186e3cd1a"
+    }
   ]
 }
