@@ -1,24 +1,18 @@
-# Sources — build-and-test
+# Sources - build-and-test
 
-The lifecycle documentation has been restructured; see the product
-documentation hub for the current authoring guides. The historical pins
-below remain unchanged for provenance; verified re-pinning is a separate pass.
+Read the tenant's MCP-served authoring guide at S0; it takes precedence over
+static documentation. Tenant lifecycle behavior is read live, not inferred
+from a public SDK release. Internal design discussion informed the evidence
+boundaries; it is not a fetchable public source.
 
-Authored against the pinned sources below (decision 8: nothing written from
-model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
-`authoring.proto`, (c) lifecycle doc, (d) in-repo `baton/*.d.ts` +
-`examples/http`.
-
-| Source | Pin / SHA | What this skill quotes |
+| Source | Public pin / access | What this skill uses |
 |---|---|---|
-| MCP-served guide | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | The caps table (16 MiB total / 12 MiB per file / 256 files / 65536 / 262144 / 1048576); the out-of-band uploads paragraph (`upload_targets`, `required_headers` verbatim); the evidence-and-credentials paragraph (`get_run` is build-only, `credential re-entry required`); the required-source-files table. |
-| Authoring proto | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | `DraftSourceUploadTarget` (`url` + `required_headers`); `CreateDraftSourceUpload` / `FinalizeDraftSourceUpload` (declared files with `size_bytes`, caps); `GetRun` (build runs only); `RunDraftTestSync` / `GetTestRunEvidence` (durable PASS/FAIL row, `NotFound` while pending). |
-| Lifecycle doc | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | Step 2 (upload dance with `wc -c`), step 4–5 (build + poll), step 9–10 (draft test + PASS evidence; fresh `test_run_id` on re-run). |
-| In-repo SDK declarations | connector-authoring `b7e8a616cbbb1e336b788f807a3810b08ae00bc7` | The `.d.ts` module surface the uploaded source is authored against. |
-| SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
-| baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
+| SDK declarations and examples | [connector-authoring at 8c5d8bd](https://github.com/ConductorOne/connector-authoring/tree/8c5d8bd1e48fbdb2e1502420cdf3d7939fb1010d) | `baton/*.d.ts` and the source files uploaded for build and test. |
+| Historical SDK baseline | [v0.0.26](https://github.com/ConductorOne/connector-authoring/tree/v0.0.26) | Historical declaration release, not proof of compatibility with the current tenant runtime. |
+| Tenant-served authoring guide | Read through `c1_connector_authoring_get_authoring_guide` | Upload targets and signed headers, size caps, required files, build state, durable test evidence, operation review, and transport verdicts. |
 
 ## Eval wiring
 
-- The eval fixture records the draft-test PASS result as the string `"PASS"`; the real surface returns the enum `CONNECTOR_TEST_RUN_RESULT_PASS`, and the scorer's S10 gate checks the fixture string.
-- The SKILL.md content literals (`required_source_files`, `upload_targets`, `required_headers`, `RUN_STATE_SUCCEEDED`, `test_run_id`) are enforced by `evals/runner/skills_bundle.test.ts`.
+- The fixture records the draft-test result as `"PASS"`; the real surface returns `CONNECTOR_TEST_RUN_RESULT_PASS`. The scorer's S10 gate checks the fixture string, not transport judgment or activation eligibility.
+- External-provenance drafts stop at S10 on `owner_judgment_required`; the fixture replay does not model human evidence acceptance.
+- Required-file, upload, build, and test literals are enforced by `evals/runner/skills_bundle.test.ts`.

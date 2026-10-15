@@ -281,11 +281,11 @@ test("(f) every skill ships a non-empty SOURCES.md naming its pinned sources", (
     const content = readFileSync(sourcesPath, "utf8")
     assert.ok(content.length > 0, `empty SOURCES.md: ${name}`)
   }
-  // The three new skills must name the c1 pin (decision 5: nothing written
-  // from model memory) so a dropped or truncated pin fails the gate.
-  const c1Pin = "2e5f53eb441a93087d9754085ca17a5061e125ea"
-  for (const name of ["verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]) {
+  // Every skill must retain a fetchable immutable public source, not merely
+  // a non-empty provenance file or an inaccessible implementation pin.
+  const publicPin = "https://github.com/ConductorOne/connector-authoring/tree/8c5d8bd1e48fbdb2e1502420cdf3d7939fb1010d"
+  for (const name of SKILLS) {
     const content = readFileSync(join(skillsRoot, name, "SOURCES.md"), "utf8")
-    assert.ok(content.includes(c1Pin), `${name}: SOURCES.md does not name the c1 pin`)
+    assert.ok(content.includes(publicPin), `${name}: SOURCES.md does not name the public SDK pin`)
   }
 })

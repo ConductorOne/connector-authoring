@@ -22,9 +22,9 @@ compatibility with a particular hosted runtime.
 
 ## Tags and consumer pins
 
-- `v0.0.x` tags are runtime/types releases mirrored from baton-axiomatic by the
-  sync pipeline. These release tags are immutable; consumers address their
-  content by the resolved commit.
+- `v0.0.x` tags are runtime/types releases published by the sync pipeline.
+  These release tags are immutable; consumers address their content by the
+  resolved commit.
 - The floating `v0` tag is retired. Its only consumer, ConductorOne's skill
   vendoring, now tracks `main`.
 - `v0.1.0` is a retired early skills-milestone tag, not the latest runtime/types

@@ -1,27 +1,19 @@
-# Sources — author-in-app-connector
+# Sources - author-in-app-connector
 
-The lifecycle documentation has been restructured; see the product
-documentation hub for the current authoring guides. The historical pins
-below remain unchanged for provenance; verified re-pinning is a separate pass.
+Read the tenant's MCP-served authoring guide at S0; it takes precedence over
+static documentation. Tenant lifecycle behavior is read live, not inferred
+from a public SDK release. Internal design discussion informed the stage
+boundaries; it is not a fetchable public source.
 
-Authored against the pinned sources below (decision 8: nothing written from
-model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
-`authoring.proto`, (c) lifecycle doc, (d) in-repo `baton/*.d.ts` +
-`examples/http`.
-
-| Source | Pin / SHA | What this skill quotes |
+| Source | Public pin / access | What this skill uses |
 |---|---|---|
-| MCP-served guide | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | The 12-step lifecycle list; the human-only activation rule ("Activation is a human-only tenant UI step, never an agent action"); the out-of-band uploads paragraph (`upload_targets`, `required_headers`). |
-| Authoring proto | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | RPC titles for every funnel step (`connector_authoring_create_draft`, `connector_authoring_create_draft_source_upload`, `connector_authoring_finalize_draft_source_upload`, `connector_authoring_build_bundle`, `connector_authoring_get_run`, `connector_authoring_run_draft_test_sync`, `connector_authoring_get_test_run_evidence`, `connector_authoring_provision_connector`, `connector_authoring_deploy_connector_instance`, `connector_authoring_mint_approval_token`); `MintApprovalTokenResponse.activation_url`. |
-| Lifecycle doc | c1 `2502b4cd8f59bf6614616013010ec4f0bf72f9ae` | The 12-step order and stop-if gates; the handoff-table discipline (fill every row from the tool response of the step that produces it); step 11's human-OWNER handoff. |
-| In-repo SDK declarations | connector-authoring `b7e8a616cbbb1e336b788f807a3810b08ae00bc7` | The `.d.ts` module surface the funnel's source files are authored against. |
-| SDK contract (`baton/*.d.ts`) | connector-authoring git tag `v0.0.26` (sync commit `01a69d8d` "Sync baton runtime types for v0.0.26") | The `.d.ts` module surface this skill is authored against. `runtime_pin_matched`: not verifiable offline — no tenant MCP surface is reachable from the authoring env; repo tag v0.0.26 is the served default_tag when the tenant runtime pin matches (see `read-authoring-contract` for the runtime check). |
-| baton-axiomatic DSL contract | baton-axiomatic `docs/DSL.md` + `runtime/baton/*.d.ts` @ v0.0.26 (`825e5516…`) | The DSL semantics ground truth the in-repo `.d.ts` are synced from. |
+| SDK declarations and examples | [connector-authoring at 8c5d8bd](https://github.com/ConductorOne/connector-authoring/tree/8c5d8bd1e48fbdb2e1502420cdf3d7939fb1010d) | `baton/*.d.ts` and `examples/` for the source files authored during the funnel. |
+| Historical SDK baseline | [v0.0.26](https://github.com/ConductorOne/connector-authoring/tree/v0.0.26) | Historical declaration release, not proof of compatibility with the current tenant runtime. |
+| Tenant-served authoring guide | Read through `c1_connector_authoring_get_authoring_guide` | Lifecycle order, required files, returned IDs, evidence gates, and human-only activation. |
 
 ## Eval wiring
 
-- Step boundaries: the served 12-step contract (agent prompt) puts upload+PUTs in its step 2 and finalize+get_draft in its step 3. This skill's S2 is the full upload dance (create_draft_source_upload + PUTs + finalize) and S3 is the get_draft gate; the call sets are identical, and "re-run from S2" always means the full upload dance.
-- The eval scorer's S11 gate fails a run with any call after mint other than the handoff write; the skill states the rule (no call after mint before the OWNER activates).
-- The fixture run stops at the human handoff and does not simulate activation notifications or post-activation verification. Its `evals/runner/stages.ts` scorer rejects sync calls in that pre-activation transcript.
+- S2 is the full upload dance (create upload, PUTs, finalize); S3 checks the required files. Re-running S2 repeats the full upload dance.
+- The fixture run stops at the human handoff and does not simulate activation notifications or post-activation verification. Its scorer rejects sync calls in that pre-activation transcript.
 - The scorer records S11b/S11c as `skipped_human_boundary`; a real session resumed after activation performs one verification sync, then hands subsequent syncs to the human/operator.
-- The handoff fields, human-only activation boundary, and single post-activation verification sync are enforced by `evals/runner/skills_bundle.test.ts`.
+- Handoff fields and activation boundaries are enforced by `evals/runner/skills_bundle.test.ts`.

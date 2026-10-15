@@ -24,7 +24,7 @@ descriptions in the historical release entries below.
   evidence instructions match this contract.
 
 Skill versions advance for all seven changed bodies, including the
-failure-diagnosis correction. Historical source pins remain unchanged.
+failure-diagnosis correction. See each skill's SOURCES.md for public sources.
 
 ## v0.4.0 - the ten skills
 
@@ -40,9 +40,9 @@ and cross-cutting skills at `0.1.0`:
   router over the common-failures table, the draft-test FAIL reading, and
   where logs live.
 
-The seven prior skills are unchanged; the bundle version is `0.4.0`. The
-three new skills pin the c1 contract sources at `2e5f53eb…` (see each
-skill's SOURCES.md).
+The seven prior skills were unchanged in this release; the bundle version
+was `0.4.0`. Each skill's SOURCES.md distinguishes public declaration pins
+from tenant-served behavior.
 
 ## v0.3.0 — the seven skills
 
@@ -71,18 +71,15 @@ the 23-tool tenant MCP surface:
 - `deploy-and-activate` — stages 6–8, 11: app, provision, configure, deploy,
   mint, handoff.
 
-The four pre-existing skills pin the c1 contract sources at `2502b4cd…`;
-`write-connector-source` pins them at `92f1c2e5…` — the SHA current at
-authoring time. The capabilities-as-real-contract correction the new skill
-quotes is the batch's Linear intent (see its SOURCES.md), not a doc change
-between the two pins; the c1 docs at `92f1c2e5` still carry the stale
-presence-only wording.
+The funnel skills were grounded in the tenant-served contract and public SDK
+declarations. Capability validation is a real metadata contract, not a
+presence-only file check; see `write-connector-source/SOURCES.md`.
 
 ## Mount contract
 
 `bundle.json` is a **manifest**, not a directory copy: each `skills[]` entry
 names a skill and a `path` relative to this directory pointing into
-`skills/` (the canonical home). Private drivers mount per the manifest —
+`skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
 `skillBundle.version` (`0.12.0`); the runner records both in every run record.
