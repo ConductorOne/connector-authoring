@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.5
+version: 0.3.6
 ---
 
 # deploy-and-activate

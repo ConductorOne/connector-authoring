@@ -1,7 +1,7 @@
 ---
 name: verify-connector-output
 description: Use when verifying a post-activation connector's sync output: resource/entitlement/grant counts, grant wiring, ID stability against the next human-run sync (or reported pending), and the UI spot-check. Do not use when updating or rolling back a live connector - use update-and-rollback; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.1.3
+version: 0.1.4
 ---
 
 # verify-connector-output

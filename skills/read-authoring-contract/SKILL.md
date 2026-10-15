@@ -1,7 +1,7 @@
 ---
 name: read-authoring-contract
 description: Use when starting a connector authoring session and you need the authoritative contract before writing any source. Do not use when you already hold a fresh get_authoring_guide response for this session and are mid-funnel.
-version: 0.2.1
+version: 0.2.2
 ---
 
 # read-authoring-contract

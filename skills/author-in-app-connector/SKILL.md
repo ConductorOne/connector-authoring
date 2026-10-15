@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.6
+version: 0.3.7
 ---
 
 # author-in-app-connector

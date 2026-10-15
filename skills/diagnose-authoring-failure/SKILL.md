@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.2
+version: 0.1.3
 ---
 
 # diagnose-authoring-failure

@@ -2,6 +2,25 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.1 - the docs-alignment release
+
+This patch aligns the existing skill bodies with the current authoring contract:
+
+- Credential gates derive required fields from `config-schema.json`.
+- `owner_judgment_required` is a terminal outcome requiring a human handoff.
+- The single post-activation verification sync is the ID-stability baseline;
+  `verify-connector-output` waits for the next human-run sync or reports pending.
+- SOURCES.md uses checkout-relative references without self-SHA, branch pins,
+  or historical SDK baseline rows.
+- The HTTP example uses `http.v2` with an explicit pagination stopping condition.
+
+Eight body-changed skills advance one patch: `author-in-app-connector` (`0.3.7`),
+`read-authoring-contract` (`0.2.2`), `write-connector-source` (`0.2.4`),
+`build-and-test` (`0.3.3`), `deploy-and-activate` (`0.3.6`),
+`verify-connector-output` (`0.1.4`), `update-and-rollback` (`0.2.4`), and
+`diagnose-authoring-failure` (`0.1.3`). `design-access-model` and
+`source-openapi-spec` retain their versions because only SOURCES.md changed.
+
 ## v0.12.0 - current authoring contract
 
 The current bundle targets the 25-tool tenant MCP surface and teaches four
@@ -82,4 +101,4 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.0`); the runner records both in every run record.
+`skillBundle.version` (`0.12.1`); the runner records both in every run record.
