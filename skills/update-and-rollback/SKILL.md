@@ -44,7 +44,9 @@ titles.
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
    `transport_judge_verdict == "accepted"` before minting a new approval URL.
    If no ACTIVE row after ~10 polls, STOP and report.
-7. Call `c1_connector_service_force_sync`; poll `c1_connector_service_get`
+7. After confirming ACTIVE, call `c1_connector_service_force_sync` exactly
+   once to verify this activation, including when an activation notification
+   resumed the session. Poll `c1_connector_service_get`
    with backoff (e.g. every 5-10s) until `status.status` is
    `SYNC_STATUS_DONE`, `SYNC_STATUS_ERROR`, or `SYNC_STATUS_DISABLED`; if
    no terminal status after ~10 polls, STOP and report. If the status row
@@ -53,6 +55,7 @@ titles.
    connector's `sync_disabled_reason` and route through
    diagnose-authoring-failure unless the reason indicates a deliberate
    pause (customer opt-out or ops).
+   After reporting verification, stop; the human/operator owns subsequent syncs.
 
 ## Rotation STOP (known limitation)
 
@@ -116,7 +119,7 @@ fix cycles, stop and report the exact error text (see Blocker protocol).
 - Do not clear runtime fields, call the provisioner directly, or mutate the
   deployment or AWS resources on the rotation STOP.
 - Do not roll back via the activation endpoint - rollback is REST-only.
-- Do not force-sync before the target revision is ACTIVE.
+- Do not force-sync before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
 - Do not print, log, or otherwise expose the OWNER bearer token value -
   reference it only by variable or placeholder in any command or
   diagnostic output.

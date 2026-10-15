@@ -22,6 +22,6 @@ model memory). Source-of-truth precedence: (a) MCP-served guide, (b)
 
 - Step boundaries: the served 12-step contract (agent prompt) puts upload+PUTs in its step 2 and finalize+get_draft in its step 3. This skill's S2 is the full upload dance (create_draft_source_upload + PUTs + finalize) and S3 is the get_draft gate; the call sets are identical, and "re-run from S2" always means the full upload dance.
 - The eval scorer's S11 gate fails a run with any call after mint other than the handoff write; the skill states the rule (no call after mint before the OWNER activates).
-- `evals/runner/stages.ts` rejects any `force_sync` in the authoring transcript, including after an activation notification resumes the session. The skill delegates production sync to the human/operator outside that session.
-- The scorer's SKIPPED_STAGES disposition records S11b/S11c as `skipped_human_boundary`; the skill states only the behavior (hand off and stop).
-- The SKILL.md content literals (the 10 handoff field names, the never-redeem instruction, and the authoring-session `force_sync` prohibition) are enforced by `evals/runner/skills_bundle.test.ts`.
+- The fixture run stops at the human handoff and does not simulate activation notifications or post-activation verification. Its `evals/runner/stages.ts` scorer rejects sync calls in that pre-activation transcript.
+- The scorer records S11b/S11c as `skipped_human_boundary`; a real session resumed after activation performs one verification sync, then hands subsequent syncs to the human/operator.
+- The handoff fields, human-only activation boundary, and single post-activation verification sync are enforced by `evals/runner/skills_bundle.test.ts`.

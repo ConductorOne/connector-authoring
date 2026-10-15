@@ -68,16 +68,16 @@ test("(b) every bundle.json path resolves to an existing file", () => {
   }
 })
 
-// Locked content literals per skill (plan B1c/B3f/C1c/C3c string checks).
-// The security negations are asserted too: a regression stripping the
-// never-redeem / never-force_sync / never-list_revision_summaries
-// instructions while keeping the marker literals must fail the gate.
+// Required content literals per skill.
+// Preserve the human-only activation boundary and the single post-activation
+// verification sync; keeping marker literals without these rules must fail.
 const SKILL_LITERALS: Record<string, string[]> = {
   "author-in-app-connector": [
     "catalog_id", "draft_id", "upload_id", "run_id", "revision_id",
     "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url",
     "Do not redeem the approval token",
-    "Do not call `force_sync` in the authoring session",
+    "Do not call `force_sync` before activation or repeat the post-activation verification sync",
+    "owns subsequent syncs",
     "write-connector-source",
     'transport_judge_verdict == "accepted"',
   ],
@@ -93,7 +93,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "deployment_instance_id", "activation_url", "REVISION_STATUS_ACTIVE", "activation_epoch",
     "SYNC_STATUS_DONE",
     "Do not redeem the approval token",
-    "Do not call `c1_connector_service_force_sync` in the authoring session",
+    "Do not force-sync before activation or repeat the post-activation verification sync",
+    "exactly once to verify this activation",
+    "human/operator owns subsequent syncs",
     "Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates",
     'transport_judge_verdict == "accepted"',
     "Correct the verdict's cause; do not just re-mint",
@@ -173,6 +175,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "no terminal status after ~10 polls, STOP and report",
     "SYNC_STATUS_ERROR",
     "SYNC_STATUS_DISABLED",
+    "Do not force-sync before activation or repeat the post-activation verification sync",
+    "human/operator owns subsequent syncs",
     "Do not print, log, or otherwise expose the OWNER bearer token value",
   ],
   "diagnose-authoring-failure": [

@@ -116,25 +116,25 @@ Net-new provider: before S1, run both pre-1 skills - `source-openapi-spec`
 
 After S11's deploy + mint, present `activation_url` to a human tenant OWNER,
 record the handoff table, and STOP. Never redeem the approval token.
-Do not call `force_sync` in the authoring session; the human/operator runs
-it after the OWNER activates. Never poll `REVISION_STATUS_ACTIVE` before
-the OWNER activates. If a notification later resumes you, the revision is
-already ACTIVE: record its `activation_epoch`, but still do not force-sync
-in this authoring session. Direct API callers verify per deploy-and-activate
-once the OWNER reports activation.
+Do not call `force_sync` or poll `REVISION_STATUS_ACTIVE` before the OWNER
+activates. If an activation notification later resumes you, the revision is
+already ACTIVE: record its `activation_epoch`, then run exactly one
+verification sync per deploy-and-activate. Direct API callers verify once
+the OWNER reports activation. After this verification, the human/operator
+owns subsequent syncs.
 
 ## Exit criteria
 
 - S0-S11 all pass per the stage table above.
-- S11 handoff: all 10 handoff fields, no calls after mint except the
-  handoff write, no redemption.
+- S11 handoff: all 10 handoff fields, no calls after mint before activation
+  except the handoff write, no redemption.
 
 ## Anti-patterns
 
 - Do not skip a stage.
 - Do not fabricate handoff values.
 - Do not redeem the approval token.
-- Do not call `force_sync` in the authoring session; the human/operator runs it after the OWNER activates.
+- Do not call `force_sync` before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
 - Do not write the handoff before deploy + mint.
 
 ## Blocker protocol
