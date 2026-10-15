@@ -63,6 +63,10 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
     Before S11 deploy or mint, the same durable evidence must also report
     `transport_judge_verdict == "accepted"`. STOP on any other or missing
     verdict and follow the build-and-test verdict table; PASS alone is not enough.
+    External-provenance drafts receive `owner_judgment_required` and stop at
+    S10 until human evidence acceptance ships. Hand off the durable evidence
+    and recorded IDs; do not deploy or mint. Retesting or re-upload does not
+    change attribution.
 11. S11 handoff discipline: call
     `c1_connector_authoring_deploy_connector_instance` (extract
     `deployment_instance_id`), then
