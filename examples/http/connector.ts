@@ -21,13 +21,6 @@ import {
     TRAIT_USER,
 } from "@baton/types"
 
-type Page<T> = {
-    items: readonly T[]
-    offset: number
-    limit: number
-    total: number
-}
-
 type DirectoryUser = {id: string; name: string; email: string; active: boolean}
 type DirectoryGroup = {id: string; name: string}
 type DirectoryMember = {userId: string}
@@ -62,16 +55,26 @@ const memberRow = slot<DirectoryMember>()
 
 const listUsers = node({
     outputs: {userRow},
-    run: () => directory.GET({path: "/v1/users", pagination: offsetPagination}),
+    run: () =>
+        directory.GET({
+            path: "/v1/users",
+            pagination: offsetPagination,
+            itemsPath: ["items"],
+        }),
     result: ({response}) =>
-        (response as Page<DirectoryUser>).items.map((user) => ({userRow: user})),
+        (response as readonly DirectoryUser[]).map((user) => ({userRow: user})),
 })
 
 const listGroups = node({
     outputs: {groupRow},
-    run: () => directory.GET({path: "/v1/groups", pagination: offsetPagination}),
+    run: () =>
+        directory.GET({
+            path: "/v1/groups",
+            pagination: offsetPagination,
+            itemsPath: ["items"],
+        }),
     result: ({response}) =>
-        (response as Page<DirectoryGroup>).items.map((group) => ({groupRow: group})),
+        (response as readonly DirectoryGroup[]).map((group) => ({groupRow: group})),
 })
 
 const listGroupMembers = node({
@@ -83,9 +86,10 @@ const listGroupMembers = node({
         directory.GET({
             path: `/v1/groups/${encodeURIComponent(group.id)}/members`,
             pagination: offsetPagination,
+            itemsPath: ["items"],
         }),
     result: ({response}) =>
-        (response as Page<DirectoryMember>).items.map((member) => ({memberRow: member})),
+        (response as readonly DirectoryMember[]).map((member) => ({memberRow: member})),
 })
 
 const userGrantableTo: readonly ResourceTypeReference[] = [

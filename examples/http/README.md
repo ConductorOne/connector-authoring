@@ -35,7 +35,12 @@ The connector declares a graph:
 2. `http.v2(...)` declares native basic authentication. Connector code never
    reads the account email or API token.
 3. Each `node` returns a `directory.GET(...)` descriptor with offset
-   pagination. The hosted runtime executes requests and advances pages.
+   pagination and `itemsPath: ["items"]` to select records from each page
+   envelope, matching `output_slice: "items"` in `reviewed-ops.json`.
+   The hosted runtime executes requests and advances pages; `result({response})`
+   receives the selected records array, not the page envelope, so it maps
+   `response` directly. Without `itemsPath`, an object body becomes one record
+   rather than extracting its `items` array.
    v2 requires an explicit stopping condition: this example uses
    `totalPath: ["total"]` with `pageSize: 100` (and the response's `limit`
    through `maxResultsPath`). It does not infer completion from a short page.
