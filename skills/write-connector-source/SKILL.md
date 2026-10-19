@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json) plus the two test-required frozen files (openapi.json, reviewed-ops.json) for an in-app connector draft, before the S2 upload. Do not use when the source files are already uploaded and you are mid-funnel - invoke build-and-test instead.
-version: 0.2.5
+version: 0.2.6
 ---
 
 # write-connector-source
@@ -164,8 +164,8 @@ every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail che
       `reuse` registered under `transports:`.
 - [ ] Top-level `connect` present with one `http` entry named after the
       registered transport (draft-test probe default; not read by the runtime).
-- [ ] `openapi.json` + `reviewed-ops.json` present with `output_slice` on every
-      projection before draft testing.
+- [ ] `openapi.json` + `reviewed-ops.json` present with `output_slice` on every projection before draft testing.
+- [ ] With `pagination` set, every enveloped list request declares `itemsPath` matching its reviewed-ops `output_slice` (e.g. `itemsPath: ["items"]`); `result()` receives each page's records array, never the envelope.
 - [ ] Every `config("...")` literal in `connector.ts` declared in BOTH schemas (parity covers config refs, not just the two schemas).
 - [ ] `ticketing.enabled` - no unsupported `ticketing` block (`ticketing.enabled must be true when ticketing is configured`).
 

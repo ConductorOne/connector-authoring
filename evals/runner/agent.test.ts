@@ -57,6 +57,8 @@ test("buildPrompt carries the stop rule, handoff path, and credentials", () => {
   // The under-sync trap is spelled out.
   assert.ok(prompt.includes("account_id"))
   assert.ok(prompt.includes("3-user unscoped subset"))
+  // The page-envelope trap is spelled out.
+  assert.ok(prompt.includes('itemsPath: ["items"]'))
 })
 
 test("buildPrompt uploads the build-required files and frozen test contract", () => {

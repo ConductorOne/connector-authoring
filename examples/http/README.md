@@ -38,9 +38,10 @@ The connector declares a graph:
    pagination and `itemsPath: ["items"]` to select records from each page
    envelope, matching `output_slice: "items"` in `reviewed-ops.json`.
    The hosted runtime executes requests and advances pages; `result({response})`
-   receives the selected records array, not the page envelope, so it maps
+   receives each page's records array, not the page envelope, so it maps
    `response` directly. Without `itemsPath`, an object body becomes one record
-   rather than extracting its `items` array.
+   rather than extracting its `items` array. The runtime does not derive
+   `itemsPath` from `output_slice`; declare both.
    v2 requires an explicit stopping condition: this example uses
    `totalPath: ["total"]` with `pageSize: 100` (and the response's `limit`
    through `maxResultsPath`). It does not infer completion from a short page.

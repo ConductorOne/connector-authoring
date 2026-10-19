@@ -91,7 +91,7 @@ Example lines:
 {"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"high","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
 {"stage":"S0","gate":"guide read","pass":true,"first_pass":true,"attempts":1,"evidence":"transcript has 1 successful get_authoring_guide call(s)"}
 {"stage":"S11b","gate":"REVISION_STATUS_ACTIVE","pass":"skipped_human_boundary"}
-{"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
+{"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 6 static source checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
 ```
 
 `tokens_in`/`tokens_out` are `null` when the stream carries no usage events —
@@ -163,8 +163,8 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 ## Parity + hygiene verdicts
 
 - **`parity_verdict`** is computed STATICALLY from the uploaded `connector.ts`
-  source (five literal-substring checks: `account_id`, `user.title`,
-  `totalPath`, the three `config("...")` literals, `newUserResource` +
+  source (six literal-substring checks: `account_id`, `user.title`,
+  `totalPath`, `itemsPath`, the three `config("...")` literals, `newUserResource` +
   `user.id`). **Bundle-arm comparability caveat:** the full skill bundle
   teaches the scored literals (`totalPath`, `newUserResource` + `user.id`)
   directly, while the `none`/`guide-only` arms must discover them from the

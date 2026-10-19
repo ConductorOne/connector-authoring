@@ -152,6 +152,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "account_id",
     "user.title",
     "totalPath",
+    "itemsPath",
     "newUserResource",
     "user.id",
     "http.v2",

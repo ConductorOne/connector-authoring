@@ -59,7 +59,7 @@ const SUMMARY: SummaryLine = {
   first_pass_rate: 1.0,
   recovery_cycles: 0,
   parity_verdict: "PASS",
-  parity_evidence: "all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)",
+  parity_evidence: "all 6 static source checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id)",
   parity_tenant: "not_applicable",
   parity_tenant_evidence: "draft test did not persist synced resources (tenant counts 0) — parity measured statically from source",
   hygiene_verdict: "PASS",

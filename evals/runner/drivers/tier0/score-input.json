@@ -10,7 +10,7 @@
     "source_files": [
       {
         "path": "connector.ts",
-        "content": "directory.GET({path: \"/v1/users\", query: {account_id: \"acct-1\"}, pagination: offsetPagination}) user.title totalPath config(\"base-url\") config(\"account-email\") config(\"api-token\") newUserResource user.id"
+        "content": "directory.GET({path: \"/v1/users\", query: {account_id: \"acct-1\"}, pagination: offsetPagination, itemsPath: [\"items\"]}) user.title totalPath config(\"base-url\") config(\"account-email\") config(\"api-token\") newUserResource user.id"
       }
     ],
     "config_schema": {
