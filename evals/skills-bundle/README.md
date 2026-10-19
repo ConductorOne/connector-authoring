@@ -2,6 +2,19 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.4 - the itemsPath release
+
+This patch teaches and scores the connector-side page-envelope contract:
+
+- `write-connector-source` adds a checklist item: with `pagination` set, every
+  enveloped list request declares `itemsPath` matching its reviewed-ops
+  `output_slice`; `result()` receives each page's records array, never the
+  envelope.
+- The static parity rubric gains a sixth literal check, `itemsPath`, so run
+  records from this bundle are not comparable with earlier five-check records.
+
+One body-changed skill advances one patch: `write-connector-source` (`0.2.6`).
+
 ## v0.12.3 - the content-pin gate
 
 Each manifest entry now pins the SHA-256 of its entire SKILL.md file. The local
@@ -124,7 +137,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.3`); the runner records both in every run record.
+`skillBundle.version` (`0.12.4`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

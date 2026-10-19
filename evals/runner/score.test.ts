@@ -95,7 +95,7 @@ function goodScoreInput(): ScoreInput {
         {
           path: "connector.ts",
           content:
-            'directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination}) user.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id',
+            'directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination, itemsPath: ["items"]}) user.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id',
         },
       ],
       config_schema: {
@@ -176,7 +176,7 @@ test("a failed build fails S5 and downstream parity/hygiene still compute", () =
 test("parity fails when account_id is not inside a query object", () => {
   const leaky = goodScoreInput()
   leaky.draft.source_files = [
-    {path: "connector.ts", content: '// account_id is required\nuser.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
+    {path: "connector.ts", content: '// account_id is required\nuser.title totalPath itemsPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
   ]
   const result = scoreRun(ctx({scoreInput: leaky}))
   assert.equal(result.parity_verdict, "FAIL")
@@ -185,7 +185,7 @@ test("parity fails when account_id is not inside a query object", () => {
 test("parity fails when account_id appears only in a commented-out GET example", () => {
   const leaky = goodScoreInput()
   leaky.draft.source_files = [
-    {path: "connector.ts", content: '// directory.GET({path: "/v1/users", query: {account_id: "acct-1"}})\nuser.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
+    {path: "connector.ts", content: '// directory.GET({path: "/v1/users", query: {account_id: "acct-1"}})\nuser.title totalPath itemsPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
   ]
   const result = scoreRun(ctx({scoreInput: leaky}))
   assert.equal(result.parity_verdict, "FAIL")
@@ -194,10 +194,20 @@ test("parity fails when account_id appears only in a commented-out GET example",
 test("parity passes when account_id sits inside a query object", () => {
   const good = goodScoreInput()
   good.draft.source_files = [
-    {path: "connector.ts", content: 'directory.GET({path: "/v1/users", query: {account_id: "acct-1"}}) user.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
+    {path: "connector.ts", content: 'directory.GET({path: "/v1/users", query: {account_id: "acct-1"}}) user.title totalPath itemsPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
   ]
   const result = scoreRun(ctx({scoreInput: good}))
   assert.equal(result.parity_verdict, "PASS")
+})
+
+test("parity fails when the itemsPath literal is absent from the source", () => {
+  const enveloped = goodScoreInput()
+  enveloped.draft.source_files = [
+    {path: "connector.ts", content: 'directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination}) user.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},
+  ]
+  const result = scoreRun(ctx({scoreInput: enveloped}))
+  assert.equal(result.parity_verdict, "FAIL")
+  assert.equal(result.parity_evidence, "parity FAIL: missing literal(s): itemsPath")
 })
 
 test("hygiene fails on a plaintext fixture-token in uploaded source", () => {

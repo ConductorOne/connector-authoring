@@ -44,8 +44,8 @@ Implement a read-only Directory API connector (users, groups, group memberships)
 - Fixture base-url: ${baseUrl}
 - Auth variant: basic — username ${creds.username}, password ${creds.password}
 - OpenAPI document: ${baseUrl}${scenario.fixture.openapiPath}
-- Use the /v1 surface (basic auth + offset pagination, page object {items, offset, limit, total}).
-- The account_id scoping param is REQUIRED on GET /v1/users: the runtime GET descriptor accepts a query field, e.g. directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination}). If you omit account_id, the API returns only a 3-user unscoped subset and the sync under-syncs to 3 users.
+- Use the /v1 surface (basic auth + offset pagination, page object {items, offset, limit, total}). Declare itemsPath: ["items"] on every paginated GET; result() then receives each page's records array, never the page object.
+- The account_id scoping param is REQUIRED on GET /v1/users: the runtime GET descriptor accepts a query field, e.g. directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination, itemsPath: ["items"]}). If you omit account_id, the API returns only a 3-user unscoped subset and the sync under-syncs to 3 users.
 - user.title is nullable (null for some users) — project it into the profile without assuming non-null.
 - Grant/revoke endpoints exist (POST/DELETE /v1/groups/{groupId}/members) but this eval scores sync only; no grant/revoke implementation is required.
 

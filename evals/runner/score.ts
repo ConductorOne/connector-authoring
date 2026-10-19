@@ -31,7 +31,7 @@ const MAX_FILE_BYTES = 12 * 1024 * 1024
 const MAX_TOTAL_BYTES = 16 * 1024 * 1024
 const MAX_FILES = 256
 
-// L35: five literal-substring source checks over connector.ts (no AST, no
+// L35: six literal-substring source checks over connector.ts (no AST, no
 // regex beyond plain substring). The account_id check is STRUCTURAL: the
 // literal must appear inside a `query:` object of a GET/walk call (the
 // under-sync trap (a) is only avoided when account_id is actually passed as
@@ -73,6 +73,8 @@ function parityChecks(source: string): {name: string; ok: boolean}[] {
     {name: "account_id", ok: accountIdInQuery(source)},
     {name: "user.title", ok: source.includes("user.title")},
     {name: "totalPath", ok: source.includes("totalPath")},
+    // Substring only - a comment satisfies it; does not verify placement inside a paginated request.
+    {name: "itemsPath", ok: source.includes("itemsPath")},
     {
       name: "config literals",
       ok: configLiterals.every((l) => source.includes(l)),
@@ -94,7 +96,7 @@ function computeParity(ctx: StageCtx): {verdict: "PASS" | "FAIL"; evidence: stri
   const checks = parityChecks(source)
   const failed = checks.filter((c) => !c.ok)
   if (failed.length === 0) {
-    return {verdict: "PASS", evidence: "all 5 static source checks pass (account_id, user.title, totalPath, config literals, newUserResource + user.id)"}
+    return {verdict: "PASS", evidence: "all 6 static source checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id)"}
   }
   return {
     verdict: "FAIL",

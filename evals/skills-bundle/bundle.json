@@ -1,5 +1,5 @@
 {
-  "version": "0.12.3",
+  "version": "0.12.4",
   "skills": [
     {
       "name": "author-in-app-connector",
@@ -15,9 +15,9 @@
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "6199ec68e3d4d16636537a6a2e109189ba1468ff89242cd8357da822ac1ae883"
+      "sha256": "850ec5be596b06787eb89d3c9fb986a789de0026df5623afbca38291a57ac4ac"
     },
     {
       "name": "build-and-test",
