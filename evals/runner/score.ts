@@ -73,6 +73,7 @@ function parityChecks(source: string): {name: string; ok: boolean}[] {
     {name: "account_id", ok: accountIdInQuery(source)},
     {name: "user.title", ok: source.includes("user.title")},
     {name: "totalPath", ok: source.includes("totalPath")},
+    // Substring only - a comment satisfies it; does not verify placement inside a paginated request.
     {name: "itemsPath", ok: source.includes("itemsPath")},
     {
       name: "config literals",

@@ -200,7 +200,7 @@ test("parity passes when account_id sits inside a query object", () => {
   assert.equal(result.parity_verdict, "PASS")
 })
 
-test("parity fails when paginated requests omit itemsPath", () => {
+test("parity fails when the itemsPath literal is absent from the source", () => {
   const enveloped = goodScoreInput()
   enveloped.draft.source_files = [
     {path: "connector.ts", content: 'directory.GET({path: "/v1/users", query: {account_id: "acct-1"}, pagination: offsetPagination}) user.title totalPath config("base-url") config("account-email") config("api-token") newUserResource user.id'},

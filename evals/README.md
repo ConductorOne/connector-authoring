@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.3 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.4 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
@@ -165,8 +165,10 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 - **`parity_verdict`** is computed STATICALLY from the uploaded `connector.ts`
   source (six literal-substring checks: `account_id`, `user.title`,
   `totalPath`, `itemsPath`, the three `config("...")` literals, `newUserResource` +
-  `user.id`). **Bundle-arm comparability caveat:** the full skill bundle
-  teaches the scored literals (`totalPath`, `newUserResource` + `user.id`)
+  `user.id`; only `account_id` is structural - it must sit in a GET/walk
+  `query:` object - so the others, including `itemsPath`, are satisfied by
+  any occurrence, comments included). **Bundle-arm comparability caveat:** the full skill bundle
+  teaches the scored literals (`totalPath`, `itemsPath`, `newUserResource` + `user.id`)
   directly, while the `none`/`guide-only` arms must discover them from the
   SDK declarations and examples every checkout exposes, so parity-stage
   results are not comparable across bundle arms — a full-mode pass reflects
