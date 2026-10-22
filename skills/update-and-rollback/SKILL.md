@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.4
+version: 0.2.5
 ---
 
 # update-and-rollback
@@ -72,32 +72,30 @@ managed-runtime engineering.
 
 ## Rollback (REST-only, OWNER-gated)
 
-To roll back to a previously activated revision, mint an approval token for
-the rollback target revision and redeem it against the rollback endpoint -
-unlike activation, rollback is REST-only and OWNER-gated. The agent executes
-the POST with an OWNER bearer token read from the environment or secret
-store - never ask a human to paste the token into chat. Use the product
-base URL and OWNER bearer token:
-
-```
-POST /api/v1/connector-authoring/rollbacks
-{
-  "catalog_id": "<catalog_id>",
-  "target_revision_id": "<revision to roll back to>",
-  "instance_app_id": "<app_id>",
-  "instance_connector_id": "<connector_id>",
-  "approval_token_id": "<token_id>"
-}
-```
+1. Call `c1_connector_authoring_list_revision_summaries` and confirm the
+   rollback target is `REVISION_STATUS_PREVIOUSLY_ACTIVE`. Record the current
+   published revision's `activation_epoch` and explain why the rollback
+   target should replace it.
+2. Mint a new approval URL with `c1_connector_authoring_mint_approval_token`
+   for the target revision (`catalog_id`, `revision_id`;
+   `expires_in_seconds` 1-14400). GATE: non-empty `activation_url`.
+3. HARD STOP at the human boundary: present the URL to a human tenant OWNER
+   and stop. Do not redeem the approval token for rollback. Never call the
+   rollback endpoint or read or handle OWNER credentials.
+4. After the human OWNER completes rollback, follow the update flow's
+   notification/resume/poll branches (step 6) for the rollback target.
+   GATE: the target is `REVISION_STATUS_ACTIVE` under a strictly greater
+   `activation_epoch`. STOP and report if this is not confirmed.
+5. Follow the update flow's single verification sync (step 7), then invoke
+   `verify-connector-output`. Subsequent syncs belong to the human/operator.
 
 The rollback re-points the published and instance pointers at the target
 revision under a strictly greater activation epoch. The rolled-back-from
 revision's serve state is untouched - the pointer move alone stops it
 serving.
 
-If the rollback call fails closed (e.g. a precondition error), read the
-error text and re-check the request fields; if it does not resolve after 2
-fix cycles, stop and report the exact error text (see Blocker protocol).
+If the OWNER reports a rollback refusal, STOP and report the exact error
+text; do not attempt the rollback yourself.
 
 ## Exit criteria
 
@@ -106,23 +104,23 @@ fix cycles, stop and report the exact error text (see Blocker protocol).
   completed force sync.
 - The rotation STOP fired verbatim (`serve image does not match the revision-pinned runtime image`) with the escalation record: tenant,
   catalog, app, connector, and target revision IDs.
-- Rollback: `POST /api/v1/connector-authoring/rollbacks` accepted with
-  `target_revision_id`, `instance_app_id`, `instance_connector_id`, and
-  `approval_token_id`; the target revision is ACTIVE under a strictly
-  greater activation epoch.
+- Rollback handoff: non-empty `activation_url` presented to a human tenant
+  OWNER and stopped at the human boundary. After the OWNER completes the
+  rollback, the target revision is ACTIVE under a strictly greater
+  `activation_epoch`, with one completed verification sync and
+  `verify-connector-output` checks reported.
 
 ## Anti-patterns
 
-- Do not redeem the approval token for activation - activation is a human OWNER step.
+- Do not redeem the approval token for activation or rollback - both are human OWNER steps.
 - Do not reuse the managed runtime instance when the image digest does not
   match the target revision's pinned runtime image digest.
 - Do not clear runtime fields, call the provisioner directly, or mutate the
   deployment or AWS resources on the rotation STOP.
-- Do not roll back via the activation endpoint - rollback is REST-only.
+- Do not call the rollback endpoint or use the activation endpoint to roll back.
 - Do not force-sync before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
-- Do not print, log, or otherwise expose the OWNER bearer token value -
-  reference it only by variable or placeholder in any command or
-  diagnostic output.
+- Never read or handle OWNER credentials. Never ask a human to paste secrets
+  into chat.
 
 ## Blocker protocol
 
