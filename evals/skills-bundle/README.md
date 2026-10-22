@@ -2,6 +2,13 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.5 - human-only rollback handoff
+
+`update-and-rollback` (`0.2.5`) now follows the activation handoff pattern:
+confirm the rollback target, mint an approval URL, and stop for a human tenant
+OWNER. The assistant never executes rollback or handles OWNER credentials.
+After human completion, it confirms the target is ACTIVE and verifies output.
+
 ## v0.12.4 - the itemsPath release
 
 This patch teaches and scores the connector-side page-envelope contract:
@@ -137,7 +144,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.4`); the runner records both in every run record.
+`skillBundle.version` (`0.12.5`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

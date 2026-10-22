@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.4"
+const VERSION = "0.12.5"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -199,9 +199,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
   ],
   "update-and-rollback": [
     "serve image does not match the revision-pinned runtime image",
-    "/api/v1/connector-authoring/rollbacks",
-    "target_revision_id",
-    "approval_token_id",
+    "REVISION_STATUS_PREVIOUSLY_ACTIVE",
+    "activation_url",
+    "verify-connector-output",
     "activation_epoch",
     "image digest",
     "Do not redeem the approval token",
@@ -215,7 +215,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "SYNC_STATUS_DISABLED",
     "Do not force-sync before activation or repeat the post-activation verification sync",
     "human/operator owns subsequent syncs",
-    "Do not print, log, or otherwise expose the OWNER bearer token value",
+    "Never read or handle OWNER credentials",
   ],
   "diagnose-authoring-failure": [
     "262144 byte compile limit",
@@ -253,10 +253,22 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
   }
 })
 
+test("(c2) rollback preserves the human-only handoff boundary", () => {
+  const file = readFileSync("skills/update-and-rollback/SKILL.md", "utf8")
+  const rollback = file.split("## Rollback")[1]?.split("## Exit criteria")[0]
+  assert.ok(rollback, "missing rollback section")
+  for (const sentinel of ["c1_connector_authoring_mint_approval_token", "activation_url", "HARD STOP", "human tenant OWNER", "verify-connector-output"]) {
+    assert.ok(rollback.includes(sentinel), `rollback: missing boundary sentinel ${sentinel}`)
+  }
+  for (const forbidden of ["/api/v1/connector-authoring/rollbacks", "OWNER bearer token"]) {
+    assert.ok(!file.includes(forbidden), `update-and-rollback: forbidden agent execution instruction ${forbidden}`)
+  }
+})
+
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.4")
+  assert.equal(full.skillBundle.version, "0.12.5")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -305,7 +317,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.4")
+    assert.equal(meta.skill_bundle_version, "0.12.5")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

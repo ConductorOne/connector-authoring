@@ -1,5 +1,5 @@
 {
-  "version": "0.12.4",
+  "version": "0.12.5",
   "skills": [
     {
       "name": "author-in-app-connector",
@@ -51,9 +51,9 @@
     },
     {
       "name": "update-and-rollback",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "path": "../../skills/update-and-rollback/SKILL.md",
-      "sha256": "ff72d877af6d89f07bd0b32756bb14de0df36f6d9093a14856ad2aa48713371c"
+      "sha256": "f19419b15a8a1d9bd84e97dee167f0f94644c09786c306f9720572c9cbdcf1e3"
     },
     {
       "name": "diagnose-authoring-failure",
