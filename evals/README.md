@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.8 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.9 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
@@ -123,7 +123,7 @@ never invented.
 | S8 | credentials configured | score-input `connector_config` base-url/account-email/api-token all non-empty |
 | S9 | `test_run_id` | handoff non-empty; ≥1 successful `run_draft_test_sync` call in the transcript |
 | S10 | durable PASS evidence | score-input `evidence.result == "PASS"` |
-| S11 | handoff discipline | deploy + mint succeeded; all 10 handoff fields; zero tool calls after the mint except the handoff write; no token redemption |
+| S11 | handoff discipline | deploy + mint succeeded; all 10 machine handoff fields; zero tenant/MCP tool calls after mint before activation; host-required file/terminal writes (machine handoff artifact and run completion) excepted; no token redemption |
 
 ## Pre-1 kind (P0–P4)
 

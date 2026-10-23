@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.9
+version: 0.3.10
 ---
 
 # author-in-app-connector
@@ -142,7 +142,9 @@ owns subsequent syncs.
 
 - S0-S11 all pass per the stage table above.
 - S11 handoff: deploy + mint succeeded, the pending review link is the single
-  final line, no tool calls after mint before activation, no redemption.
+  final line, no tenant/MCP tool calls after mint before activation, no redemption.
+  Host-required file/terminal writes (the machine handoff artifact and run
+  completion) are excepted.
 
 ## Anti-patterns
 

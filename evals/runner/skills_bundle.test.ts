@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.8"
+const VERSION = "0.12.9"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -318,11 +318,12 @@ test("(c3) orchestrator and deployment keep raw IDs out of chat and handoff link
       "single trailing line at the very end of the output, after all prose and tables",
       "never inline or inside a table",
       "Never re-print activation or review URLs after activation",
-      "no tool calls after mint before activation, no redemption",
+      "no tenant/MCP tool calls after mint before activation, no redemption",
+      "Host-required file/terminal writes (the machine handoff artifact and run completion) are excepted",
     ]) {
       assert.ok(prose.includes(literal), `${name}: missing communication rule ${literal}`)
     }
-    for (const forbidden of ["handoff table", "all 10 handoff fields", "except the handoff write"]) {
+    for (const forbidden of ["handoff table", "all 10 handoff fields", "except the handoff write", "no tool calls after mint", "make no tool call after mint"]) {
       assert.ok(!prose.includes(forbidden), `${name}: obsolete handoff instruction ${forbidden}`)
     }
     assert.ok(prose.includes("per Session communication"), `${name}: activation handoff must use the link rules`)
@@ -332,7 +333,7 @@ test("(c3) orchestrator and deployment keep raw IDs out of chat and handoff link
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.8")
+  assert.equal(full.skillBundle.version, "0.12.9")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -381,7 +382,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.8")
+    assert.equal(meta.skill_bundle_version, "0.12.9")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

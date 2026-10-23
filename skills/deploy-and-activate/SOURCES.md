@@ -15,6 +15,6 @@ In-repo content is referenced by relative path and is always current with the ch
 ## Eval wiring
 
 - The fixture scorer checks the directory example's credentials; other providers use their own `config-schema.json` fields.
-- The fixture run ends at the human handoff; its S11 gate rejects calls after mint other than the machine-only `handoff.json` file write. That scoring artifact is not chat output. The fixture does not simulate activation notifications or post-activation verification.
+- The fixture run ends at the human handoff; its S11 gate rejects tenant/MCP calls after mint while allowing the machine-only `handoff.json` file write and host run completion. That scoring artifact is not chat output. The fixture does not simulate activation notifications or post-activation verification.
 - The scorer records S11b/S11c as `skipped_human_boundary`; a real session resumed after activation performs one verification sync, then hands subsequent syncs to the human/operator.
 - Communication rules and activation boundaries are pinned by `evals/runner/skills_bundle.test.ts`.

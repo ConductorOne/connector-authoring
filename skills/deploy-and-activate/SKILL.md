@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.7
+version: 0.3.8
 ---
 
 # deploy-and-activate
@@ -62,7 +62,8 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
 
 After the OWNER activates, perform one verification sync and report its
 result. Subsequent syncs belong to the human/operator. Before activation,
-make no tool call after mint.
+make no tenant/MCP tool call after mint. Host-required file/terminal writes
+(the machine handoff artifact and run completion) are excepted.
 
 - Verification: if your host provides activation notifications, a
   notification resuming you means the revision is already ACTIVE - record
@@ -99,13 +100,15 @@ make no tool call after mint.
 - S8 passes: every credential field named in `config-schema.json` is configured
   (e.g. base-url, account-email, api-token for the directory example).
 - S11 passes: deploy + mint succeeded, the pending review link is the single
-  final line, no tool calls after mint before activation, no redemption.
+  final line, no tenant/MCP tool calls after mint before activation, no redemption.
+  Host-required file/terminal writes (the machine handoff artifact and run
+  completion) are excepted.
 
 ## Anti-patterns
 
 - Do not redeem the approval token.
 - Do not force-sync before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
-- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - make no tool call between mint and activation.
+- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - make no tenant/MCP tool call between mint and activation; host-required file/terminal writes are excepted.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
 - Do not skip the idempotent provision reuse.

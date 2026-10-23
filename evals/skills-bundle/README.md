@@ -2,6 +2,14 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.9 - distinguish tenant calls from host completion
+
+`author-in-app-connector` (`0.3.10`) and `deploy-and-activate` (`0.3.8`)
+prohibit tenant/MCP tool calls after mint and before human activation, not
+host-required file/terminal writes. The machine-only handoff artifact and run
+completion remain allowed, matching the full-mode eval runner. The human-only
+activation boundary, chat ID rules, and one verification sync are unchanged.
+
 ## v0.12.8 - prose status and action-only handoffs
 
 `author-in-app-connector` (`0.3.9`) and `deploy-and-activate` (`0.3.7`)
@@ -192,7 +200,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.8`); the runner records both in every run record.
+`skillBundle.version` (`0.12.9`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

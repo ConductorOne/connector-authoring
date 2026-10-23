@@ -127,7 +127,7 @@ test("buildPrompt pre1 branch names the pre1Path, both skills, and the output co
       basicAuth: {username: "connector@example.com", password: "fixture-token"},
       bearerToken: "fixture-token",
     },
-    skillBundle: {mode: "full", version: "0.12.8"},
+    skillBundle: {mode: "full", version: "0.12.9"},
     model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
     reasoningEffort: "high",
     kind: "pre1",
