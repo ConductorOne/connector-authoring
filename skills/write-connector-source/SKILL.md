@@ -1,14 +1,17 @@
 ---
 name: write-connector-source
-description: Use when authoring the four build-required files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json) plus the two test-required frozen files (openapi.json, reviewed-ops.json) for an in-app connector draft, before the S2 upload. Do not use when the source files are already uploaded and you are mid-funnel - invoke build-and-test instead.
-version: 0.2.6
+description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
+version: 0.2.7
 ---
 
 # write-connector-source
 
-This skill authors four build-required files plus two test-required frozen files
-(`openapi.json`, `reviewed-ops.json`) after S1, before S2.
-The S0 served guide wins on conflict with other docs.
+Before S2, author a minimal four-file skeleton plus the frozen pair; declare
+exactly one projection in `reviewed-ops.json` with `output_slice` and
+`resource_type`, matching `connector.ts` and `capabilities.json`.
+Defer remaining resource types until the first green draft test, then expand
+incrementally: add a type, re-review changed inputs, rebuild, and retest.
+The S0 served guide wins on conflict; `build-and-test` owns test/verdict gates.
 
 ## The source-file contract
 
@@ -36,7 +39,9 @@ Top-level `connect` (sibling of `runtime`, `{"<transport-name>": {"type": "http"
 4. The bundle targets ES5 - no `u` regex flag; goja quirks apply.
 5. Import only from `@baton/runtime`, `@baton/types`, `@baton/helpers` (`@baton/*` resolution).
 
-Worked skeletons: `examples/http/connector.ts` (transport + offset pagination + users/groups/membership grants) and `examples/static/connector.ts` (zero-config); see SOURCES.md.
+Reference examples: `examples/http/connector.ts` has multiple types; copy only
+its user slice for the one-projection first draft. Use the full example for
+expansion, not as the initial skeleton; `examples/static/connector.ts` is zero-config.
 
 ## config-schema.json rules
 
@@ -118,7 +123,8 @@ The build validates this document strictly: proto JSON with a non-empty
 `@type: type.googleapis.com/c1.connector.v2.ConnectorCapabilities` envelope,
 no unknown fields; bool maps or placeholders are rejected. It is metadata only -
 host transport grants are derived from the sealed transport declarations, never
-from this file. Hand-author the `examples/http/capabilities.json` shape below.
+from this file. For the first draft, hand-author the single-user block below;
+the multi-type `examples/http/capabilities.json` is for the expand loop.
 The `baton-axiomatic capabilities` generation
 path (shopify Makefile: `env BATON_BASE_URL=https://placeholder.myshopify.com
 BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
@@ -136,14 +142,6 @@ connector image is available; move its output to `capabilities.json`.
         "traits": ["TRAIT_USER"]
       },
       "capabilities": ["CAPABILITY_SYNC"]
-    },
-    {
-      "resourceType": {
-        "id": "group",
-        "displayName": "Group",
-        "traits": ["TRAIT_GROUP"]
-      },
-      "capabilities": ["CAPABILITY_SYNC"]
     }
   ]
 }
@@ -155,7 +153,8 @@ Field-name parity between `config-schema.json` and `runtime-schema.json`;
 every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail checks from the docs' common-failures table:
 
 - [ ] `connector.ts` source under the 262144-byte compile limit.
-- [ ] Built bundle with embedded runtime specs under the 1048576-byte limit (see `build-and-test`).
+- [ ] Built bundle with generated runtime-spec assets under the 1048576-byte limit;
+      these are not the raw OpenAPI document (see `source-openapi-spec`).
 - [ ] Every credential-class config field marked `is_secret` (build rejects
       `credential-class config field must be marked is_secret`).
 - [ ] Every `connector config field X is missing type` fixed - `type` on
@@ -180,8 +179,8 @@ every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail che
 
 ## Exit criteria
 
-- All four build-required files and both frozen files authored per the contract.
-- Dual-schema parity holds; `capabilities.json` carries the ConnectorCapabilities shape.
+- Skeleton: all four build-required files and both frozen files, with exactly one declared projection.
+- Expansion: add remaining confirmed resource types only after the first green draft test; preserve dual-schema parity and the ConnectorCapabilities shape on every increment.
 
 ## Anti-patterns
 

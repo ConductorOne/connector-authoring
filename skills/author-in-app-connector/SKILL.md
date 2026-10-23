@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.7
+version: 0.3.8
 ---
 
 # author-in-app-connector
@@ -19,14 +19,21 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
    arguments) and read the served guide. STOP if it errors.
 1. S1 draft: call `c1_connector_authoring_create_draft`; extract `catalog_id`
    and `draft_id`. STOP if either is empty.
-   Before S2: invoke `write-connector-source` to author the four build-required
-   files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json)
-   plus the two test-required frozen files (openapi.json, reviewed-ops.json).
-2. S2 upload: `wc -c` each source file, call
-   `c1_connector_authoring_create_draft_source_upload` with the file list,
-   PUT each file to its `upload_targets` URL with `required_headers`
-   verbatim, then `c1_connector_authoring_finalize_draft_source_upload`.
-   STOP if any PUT is not 200.
+   Before S2: invoke `write-connector-source` for a minimal four-file skeleton
+   (connector.ts, config-schema.json, runtime-schema.json, capabilities.json)
+   plus the frozen openapi.json and reviewed-ops.json. Declare exactly one
+   projection with `output_slice` and `resource_type`, backed by one confirmed
+   resource read; match it in connector.ts and capabilities.json.
+   Build and draft-test this skeleton first; defer remaining resource types
+   to the expand loop after the first green draft test.
+2. S2 upload: hosted sessions use the storage-to-draft source transfer as the
+   primary path per `build-and-test`; record the returned source digest.
+   Do not route staged bytes through conversation or presigned PUTs in code mode.
+   External/BYO path: `wc -c` each source file, call
+   `c1_connector_authoring_create_draft_source_upload` with the complete file list,
+   PUT each file to its `upload_targets` URL with `required_headers` verbatim,
+   then `c1_connector_authoring_finalize_draft_source_upload`.
+   STOP if transfer fails, any PUT is not 200, or finalization fails.
 3. S3 required source files: call `c1_connector_authoring_get_draft`; all
    four `required_source_files` (connector.ts, config-schema.json,
    runtime-schema.json, capabilities.json) must be true. STOP if any is
@@ -67,6 +74,12 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
     S10 until human evidence acceptance ships. Hand off the durable evidence
     and recorded IDs; do not deploy or mint. Retesting or re-upload does not
     change attribution.
+    Expand loop: only after the skeleton passes this gate, add the remaining
+    confirmed resource types incrementally via `write-connector-source`.
+    For each increment, update capabilities and reviewed operations together,
+    re-upload from S2, re-review changed inputs, rebuild, and rerun S9-S10.
+    Follow the same failure/verdict stop rules on each revision; reach S11
+    only when the confirmed scope has matching green evidence.
 11. S11 handoff discipline: call
     `c1_connector_authoring_deploy_connector_instance` (extract
     `deployment_instance_id`), then
@@ -77,6 +90,8 @@ names below are the exact tenant MCP titles; the served guide abbreviates them
 
 Re-emit after every step, filled from the tool response of the step that
 produces it:
+For hosted storage transfer, `upload_id` is N/A; record the returned source
+digest alongside the table instead. Never fabricate an upload ID to fill it.
 
 | field | value |
 |---|---|

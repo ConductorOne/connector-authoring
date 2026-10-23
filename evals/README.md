@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.5 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.7 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
@@ -132,8 +132,15 @@ Pre-1 records are scored against the P0–P4 gate set:
 | P0 | artifact written | `pre1.json` present with a `decision` of `"proceed"` or `"park"` |
 | P1 | decision correctness | `decision === expectedDecision` — the separately-measured park-vs-proceed metric |
 | P2 | access-model match (proceed) | resource-type `{id, traits}` pairs, entitlement slugs, and grant edges set-equal to the expected sets; `id_compatibility` non-empty; every `provisioning` entry justified with a boolean `provisionable` |
-| P3 | sourcing provenance (proceed) | `spec_url`/`fetched_at`/`authority_rung` non-empty; `spec_bytes` a positive integer < 1048576 |
+| P3 | sourcing provenance (proceed) | `spec_url`/`fetched_at`/`authority_rung` non-empty; review-ready `spec_bytes` and allocated `spec_budget_bytes` positive safe integers; spec <= 4 MiB recorded-artifact cap AND its context allocation (not the 12 MiB source upload cap) |
 | P4 | park evidence (park) | all four `park_evidence` fields non-empty with `missing_paths` a non-empty array |
+
+`spec_budget_bytes` is the model-dependent spec allocation after reserving the
+other review/evidence inputs and output capacity; P3 checks the declared plan,
+not actual future evidence acceptance. The local pre-1 fixture allocates 512 KiB
+to the spec. A 2.5 MB original is admissible source storage, but must be filtered
+for that allocation. Preserve the original separately as `openapi.full.json`;
+only `openapi.json` and reviewed operations enter review/evidence as spec inputs.
 
 The record's summary carries `decision_verdict` (`"proceed"`/`"park"` when P1
 passes, `"incorrect"` otherwise) and `decision_evidence` (the P1 row's

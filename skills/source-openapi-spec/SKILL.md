@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.1
+version: 0.1.2
 ---
 
 # source-openapi-spec
@@ -16,7 +16,7 @@ connector with no governance value.
 From most to least authoritative:
 
 1. **Official published spec at a stable URL** (e.g. the provider's
-   `https://<host>/openapi.json`). Vendor verbatim; record URL + fetch date.
+   `https://<host>/openapi.json`). Keep the original verbatim; record URL + fetch date.
 2. **Runtime-generated spec from a PINNED release** - for OSS/self-hosted
    products whose server generates its own spec. Install the exact release
    and dump it; record the exact command + version as provenance so it is
@@ -46,22 +46,84 @@ exist, the vendor doc stating the limitation, and the concrete trigger to
 revisit. Parking with evidence is a success outcome; a whoami-shell connector
 in the catalog is not.
 
-## Step 3 - Weigh the spec (in-app twist)
+## Step 3 - Fetch through storage, then size for review
 
-After sourcing, weigh the document: `wc -c` it and record the bytes. The
-esbuild source cap is 262144 bytes and the bundle-plus-embedded-specs cap is
-1048576 bytes. A spec whose selected operations push the bundle toward the cap
-is trimmed by selection, never by editing the vendored document.
+When `web_request` is available, call it as a DIRECT tool. It is unavailable
+inside `execute` or code-mode scripts by design: those programs have no external
+web egress. Do not retry it inside code mode.
+If a direct fetch is denied before staging, use an explicitly permitted external
+fetch-and-upload route or a smaller vendor-published spec; never bypass a guard.
+
+In hosted sessions, large responses are automatically staged to file storage
+with a returned path. Process and upload from storage, never through the
+conversation: in one `execute` program, read that path with OPFS, parse the
+fetch envelope, extract `body` as UTF-8 bytes or decode `body_base64`, write
+the exact bytes to a non-system source directory, and compute SHA-256.
+The model sees the returned path/summary, not the full spec; copying errors are
+not a reason to reconstruct or trim it. Retain the fetch record (URL, fetch
+time, and digest) and verify the saved bytes against its digest where supplied.
+If the response arrives inline rather than staged (auto-staging can be disabled),
+use the permitted out-of-band upload fallback, not conversation copying.
+The hosted storage path is roughly three tool steps: fetch, process, transfer;
+budget for those steps instead of retrying code-mode fetch.
+
+After preparing all files in storage, use the storage-to-draft source transfer
+to copy the complete source directory server-side. External agents may use
+their own web-fetch and file tools. If storage transfer is unavailable or
+denied, use only an explicitly permitted out-of-band source upload for files
+exceeding inline transport: declare the complete set and exact byte lengths,
+upload bytes with the supplied headers, then finalize. Otherwise stop and
+report the blocker; never reconstruct a spec from memory or docs.
+
+Run `wc -c` on the saved files. These are DIFFERENT limits:
+
+- Source upload admission: 12 MiB (12582912 bytes) per file, 16 MiB total.
+- Direct `web_request` response: at most 8 MiB; larger fetches require the
+  permitted external fetch-and-upload route or a smaller vendor-published spec.
+- Recorded declarative artifact: `openapi.json` must be at most 4 MiB
+  (4194304 bytes); a larger file can upload successfully but fail the build.
+- Review/evidence context budget: model-dependent, on the order of 1 MB TOTAL
+  for the spec, reviewed operations, and probe evidence, with additional prompt
+  and output reservations. Upload/build success does not establish activation
+  readiness; over-budget evidence cannot receive acceptance.
+- The raw spec is not embedded whole in `connector.js`; the 262144-byte
+  connector source compile cap and 1048576-byte compiled bundle cap are not
+  raw-spec limits.
+
+Preserve the original whole spec as `openapi.full.json` when it fits source
+upload caps. Review and evidence consume `openapi.json`, not that extra source
+file; do not import the full spec into connector code or inline it into reviewed
+operations. A 2.5 MB whole spec fits storage and recording but needs filtering
+for the usual activation context budget.
+
+If the original exceeds the review/evidence allocation, use a reproducible
+filter script to create `openapi.json` with the needed paths and their transitive
+referenced schemas (`$ref` closure). Retain fetch-URL and digest provenance,
+the original digest, the script, and the filtered digest. Keep the original in
+storage even if it exceeds draft-upload caps. Re-run the filter from that
+original as the expand loop adds operations; never silently overwrite it.
+For real drafts, store this provenance in the digest-bound `runtime-manifest.json`:
+original URL/fetch time, original and filtered SHA-256, and filter-script path
+and SHA-256. Keep the script and original bytes, not just conversation notes.
+Keep a small spec whole only when it fits BOTH recording and context budgets.
+Allocate `spec_budget_bytes` from the active context budget after reserving
+space for reviewed operations, evidence, prompts, and outputs; it is not a
+universal platform cap. Follow the served guide and actual budget feedback.
 
 ## Output Contract
 
 Emit the `sourcing` and `park_evidence` halves of the pre1.json artifact:
 
-- `sourcing`: `{spec_url, fetched_at, authority_rung, spec_bytes}`.
+- `sourcing`: `{spec_url, fetched_at, authority_rung, spec_bytes, spec_budget_bytes}`.
   - `spec_url` (string) and `fetched_at` (string, ISO-8601).
   - `authority_rung` (string, NOT a number) - the rung named in words, e.g.
     `"official published spec at a stable URL"` for rung 1.
-  - `spec_bytes` (integer) - from `wc -c`; above 0 and under 1048576.
+  - `spec_bytes` (integer) - `wc -c` on the review-ready `openapi.json`, above
+    0 and at most 4194304 AND `spec_budget_bytes`. Retain the original byte
+    count separately in the fetch record.
+  - `spec_budget_bytes` (positive integer) - the spec allocation left in the
+    active review/evidence context after reserving the other inputs and outputs.
+    This is a planning check, not proof of later evidence acceptance.
 - `park_evidence`: `{spec_version_checked, missing_paths, vendor_doc, revisit_trigger}`.
   - `spec_version_checked` (string) - the provider's bare version value and
     nothing else, e.g. `"1.2.0"`. Not a sentence, and not a composite carrying
@@ -76,14 +138,14 @@ Emit the `sourcing` and `park_evidence` halves of the pre1.json artifact:
 
 - The spec is sourced from the highest authority-ladder rung available.
 - The IAM go/no-go gate ran programmatically against the spec's paths.
-- `spec_bytes` is recorded from `wc -c` and is under 1048576.
+- `spec_bytes` fits both the 4 MiB recording cap and its context allocation.
 - A park decision carries all four `park_evidence` fields.
 
 ## Anti-patterns
 
 - Do not source from docs or memory - verify paths programmatically.
 - Do not ship a whoami-shell connector when the IAM surface is missing.
-- Do not edit the vendored document to fit the bundle caps - trim by selection.
+- Do not apply the compiled bundle cap to the raw spec or edit away its provenance.
 - Do not vendor an unverified checked-in spec snapshot.
 
 ## Blocker protocol

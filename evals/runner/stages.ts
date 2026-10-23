@@ -58,6 +58,7 @@ export interface Pre1Sourcing {
   fetched_at: string
   authority_rung: string
   spec_bytes: number
+  spec_budget_bytes: number
 }
 
 export interface Pre1ParkEvidence {
@@ -487,7 +488,11 @@ const P3: Stage = {
     if (pre1 === null || pre1 === undefined || !isRecord(pre1.sourcing)) return false
     const s = pre1.sourcing
     if (!nonEmptyString(s.spec_url) || !nonEmptyString(s.fetched_at) || !nonEmptyString(s.authority_rung)) return false
-    return typeof s.spec_bytes === "number" && Number.isFinite(s.spec_bytes) && Number.isInteger(s.spec_bytes) && s.spec_bytes > 0 && s.spec_bytes < 1048576
+    // Review-ready spec allocation, not raw-source upload admission. The model
+    // budget must reserve the other review/evidence inputs and output capacity.
+    return typeof s.spec_bytes === "number" && Number.isSafeInteger(s.spec_bytes) && s.spec_bytes > 0 &&
+      s.spec_bytes <= 4 * 1024 * 1024 && typeof s.spec_budget_bytes === "number" &&
+      Number.isSafeInteger(s.spec_budget_bytes) && s.spec_budget_bytes > 0 && s.spec_bytes <= s.spec_budget_bytes
   },
   evidence: (ctx) => {
     const pre1 = ctx.pre1
@@ -496,7 +501,8 @@ const P3: Stage = {
     const fetchedAt = s !== null && nonEmptyString(s.fetched_at) ? "set" : "EMPTY"
     const authorityRung = s !== null && nonEmptyString(s.authority_rung) ? "set" : "EMPTY"
     const specBytes = s !== null && typeof s.spec_bytes === "number" ? String(s.spec_bytes) : "none"
-    return `spec_url=${specUrl}, fetched_at=${fetchedAt}, authority_rung=${authorityRung}, spec_bytes=${specBytes}`
+    const specBudget = s !== null && typeof s.spec_budget_bytes === "number" ? String(s.spec_budget_bytes) : "none"
+    return `spec_url=${specUrl}, fetched_at=${fetchedAt}, authority_rung=${authorityRung}, spec_bytes=${specBytes}, spec_budget_bytes=${specBudget}`
   },
 }
 

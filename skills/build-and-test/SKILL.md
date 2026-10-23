@@ -1,26 +1,32 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.3
+version: 0.3.4
 ---
 
 # build-and-test
 
-Covers funnel stages 2-5 and 9-10: the out-of-band upload dance, the
-required-source-files gate, the build, and the draft test. Tool names below are
-the exact tenant MCP titles; the served guide abbreviates them.
+Covers funnel stages 2-5 and 9-10: hosted storage-to-draft transfer or external
+out-of-band upload, the required-source-files gate, build, and draft test.
+Tool names below are exact tenant MCP titles; the served guide abbreviates them.
 
 ## Checklist
 
-1. Upload dance (out-of-band path): run `wc -c <file>` for each source file,
-   then call `c1_connector_authoring_create_draft_source_upload` declaring
-   every file needed for build and test (path + size_bytes), then PUT each file to its
-   `upload_targets[path].url` sending `required_headers` verbatim, then call
+1. Source transfer: in hosted sessions, use the storage-to-draft source transfer
+   as the primary path. Stage the complete source set in a non-system directory
+   and copy it server-side per the served guide, without conversation transit or
+   presigned PUTs from code mode. GATE: successful transfer with a returned source
+   digest; record that digest, then check `required_source_files` in step 2.
+   External/BYO path: run `wc -c <file>` for each file, then call
+   `c1_connector_authoring_create_draft_source_upload` declaring every file
+   needed for build and test (path + size_bytes), PUT each file to its
+   `upload_targets[path].url` with `required_headers` verbatim, and call
    `c1_connector_authoring_finalize_draft_source_upload` with the same
-   `catalog_id`/`draft_id`/`upload_id` and the file list with `sizeBytes`.
-   GATE: every PUT returns 200. STOP if any PUT is not 200 - bare URLs
-   without the signed headers fail signature validation. Caps: total <=
-   16 MiB, per file <= 12 MiB, <= 256 files.
+   `catalog_id`/`draft_id`/`upload_id` and file list with `sizeBytes`.
+   GATE: every PUT returns 200 and finalization succeeds; STOP otherwise.
+   Use only a permitted path; if neither is available, report the blocker.
+   Both paths replace the entire source set. Caps: total <= 16 MiB, per file
+   <= 12 MiB, <= 256 files. Preserve source-digest conflict checks per the guide.
 2. Pre-build gate: call `c1_connector_authoring_get_draft` and confirm
    `required_source_files` - all four entries (connector.ts,
    config-schema.json, runtime-schema.json, capabilities.json) true - BEFORE
@@ -88,8 +94,8 @@ or mint, even when the test result is PASS.
 
 ## Exit criteria
 
-- S2 passes: `upload_id` non-empty, at least one successful
-  `c1_connector_authoring_create_draft_source_upload`, every PUT returns 200.
+- S2 passes: hosted storage transfer succeeds with a returned source digest; OR
+  external upload has `upload_id`, every PUT 200, and successful finalization.
 - S3 passes: all 4 `required_source_files` true.
 - S4 passes: `run_id` non-empty, at least one successful
   `c1_connector_authoring_build_bundle`.

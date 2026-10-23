@@ -1,11 +1,11 @@
 {
-  "version": "0.12.5",
+  "version": "0.12.7",
   "skills": [
     {
       "name": "author-in-app-connector",
-      "version": "0.3.7",
+      "version": "0.3.8",
       "path": "../../skills/author-in-app-connector/SKILL.md",
-      "sha256": "cd23a6287f4126264fc6f58cb939779bd9b3f726bf7e6c614939802bc91d7544"
+      "sha256": "215006d8a12d2932eeb75edf3c98455fdc451f117753acc966a41d43742e13f1"
     },
     {
       "name": "read-authoring-contract",
@@ -15,15 +15,15 @@
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.6",
+      "version": "0.2.7",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "850ec5be596b06787eb89d3c9fb986a789de0026df5623afbca38291a57ac4ac"
+      "sha256": "1b1c090f2151cef560dbe822717b6751c67fd5ac81cbcf87c449b492ec7d3b47"
     },
     {
       "name": "build-and-test",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "path": "../../skills/build-and-test/SKILL.md",
-      "sha256": "af06ea399c2ab47955639abeb91df22ae008e61c5c227f8c56d4b3c7b769b22f"
+      "sha256": "35bc406e017040a01e9eb340a3dcff583b808387002f1714bea0d58e4c98a05e"
     },
     {
       "name": "deploy-and-activate",
@@ -39,9 +39,9 @@
     },
     {
       "name": "source-openapi-spec",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "path": "../../skills/source-openapi-spec/SKILL.md",
-      "sha256": "3cbc0eca62f1ab06db18ac6df54b1bec2030ca66b7dc9a15ca1bb838c0663740"
+      "sha256": "e390c3c81974aea0bbee316e8edf82afe30f872d25499d0f37c560c0b8bf8c03"
     },
     {
       "name": "verify-connector-output",

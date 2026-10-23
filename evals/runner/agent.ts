@@ -32,7 +32,7 @@ ${scenario.providerBrief}
 ${skillBundleSection(scenario)}
 
 (5) OUTPUT CONTRACT
-${channel.pre1Instructions} Schema: {decision: "proceed"|"park", access_model: {resource_types: [{id, traits}], entitlements: [{slug, display_name, grantable_principals, stable_id_shape}], grants: [{resource_type, entitlement, principal_type}], id_compatibility: [...], provisioning: [{resource_type, provisionable, justification}]}, sourcing: {spec_url, fetched_at, authority_rung, spec_bytes}, park_evidence: {spec_version_checked, missing_paths, vendor_doc, revisit_trigger}}. Include only the sections your decision requires: proceed -> access_model + sourcing; park -> park_evidence.`
+${channel.pre1Instructions} Schema: {decision: "proceed"|"park", access_model: {resource_types: [{id, traits}], entitlements: [{slug, display_name, grantable_principals, stable_id_shape}], grants: [{resource_type, entitlement, principal_type}], id_compatibility: [...], provisioning: [{resource_type, provisionable, justification}]}, sourcing: {spec_url, fetched_at, authority_rung, spec_bytes, spec_budget_bytes}, park_evidence: {spec_version_checked, missing_paths, vendor_doc, revisit_trigger}}. Include only the sections your decision requires: proceed -> access_model + sourcing; park -> park_evidence. For this local fixture, use a 524288-byte spec allocation (spec_budget_bytes); this reserves context for other review/evidence inputs and is an eval planning budget, not a platform upload cap.`
   }
   const creds = scenario.fixture.basicAuth
   return `You are an eval agent implementing a read-only Directory API connector and completing the 12-step in-app authoring funnel. Your goal: implement the connector source files, walk the funnel to the human-activation boundary, and stop there.
