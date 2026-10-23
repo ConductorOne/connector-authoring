@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.6"
+const VERSION = "0.12.7"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -107,6 +107,13 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not call `force_sync` before activation or repeat the post-activation verification sync",
     "owns subsequent syncs",
     "write-connector-source",
+    "minimal four-file skeleton",
+    "Declare exactly one",
+    "after the first green draft test",
+    "Expand loop",
+    "hosted sessions use the storage-to-draft source transfer",
+    "External/BYO path",
+    "`upload_id` is N/A",
     "| post-activation verification | `verify-connector-output` |",
     "| update / rollback of an active connector | `update-and-rollback` |",
     "| failure diagnosis (any stage) | `diagnose-authoring-failure` |",
@@ -161,6 +168,14 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "http.v2",
     "Offset pagination requires a stopping condition",
     "config(\"base-url\")",
+    "minimal four-file skeleton",
+    "exactly one projection",
+    "until the first green draft test",
+    "re-review changed inputs, rebuild, and retest",
+    "copy only",
+    "its user slice for the one-projection first draft",
+    "hand-author the single-user block below",
+    "these are not the raw OpenAPI document",
   ],
   "design-access-model": [
     "TRAIT_USER",
@@ -290,7 +305,7 @@ test("(c2) rollback preserves the human-only handoff boundary", () => {
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.6")
+  assert.equal(full.skillBundle.version, "0.12.7")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -339,7 +354,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.6")
+    assert.equal(meta.skill_bundle_version, "0.12.7")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

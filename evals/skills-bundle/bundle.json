@@ -1,11 +1,11 @@
 {
-  "version": "0.12.6",
+  "version": "0.12.7",
   "skills": [
     {
       "name": "author-in-app-connector",
-      "version": "0.3.7",
+      "version": "0.3.8",
       "path": "../../skills/author-in-app-connector/SKILL.md",
-      "sha256": "cd23a6287f4126264fc6f58cb939779bd9b3f726bf7e6c614939802bc91d7544"
+      "sha256": "215006d8a12d2932eeb75edf3c98455fdc451f117753acc966a41d43742e13f1"
     },
     {
       "name": "read-authoring-contract",
@@ -15,9 +15,9 @@
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.6",
+      "version": "0.2.7",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "850ec5be596b06787eb89d3c9fb986a789de0026df5623afbca38291a57ac4ac"
+      "sha256": "1b1c090f2151cef560dbe822717b6751c67fd5ac81cbcf87c449b492ec7d3b47"
     },
     {
       "name": "build-and-test",

@@ -2,6 +2,16 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.7 - skeleton-first authoring
+
+`author-in-app-connector` (`0.3.8`) and `write-connector-source` (`0.2.7`)
+start with a minimal four-file skeleton, the frozen spec, and exactly one
+declared projection. Remaining confirmed resource types wait for the first green
+draft test, then expand incrementally with fresh operation review, builds,
+and tests before deployment. The capability example matches the one-type start.
+The S2 checklist keeps storage-sourced bytes on the hosted transfer route;
+multi-type reference examples are explicitly reserved for expansion.
+
 ## v0.12.6 - storage-first sourcing and review budgets
 
 `source-openapi-spec` (`0.1.2`) distinguishes source upload admission
@@ -162,7 +172,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.6`); the runner records both in every run record.
+`skillBundle.version` (`0.12.7`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 
