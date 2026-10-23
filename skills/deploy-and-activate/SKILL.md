@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.6
+version: 0.3.7
 ---
 
 # deploy-and-activate
@@ -40,15 +40,29 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
 5. Mint approval: call `c1_connector_authoring_mint_approval_token` with
    `expires_in_seconds` in 1-14400 (max 4 hours); capture `activation_url`.
    GATE: non-empty `activation_url`. STOP if empty.
-6. Present `activation_url` to a human tenant OWNER, record the handoff
-   table, and stop - do not wait for activation first. Never redeem the
-   approval token or attempt activation yourself.
+6. Ask a human tenant OWNER to activate using the pending `Review revision`
+   link per Session communication, and stop - do not wait for activation first.
+   Never redeem the approval token or attempt activation yourself.
+
+## Session communication
+
+- Keep IDs in tool calls, not chat. Refer to objects by display name with a
+  markdown link when available, not by raw ID.
+- Report progress and status in prose. Use tables only for user-facing data,
+  such as proposed operations or test counts, never for raw-ID handoffs.
+- Show a handoff link only when a human must act now: `Configure credentials`
+  while credentials are unsaved, or `Review revision` while activation is
+  pending. Never show a handoff link merely for navigation.
+- Put the handoff link on a single trailing line at the very end of the output,
+  after all prose and tables; never inline or inside a table. Use the returned
+  URL with the action label as markdown link text; never invent a URL.
+- Never re-print activation or review URLs after activation.
 
 ## After the OWNER activates
 
 After the OWNER activates, perform one verification sync and report its
 result. Subsequent syncs belong to the human/operator. Before activation,
-make no call after mint other than the handoff write.
+make no tool call after mint.
 
 - Verification: if your host provides activation notifications, a
   notification resuming you means the revision is already ACTIVE - record
@@ -84,14 +98,14 @@ make no call after mint other than the handoff write.
   `c1_connector_authoring_provision_connector`.
 - S8 passes: every credential field named in `config-schema.json` is configured
   (e.g. base-url, account-email, api-token for the directory example).
-- S11 passes: deploy + mint succeeded, all 10 handoff fields, no calls after
-  mint before activation except the handoff write, no redemption.
+- S11 passes: deploy + mint succeeded, the pending review link is the single
+  final line, no tool calls after mint before activation, no redemption.
 
 ## Anti-patterns
 
 - Do not redeem the approval token.
 - Do not force-sync before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
-- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - between mint and activation, the only call is the handoff write.
+- Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - make no tool call between mint and activation.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
 - Do not skip the idempotent provision reuse.

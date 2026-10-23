@@ -1,11 +1,11 @@
 {
-  "version": "0.12.7",
+  "version": "0.12.8",
   "skills": [
     {
       "name": "author-in-app-connector",
-      "version": "0.3.8",
+      "version": "0.3.9",
       "path": "../../skills/author-in-app-connector/SKILL.md",
-      "sha256": "215006d8a12d2932eeb75edf3c98455fdc451f117753acc966a41d43742e13f1"
+      "sha256": "f06b9e2a09ec8d289237fd3af6bcc3dcb8a6af0496bdb8438a4abb0052624c35"
     },
     {
       "name": "read-authoring-contract",
@@ -27,9 +27,9 @@
     },
     {
       "name": "deploy-and-activate",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "path": "../../skills/deploy-and-activate/SKILL.md",
-      "sha256": "2eecef81d2d55a2f54b2d1973d478baf4acf075c97d5fbf0c8e89071e2e98237"
+      "sha256": "ad99fe1a5a524bfaaf49196fb8860dcb8f350b7cc7571fc950c12f5f4e8a29d7"
     },
     {
       "name": "design-access-model",

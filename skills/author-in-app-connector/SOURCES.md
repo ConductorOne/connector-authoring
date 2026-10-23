@@ -17,4 +17,4 @@ In-repo content is referenced by relative path and is always current with the ch
 - S2 is the full upload dance (create upload, PUTs, finalize); S3 checks the required files. Re-running S2 repeats the full upload dance.
 - The fixture run stops at the human handoff and does not simulate activation notifications or post-activation verification. Its scorer rejects sync calls in that pre-activation transcript.
 - The scorer records S11b/S11c as `skipped_human_boundary`; a real session resumed after activation performs one verification sync, then hands subsequent syncs to the human/operator.
-- Handoff fields and activation boundaries are enforced by `evals/runner/skills_bundle.test.ts`.
+- Communication rules and activation boundaries are pinned by `evals/runner/skills_bundle.test.ts`. The eval's raw-ID `handoff.json` is machine-only scoring input, never a chat table.

@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.7 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.8 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
@@ -75,6 +75,16 @@ it never redeems the approval token, polls `REVISION_STATUS_ACTIVE`, or calls
 `c1_connector_service_force_sync`. The activation and sync legs are recorded
 as `skipped_human_boundary`; a real post-activation session follows the
 single verification-sync policy in deploy-and-activate.
+
+`handoff.json` is a machine-only scoring artifact, not a user-facing ID table.
+IDs stay in tool calls and the driver's file transport. Chat uses display-name
+markdown links and prose status; tables are for user-facing data such as proposed
+operations or test counts. A handoff link appears only when a human must act now
+(configure unsaved credentials or review a revision pending activation), on one
+final line after all prose and tables, never inline or in a table. Activation and
+review URLs are not repeated after activation. The deterministic fixture checks
+the artifact and stop boundary; prompt-contract tests pin these communication
+instructions, not a live model's compliance with them.
 
 ## Record schema (JSONL)
 

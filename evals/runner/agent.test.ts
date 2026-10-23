@@ -61,6 +61,30 @@ test("buildPrompt carries the stop rule, handoff path, and credentials", () => {
   assert.ok(prompt.includes('itemsPath: ["items"]'))
 })
 
+test("buildPrompt separates machine-only scoring IDs from user-facing status and action links", () => {
+  const prompt = buildPrompt(SCENARIO, "run", "http://fixture", CHANNEL)
+  for (const literal of [
+    "machine-only handoff artifact",
+    `write the machine-only handoff artifact to ${CHANNEL.handoffPath} and STOP`,
+    "scoring input written through the driver's file transport, not chat output",
+    "Never re-emit it as a table or ID list",
+    "refer to objects by display name with a markdown link",
+    "report status in prose and use tables only for user-facing data",
+    "Show a handoff link only when a human must act now",
+    "Configure credentials while credentials are unsaved",
+    "Review revision while activation is pending, never merely for navigation",
+    "single trailing line at the very end of the output, after all prose and tables",
+    "never inline or inside a table",
+    "Never re-print activation or review URLs after activation",
+  ]) {
+    assert.ok(prompt.includes(literal), `missing prompt communication rule ${literal}`)
+  }
+  for (const field of ["catalog_id", "draft_id", "upload_id", "run_id", "revision_id", "app_id", "connector_id", "test_run_id", "deployment_instance_id", "activation_url"]) {
+    assert.ok(prompt.includes(field), `missing machine handoff field ${field}`)
+  }
+  assert.ok(!prompt.includes("handoff table"), "must not reinstate a user-facing raw-ID table")
+})
+
 test("buildPrompt uploads the build-required files and frozen test contract", () => {
   const prompt = buildPrompt(SCENARIO, "run", "http://fixture", CHANNEL)
   const upload = prompt.split("\n").find((line) => line.startsWith("Step 2:"))!
@@ -103,7 +127,7 @@ test("buildPrompt pre1 branch names the pre1Path, both skills, and the output co
       basicAuth: {username: "connector@example.com", password: "fixture-token"},
       bearerToken: "fixture-token",
     },
-    skillBundle: {mode: "full", version: "0.12.7"},
+    skillBundle: {mode: "full", version: "0.12.8"},
     model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
     reasoningEffort: "high",
     kind: "pre1",

@@ -2,6 +2,21 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.8 - prose status and action-only handoffs
+
+`author-in-app-connector` (`0.3.9`) and `deploy-and-activate` (`0.3.7`)
+keep raw IDs in tool calls rather than repeated chat tables. Chat refers to
+objects by display-name markdown links, reports status in prose, and reserves
+tables for user-facing data such as proposed operations or test counts.
+Handoff links appear only for pending human action: configuring unsaved
+credentials or reviewing a revision awaiting activation. The link occupies
+one final line after all prose and tables, never inline or in a table, and
+activation/review URLs are not repeated after activation.
+The eval retains its machine-only `handoff.json` scoring contract and hard stop;
+prompt-contract tests pin the communication rules without claiming live model
+compliance.
+
+
 ## v0.12.7 - skeleton-first authoring
 
 `author-in-app-connector` (`0.3.8`) and `write-connector-source` (`0.2.7`)
@@ -172,7 +187,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.7`); the runner records both in every run record.
+`skillBundle.version` (`0.12.8`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 
