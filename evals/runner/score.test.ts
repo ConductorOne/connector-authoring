@@ -248,6 +248,7 @@ function pre1Artifact(overrides: Partial<Pre1Artifact>): Pre1Artifact {
       fetched_at: "2026-09-04T00:00:00.000Z",
       authority_rung: "official published spec at a stable URL",
       spec_bytes: 12297,
+      spec_budget_bytes: 512 * 1024,
     },
     ...overrides,
   }

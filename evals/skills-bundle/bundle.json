@@ -1,5 +1,5 @@
 {
-  "version": "0.12.5",
+  "version": "0.12.6",
   "skills": [
     {
       "name": "author-in-app-connector",
@@ -21,9 +21,9 @@
     },
     {
       "name": "build-and-test",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "path": "../../skills/build-and-test/SKILL.md",
-      "sha256": "af06ea399c2ab47955639abeb91df22ae008e61c5c227f8c56d4b3c7b769b22f"
+      "sha256": "35bc406e017040a01e9eb340a3dcff583b808387002f1714bea0d58e4c98a05e"
     },
     {
       "name": "deploy-and-activate",
@@ -39,9 +39,9 @@
     },
     {
       "name": "source-openapi-spec",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "path": "../../skills/source-openapi-spec/SKILL.md",
-      "sha256": "3cbc0eca62f1ab06db18ac6df54b1bec2030ca66b7dc9a15ca1bb838c0663740"
+      "sha256": "e390c3c81974aea0bbee316e8edf82afe30f872d25499d0f37c560c0b8bf8c03"
     },
     {
       "name": "verify-connector-output",

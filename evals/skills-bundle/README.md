@@ -2,6 +2,24 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.6 - storage-first sourcing and review budgets
+
+`source-openapi-spec` (`0.1.2`) distinguishes source upload admission
+(12 MiB/file), recorded artifacts (4 MiB), and model-dependent review/evidence
+context (on the order of 1 MB total), not the compiled connector bundle limit.
+Direct `web_request` results flow through automatically staged file storage,
+byte extraction and hashing, then storage-to-draft transfer without conversation
+transit. Permitted out-of-band uploads remain the external-agent fallback.
+Preserve `openapi.full.json` and generate review-sized `openapi.json` using a
+reproducible filter with transitive references and retained fetch/digest provenance.
+P3 requires `spec_budget_bytes` and checks the review-ready spec against its
+allocation AND the 4 MiB recording cap. The fixture reserves 512 KiB for the spec;
+records are not comparable with the earlier size-only sourcing check.
+`build-and-test` (`0.3.4`) carries the hosted storage-transfer path through S2,
+including its exit gate; presigned PUTs remain the external/BYO path. Sourcing
+also covers denied or inline fetches, the 8 MiB response ceiling, the three-step
+tool budget, and digest-bound provenance in `runtime-manifest.json`.
+
 ## v0.12.5 - human-only rollback handoff
 
 `update-and-rollback` (`0.2.5`) now follows the activation handoff pattern:
@@ -144,7 +162,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.5`); the runner records both in every run record.
+`skillBundle.version` (`0.12.6`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

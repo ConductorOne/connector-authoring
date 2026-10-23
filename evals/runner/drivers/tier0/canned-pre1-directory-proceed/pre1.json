@@ -24,6 +24,7 @@
     "spec_url": "http://127.0.0.1:18080/openapi.json",
     "fetched_at": "2026-09-04T00:00:00.000Z",
     "authority_rung": "official published spec at a stable URL",
-    "spec_bytes": 12297
+    "spec_bytes": 12297,
+    "spec_budget_bytes": 524288
   }
 }

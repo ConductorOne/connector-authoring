@@ -306,6 +306,7 @@ function pre1Artifact(overrides: Partial<Pre1Artifact>): Pre1Artifact {
       fetched_at: "2026-09-04T00:00:00.000Z",
       authority_rung: "official published spec at a stable URL",
       spec_bytes: 12297,
+      spec_budget_bytes: 512 * 1024,
     },
     ...overrides,
   }
@@ -410,24 +411,54 @@ test("P3 passes on valid provenance", () => {
   assert.equal(pcheck("P3", pre1Ctx({})), true)
 })
 
-test("P3 fails when spec_bytes is at or above the cap", () => {
+test("P3 rejects a 2.5 MB stored spec until filtered to its review/evidence allocation", () => {
   const pre1 = pre1Artifact({})
-  pre1.sourcing!.spec_bytes = 1048576
+  pre1.sourcing!.spec_bytes = 2500000 // Admissible source storage, not review-ready.
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
+  pre1.sourcing!.spec_bytes = 64000 // Filtered paths plus transitive schema refs.
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), true)
+})
+
+test("P3 accepts the allocated spec budget inclusively, but not one byte over", () => {
+  const pre1 = pre1Artifact({})
+  pre1.sourcing!.spec_bytes = pre1.sourcing!.spec_budget_bytes
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), true)
+  pre1.sourcing!.spec_bytes++
   assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
 })
 
-test("P3 fails when spec_bytes is 0 or negative", () => {
-  for (const n of [0, -1]) {
+test("P3 enforces the 4 MiB recorded artifact cap even with a larger model allocation", () => {
+  const pre1 = pre1Artifact({})
+  pre1.sourcing!.spec_budget_bytes = 8 * 1024 * 1024
+  pre1.sourcing!.spec_bytes = 4 * 1024 * 1024
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), true)
+  pre1.sourcing!.spec_bytes++
+  assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
+})
+
+test("P3 fails when spec_bytes is not a positive finite integer", () => {
+  for (const n of [0, -1, 1.5, NaN, Infinity]) {
     const pre1 = pre1Artifact({})
     pre1.sourcing!.spec_bytes = n
     assert.equal(pcheck("P3", pre1Ctx({pre1})), false, `spec_bytes ${n} should fail P3`)
   }
 })
 
-test("P3 fails when spec_url is empty", () => {
-  const pre1 = pre1Artifact({})
-  pre1.sourcing!.spec_url = ""
-  assert.equal(pcheck("P3", pre1Ctx({pre1})), false)
+test("P3 requires an explicit positive safe-integer spec allocation", () => {
+  for (const n of [undefined, 0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    const pre1 = pre1Artifact({})
+    const sourcing = pre1.sourcing as unknown as Record<string, unknown>
+    sourcing.spec_budget_bytes = n
+    assert.equal(pcheck("P3", pre1Ctx({pre1})), false, `spec_budget_bytes ${n} should fail P3`)
+  }
+})
+
+test("P3 fails when any sourcing provenance field is empty", () => {
+  for (const field of ["spec_url", "fetched_at", "authority_rung"] as const) {
+    const pre1 = pre1Artifact({})
+    pre1.sourcing![field] = ""
+    assert.equal(pcheck("P3", pre1Ctx({pre1})), false, `${field} must be non-empty`)
+  }
 })
 
 function parkExpected(overrides: Partial<ExpectedParkEvidence> = {}): {decision: "park"; parkEvidence: ExpectedParkEvidence} {

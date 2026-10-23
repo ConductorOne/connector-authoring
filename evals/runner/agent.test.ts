@@ -103,7 +103,7 @@ test("buildPrompt pre1 branch names the pre1Path, both skills, and the output co
       basicAuth: {username: "connector@example.com", password: "fixture-token"},
       bearerToken: "fixture-token",
     },
-    skillBundle: {mode: "full", version: "0.12.5"},
+    skillBundle: {mode: "full", version: "0.12.6"},
     model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
     reasoningEffort: "high",
     kind: "pre1",
@@ -127,5 +127,7 @@ test("buildPrompt pre1 branch names the pre1Path, both skills, and the output co
   // The output contract names the schema halves.
   assert.ok(prompt.includes("park_evidence"))
   assert.ok(prompt.includes("spec_bytes"))
+  assert.ok(prompt.includes("spec_budget_bytes"))
+  assert.ok(prompt.includes("524288-byte spec allocation"))
   assert.ok(prompt.includes("missing_paths"))
 })
