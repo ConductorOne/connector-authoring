@@ -83,8 +83,9 @@ operations or test counts. A handoff link appears only when a human must act now
 (configure unsaved credentials or review a revision pending activation), on one
 final line after all prose and tables, never inline or in a table. Activation and
 review URLs are not repeated after activation. The deterministic fixture checks
-the artifact and stop boundary; prompt-contract tests pin these communication
-instructions, not a live model's compliance with them.
+the artifact and stop boundary; prompt-contract tests pin the communication
+instructions, and the `no_raw_ksuid` scorer check observes deploy/handoff chat.
+These are not a live model compliance guarantee.
 
 ## Record schema (JSONL)
 
@@ -101,7 +102,7 @@ Example lines:
 {"run_id":"evals-tier1-directory-20260902-081500","scenario":"tier1-directory","skill_bundle_version":"0.0.0","skill_bundle_mode":"none","model_version":"together/deepseek-ai/DeepSeek-V4-Flash-0731","harness":"tier0","reasoning_effort":"high","started_at":"2026-09-02T08:15:00.000Z","wall_time_ms":123456,"funnel_tools_present":true}
 {"stage":"S0","gate":"guide read","pass":true,"first_pass":true,"attempts":1,"evidence":"transcript has 1 successful get_authoring_guide call(s)"}
 {"stage":"S11b","gate":"REVISION_STATUS_ACTIVE","pass":"skipped_human_boundary"}
-{"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 6 static source checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured statically from source","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
+{"summary":true,"funnel":["S0","S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11"],"first_pass_rate":1.0,"recovery_cycles":0,"parity_verdict":"PASS","parity_evidence":"all 7 parity checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id, no_raw_ksuid)","parity_tenant":"not_applicable","parity_tenant_evidence":"draft test did not persist synced resources (tenant counts 0) — parity measured from source and handoff chat","hygiene_verdict":"PASS","hygiene_evidence":"all 4 files present; dual-schema parity; api-token secret in both; no plaintext fixture-token; bundle caps respected","handoff_discipline_verdict":true,"tool_calls":42,"turns":8,"tokens_in":null,"tokens_out":null}
 ```
 
 `tokens_in`/`tokens_out` are `null` when the stream carries no usage events —
@@ -179,12 +180,23 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
 
 ## Parity + hygiene verdicts
 
-- **`parity_verdict`** is computed STATICALLY from the uploaded `connector.ts`
-  source (six literal-substring checks: `account_id`, `user.title`,
-  `totalPath`, `itemsPath`, the three `config("...")` literals, `newUserResource` +
-  `user.id`; only `account_id` is structural - it must sit in a GET/walk
-  `query:` object - so the others, including `itemsPath`, are satisfied by
-  any occurrence, comments included). **Bundle-arm comparability caveat:** the full skill bundle
+- **`parity_verdict`** combines six checks over uploaded `connector.ts`
+  (`account_id`, `user.title`, `totalPath`, `itemsPath`, the three
+  `config("...")` literals, `newUserResource` + `user.id`) with the
+  `no_raw_ksuid` chat check. Only `account_id` is structural - it must sit in
+  a GET/walk `query:` object - so the other source checks, including `itemsPath`,
+  are satisfied by any occurrence, comments included.
+  The chat check rejects standalone 27-character ASCII base62 tokens in
+  assistant `text`/`text_delta` messages attributed to S11 by the most recent
+  stage-bearing tool call (or orphan result). Consecutive text deltas are
+  joined before checking. Tool arguments/results, user messages, source files,
+  and machine-only `handoff.json` are not chat and are exempt. Inline HTTP(S)
+  Markdown link URL destinations are exempt; visible labels, titles, literal
+  code and bare URLs are not. The inline recognizer is not a full Markdown
+  parser: unsupported syntax, such as reference-style links, receives no URL
+  exemption. This shape check does not validate a KSUID's encoded range,
+  detect other ID formats, require chat to be emitted, or prove link placement.
+  **Bundle-arm comparability caveat:** the full skill bundle
   teaches the scored literals (`totalPath`, `itemsPath`, `newUserResource` + `user.id`)
   directly, while the `none`/`guide-only` arms must discover them from the
   SDK declarations and examples every checkout exposes, so parity-stage
@@ -199,8 +211,8 @@ The fixture (`evals/fixture/`) mirrors the documented failure modes:
   ids the collector records) is an OBSERVATION, not the verdict: when zero it
   is recorded as `not_applicable` with the explanation carried in
   `parity_tenant_evidence` ("draft test did not persist synced resources
-  (tenant counts 0) — parity measured statically from source");
-  `parity_evidence` always carries the static source-check evidence, so a
+  (tenant counts 0) — parity measured from source and handoff chat");
+  `parity_evidence` carries both source and chat check evidence, so a
   `parity_verdict: "FAIL"` is diagnosable from the record alone. Full-sync
   parity after activation is out of scope for the public repo.
 - **`hygiene_verdict`** PASS iff: all 4 required source files present;

@@ -105,6 +105,24 @@ test("turns dedupes consecutive text_delta chunks into one turn", () => {
   assert.equal(parsed.turns, 2)
 })
 
+test("handoffChat retains only S11 assistant text, joins deltas, and excludes machine payloads", () => {
+  const parsed = parseStream([
+    toolCall("c1_connector_authoring_get_test_run_evidence"),
+    {type: "text", message: "Earlier stage"},
+    toolCall("c1_connector_authoring_deploy_connector_instance", {id: "machine ID"}),
+    toolResult("c1_connector_authoring_deploy_connector_instance", "machine ID"),
+    {type: "text_delta", message: "Directory is "},
+    {type: "text_delta", message: "deployed."},
+    toolCall("driver.write_file", {path: "handoff.json", content: "machine IDs"}),
+    toolResult("driver.write_file", "machine IDs"),
+    {type: "user", message: "User ID"},
+    {type: "text", message: "Review pending."},
+    toolCall("c1_connector_authoring_build_bundle"),
+    {type: "text", message: "Back to building"},
+  ])
+  assert.deepEqual(parsed.handoffChat, ["Directory is deployed.", "Review pending."])
+})
+
 test("usage events sum tokens", () => {
   const parsed = parseStream([
     {type: "usage", data: {tokens_in: 10, tokens_out: 5}},

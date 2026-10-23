@@ -12,10 +12,15 @@ Handoff links appear only for pending human action: configuring unsaved
 credentials or reviewing a revision awaiting activation. The link occupies
 one final line after all prose and tables, never inline or in a table, and
 activation/review URLs are not repeated after activation.
-The eval retains its machine-only `handoff.json` scoring contract and hard stop;
-prompt-contract tests pin the communication rules without claiming live model
-compliance.
-
+The eval retains its machine-only `handoff.json` scoring contract and hard stop.
+The new `no_raw_ksuid` parity check rejects standalone 27-character base62 IDs
+in S11 assistant chat outside inline Markdown link URL destinations; machine
+artifacts and tool payloads are exempt. Source and chat checks now share the
+parity verdict, so these records are not comparable with earlier six-source-
+check records. The Tier-0 fixture exercises a display-name link split across
+text deltas; negative cases cover prose/table leaks and visible link labels.
+Prompt-contract tests also pin the communication rules. None of this claims
+live model compliance or a deployed authoring run.
 
 ## v0.12.7 - skeleton-first authoring
 

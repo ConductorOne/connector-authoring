@@ -16,6 +16,8 @@ export interface ToolCallRecord {
 
 export interface ParsedStream {
   toolCalls: ToolCallRecord[]
+  // Assistant text during S11 only; tool payloads and user messages are excluded.
+  handoffChat: string[]
   turns: number
   tokensIn: number | null
   tokensOut: number | null
@@ -87,6 +89,8 @@ function toolError(data: Record<string, unknown>, message: string): unknown {
 
 export function parseStream(events: unknown[]): ParsedStream {
   const toolCalls: ToolCallRecord[] = []
+  const handoffChat: string[] = []
+  let currentStage: string | null = null
   // FIFO pairing: tool_result attaches to the OLDEST unmatched tool_call of
   // the same name (the stream emits results in call order; a LIFO reverse
   // scan mis-pairs repeated same-name calls such as get_run polls or PUTs).
@@ -108,6 +112,7 @@ export function parseStream(events: unknown[]): ParsedStream {
     if (type === "tool_call") {
       lastWasText = false
       const name = firstString(message, data.name, data.toolName) ?? "unknown"
+      currentStage = stageForTool(name) ?? currentStage
       const args = firstValue(data.input, data.args)
       toolCalls.push({name, args})
       const queue = pendingByName.get(name) ?? []
@@ -127,6 +132,7 @@ export function parseStream(events: unknown[]): ParsedStream {
         // Orphan result (e.g. stream cap dropped the call): record it so a
         // failure is never silently lost.
         toolCalls.push({name, result: result ?? undefined, error: error ?? undefined})
+        currentStage = stageForTool(name) ?? currentStage
       }
       if (error !== undefined && error !== null && error !== false) {
         errors.push(typeof error === "string" ? error : JSON.stringify(error))
@@ -134,6 +140,13 @@ export function parseStream(events: unknown[]): ParsedStream {
     } else if (type === "text" || type === "text_delta") {
       // A burst of text_delta chunks is ONE assistant message — count
       // consecutive text events as a single turn (no inflation).
+      if (currentStage === "S11") {
+        if (type === "text_delta" && lastWasText && handoffChat.length > 0) {
+          handoffChat[handoffChat.length - 1] += message
+        } else {
+          handoffChat.push(message)
+        }
+      }
       if (!lastWasText) turns++
       lastWasText = true
     } else if (type === "user" || type === "user_message" || type === "human") {
@@ -179,6 +192,7 @@ export function parseStream(events: unknown[]): ParsedStream {
 
   return {
     toolCalls,
+    handoffChat,
     turns: Math.max(turns, 1),
     tokensIn,
     tokensOut,

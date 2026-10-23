@@ -52,7 +52,11 @@ The driver must:
 2. Write the collector's score-input to `channel.scoreInputPath`.
 3. Persist the raw transcript to `channel.transcriptPath` for the record.
 4. Return the parsed transcript in `AgentRunResult.transcript` (the runner
-   scores that stream; it never re-reads the raw transcript).
+   scores that stream; it never re-reads the raw transcript). Use `parseStream`
+   with ordered assistant `text`/`text_delta` messages as well as tool events.
+   Its required `handoffChat` field retains S11 assistant messages for the
+   `no_raw_ksuid` parity check; do not substitute machine handoff JSON or
+   silently drop chat text.
 5. For `scenarioKind === "pre1"`: write the agent's `pre1.json` artifact to
    `channel.pre1Path` (not `channel.handoffPath`) and skip the collector leg
    — the runner reads the artifact itself and scores the P0–P4 gate set.
