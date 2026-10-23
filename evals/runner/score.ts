@@ -88,19 +88,33 @@ function connectorSource(ctx: StageCtx): string | null {
   return file ? file.content : null
 }
 
+function noRawKsuidInChat(text: string): boolean {
+  // Exempt only inline HTTP(S) link destinations, retaining visible labels and
+  // optional titles. Code spans/fences remain literal chat, not clickable links.
+  // This is a conservative inline-link recognizer, not a full Markdown parser.
+  const visible = text.replace(
+    /((?:^ {4}|^\t)[^\n]*|(`+|~{3,})[\s\S]*?(?:\2|(?![\s\S])))|(?<![\\!])(\[[^\]\n]*\]\()(<https?:\/\/[^<>\n]+>|https?:\/\/(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))+)(?=(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'))?[ \t]*\))/gm,
+    (match: string, code: string | undefined, _delimiter: string | undefined, label: string | undefined) => code ? match : label!,
+  )
+  return !/(?<![A-Za-z0-9])[A-Za-z0-9]{27}(?![A-Za-z0-9])/.test(visible)
+}
+
 function computeParity(ctx: StageCtx): {verdict: "PASS" | "FAIL"; evidence: string} {
   const source = connectorSource(ctx)
   if (source === null) {
     return {verdict: "FAIL", evidence: "connector source unavailable (get_draft returned no content)"}
   }
-  const checks = parityChecks(source)
+  const checks = [
+    ...parityChecks(source),
+    {name: "no_raw_ksuid", ok: ctx.transcript.handoffChat.every(noRawKsuidInChat)},
+  ]
   const failed = checks.filter((c) => !c.ok)
   if (failed.length === 0) {
-    return {verdict: "PASS", evidence: "all 6 static source checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id)"}
+    return {verdict: "PASS", evidence: "all 7 parity checks pass (account_id, user.title, totalPath, itemsPath, config literals, newUserResource + user.id, no_raw_ksuid)"}
   }
   return {
     verdict: "FAIL",
-    evidence: `parity FAIL: missing literal(s): ${failed.map((c) => c.name).join(", ")}`,
+    evidence: `parity FAIL: failed check(s): ${failed.map((c) => c.name).join(", ")}`,
   }
 }
 
@@ -235,11 +249,11 @@ export function scoreRun(ctx: StageCtx): ScoreResult {
   const funnel = stageRows.filter((r) => r.pass).map((r) => r.stage)
 
   // The evidence strings are carried on the record so a FAIL verdict is
-  // diagnosable from the JSONL alone. parity_evidence is ALWAYS the static
-  // source-check evidence; the not_applicable tenant observation (zero by
-  // construction — the draft test sync never persists) is a separate field.
+  // diagnosable from the JSONL alone. Parity covers source and handoff chat;
+  // the not_applicable tenant observation (zero by construction because the
+  // draft test sync never persists) is a separate field.
   const parityTenantEvidence = parityTenant === "not_applicable"
-    ? "draft test did not persist synced resources (tenant counts 0) — parity measured statically from source"
+    ? "draft test did not persist synced resources (tenant counts 0) — parity measured from source and handoff chat"
     : ""
   return {
     stageRows,

@@ -161,7 +161,7 @@ const provisioner: Provisioner = {
 }
 
 function emptyParsedStream(): ParsedStream {
-  return {toolCalls: [], turns: 1, tokensIn: null, tokensOut: null, errors: [], stageAttempts: {}, stageFailures: {}, recoveryCycles: 0}
+  return {toolCalls: [], handoffChat: [], turns: 1, tokensIn: null, tokensOut: null, errors: [], stageAttempts: {}, stageFailures: {}, recoveryCycles: 0}
 }
 
 const agentDriver: AgentDriver = {

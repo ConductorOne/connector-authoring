@@ -9,6 +9,7 @@ import {parseStream, type ParsedStream} from "./stream.ts"
 import type {ScoreInput} from "./stages.ts"
 
 const HANDOFF_PATH = "/tmp/evals-run/handoff.json"
+const KSUID = "0ujsswThIGTUYm2K8FjOOfXtY1K"
 
 function fullHandoff(): Handoff {
   return {
@@ -70,6 +71,7 @@ function cleanEvents(): Record<string, unknown>[] {
     toolResult("c1_connector_authoring_deploy_connector_instance", "dep"),
     toolCall("c1_connector_authoring_mint_approval_token"),
     toolResult("c1_connector_authoring_mint_approval_token", "token"),
+    {type: "text", message: `Directory is ready for activation.\n[Review revision](https://example.com/revisions/${KSUID})`},
     toolCall("driver.write_file", {path: HANDOFF_PATH, content: "{}"}),
     toolResult("driver.write_file", "written"),
     toolCall("driver.complete_run"),
@@ -207,7 +209,72 @@ test("parity fails when the itemsPath literal is absent from the source", () => 
   ]
   const result = scoreRun(ctx({scoreInput: enveloped}))
   assert.equal(result.parity_verdict, "FAIL")
-  assert.equal(result.parity_evidence, "parity FAIL: missing literal(s): itemsPath")
+  assert.equal(result.parity_evidence, "parity FAIL: failed check(s): itemsPath")
+})
+
+test("parity rejects raw KSUIDs in deploy/handoff prose, tables, labels, titles, and literal code", () => {
+  for (const message of [
+    `Deployed ${KSUID}.`,
+    `| catalog_id | ${KSUID} |`,
+    JSON.stringify({catalog_id: KSUID}),
+    `[${KSUID}](https://example.com/review)`,
+    `[Review revision](https://example.com/review "${KSUID}")`,
+    `https://example.com/revisions/${KSUID}`,
+    `[Review revision](https://example.com/revisions/${KSUID}`,
+    `\`[Review revision](https://example.com/revisions/${KSUID})\``,
+    `\`\`\`md\n[Review revision](https://example.com/revisions/${KSUID})\n\`\`\``,
+    `\`\`\`md\n[Review revision](https://example.com/revisions/${KSUID})`,
+    `    [Review revision](https://example.com/revisions/${KSUID})`,
+    `\\[Review revision](https://example.com/revisions/${KSUID})`,
+  ]) {
+    const events = cleanEvents()
+    events.push({type: "text", message})
+    const result = scoreRun(ctx({transcript: parseStream(events)}))
+    assert.equal(result.parity_verdict, "FAIL", message)
+    assert.equal(result.parity_evidence, "parity FAIL: failed check(s): no_raw_ksuid")
+    assert.ok(!result.parity_evidence.includes(KSUID), "evidence must not repeat leaked IDs")
+  }
+})
+
+test("parity allows KSUIDs only inside supported Markdown link URL destinations in handoff chat", () => {
+  for (const message of [
+    `[Review revision](https://example.com/revisions/${KSUID})`,
+    `[Directory](<https://example.com/catalogs/${KSUID}> "Directory")`,
+    `[Directory](https://example.com/catalogs/${KSUID}?filter=(active))`,
+    `Directory has ${"a".repeat(26)} records, not ${"b".repeat(28)}.`,
+  ]) {
+    const events = cleanEvents()
+    events.push({type: "text", message})
+    const result = scoreRun(ctx({transcript: parseStream(events)}))
+    assert.equal(result.parity_verdict, "PASS", message)
+    assert.ok(result.parity_evidence.includes("no_raw_ksuid"))
+  }
+})
+
+test("parity detects a raw handoff KSUID split across streamed text deltas", () => {
+  const events = cleanEvents()
+  events.push(toolCall("driver.complete_run"))
+  events.push({type: "text_delta", message: `Deployed ${KSUID.slice(0, 12)}`})
+  events.push({type: "text_delta", message: `${KSUID.slice(12)}.`})
+  const result = scoreRun(ctx({transcript: parseStream(events)}))
+  assert.equal(result.parity_verdict, "FAIL")
+  assert.equal(result.parity_evidence, "parity FAIL: failed check(s): no_raw_ksuid")
+})
+
+test("chat parity exempts machine handoff artifacts, tool payloads, users, and earlier stages", () => {
+  const handoff = {...fullHandoff(), catalog_id: KSUID}
+  const events = [
+    toolCall("c1_connector_authoring_create_draft", {catalogId: KSUID}),
+    toolResult("c1_connector_authoring_create_draft", KSUID),
+    {type: "text", message: KSUID},
+    toolCall("c1_connector_authoring_deploy_connector_instance", {catalogId: KSUID}),
+    toolResult("c1_connector_authoring_deploy_connector_instance", KSUID),
+    toolCall("driver.write_file", {path: HANDOFF_PATH, content: JSON.stringify(handoff)}),
+    toolResult("driver.write_file", KSUID),
+    {type: "user", message: KSUID},
+  ]
+  const result = scoreRun(ctx({handoff, transcript: parseStream(events)}))
+  assert.equal(result.parity_verdict, "PASS")
 })
 
 test("hygiene fails on a plaintext fixture-token in uploaded source", () => {

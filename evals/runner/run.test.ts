@@ -63,7 +63,7 @@ const SCENARIO: Scenario = {
 }
 
 function emptyStream(): ParsedStream {
-  return {toolCalls: [], turns: 1, tokensIn: null, tokensOut: null, errors: [], stageAttempts: {}, stageFailures: {}, recoveryCycles: 0}
+  return {toolCalls: [], handoffChat: [], turns: 1, tokensIn: null, tokensOut: null, errors: [], stageAttempts: {}, stageFailures: {}, recoveryCycles: 0}
 }
 
 function makeDriver(provisioner: Provisioner): Driver {

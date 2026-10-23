@@ -2,6 +2,34 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.9 - distinguish tenant calls from host completion
+
+`author-in-app-connector` (`0.3.10`) and `deploy-and-activate` (`0.3.8`)
+prohibit tenant/MCP tool calls after mint and before human activation, not
+host-required file/terminal writes. The machine-only handoff artifact and run
+completion remain allowed, matching the full-mode eval runner. The human-only
+activation boundary, chat ID rules, and one verification sync are unchanged.
+
+## v0.12.8 - prose status and action-only handoffs
+
+`author-in-app-connector` (`0.3.9`) and `deploy-and-activate` (`0.3.7`)
+keep raw IDs in tool calls rather than repeated chat tables. Chat refers to
+objects by display-name markdown links, reports status in prose, and reserves
+tables for user-facing data such as proposed operations or test counts.
+Handoff links appear only for pending human action: configuring unsaved
+credentials or reviewing a revision awaiting activation. The link occupies
+one final line after all prose and tables, never inline or in a table, and
+activation/review URLs are not repeated after activation.
+The eval retains its machine-only `handoff.json` scoring contract and hard stop.
+The new `no_raw_ksuid` parity check rejects standalone 27-character base62 IDs
+in S11 assistant chat outside inline Markdown link URL destinations; machine
+artifacts and tool payloads are exempt. Source and chat checks now share the
+parity verdict, so these records are not comparable with earlier six-source-
+check records. The Tier-0 fixture exercises a display-name link split across
+text deltas; negative cases cover prose/table leaks and visible link labels.
+Prompt-contract tests also pin the communication rules. None of this claims
+live model compliance or a deployed authoring run.
+
 ## v0.12.7 - skeleton-first authoring
 
 `author-in-app-connector` (`0.3.8`) and `write-connector-source` (`0.2.7`)
@@ -172,7 +200,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.7`); the runner records both in every run record.
+`skillBundle.version` (`0.12.9`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

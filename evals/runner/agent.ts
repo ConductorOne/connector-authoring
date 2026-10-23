@@ -1,6 +1,6 @@
 // agent.ts — agent prompt builder.
-// The 12-step funnel section is the LOCKED CONTRACT (transcribed verbatim);
-// the c1 lifecycle doc is the reference for verifying its fidelity.
+// The 12-step funnel section preserves the eval's machine-artifact contract;
+// handoff.json is scorer input, never a user-facing ID table.
 import type {Scenario} from "./scenario.ts"
 import type {RunChannel} from "./driver.ts"
 
@@ -38,7 +38,7 @@ ${channel.pre1Instructions} Schema: {decision: "proceed"|"park", access_model: {
   return `You are an eval agent implementing a read-only Directory API connector and completing the 12-step in-app authoring funnel. Your goal: implement the connector source files, walk the funnel to the human-activation boundary, and stop there.
 
 (1) ROLE + GOAL
-Implement a read-only Directory API connector (users, groups, group memberships) and complete the 12-step authoring funnel deterministically. Stop at the human-activation boundary: after deploy + mint, write the handoff table and STOP. Never redeem the approval token, never poll for REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.
+Implement a read-only Directory API connector (users, groups, group memberships) and complete the 12-step authoring funnel deterministically. Stop at the human-activation boundary: after deploy + mint, write the machine-only handoff artifact and STOP. Never redeem the approval token, never poll for REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.
 
 (2) PROVIDER BRIEF
 - Fixture base-url: ${baseUrl}
@@ -54,7 +54,7 @@ Implement a read-only Directory API connector (users, groups, group memberships)
 - account-email: ${creds.username}
 - api-token: ${creds.password}
 
-(4) THE 12-STEP FUNNEL (follow exactly; record every ID in the handoff table as you go)
+(4) THE 12-STEP FUNNEL (follow exactly; retain returned IDs for tool calls and the machine-only handoff artifact, not chat)
 Step 0: Call c1_connector_authoring_get_authoring_guide (no args) and read the returned contract. Stop if it errors.
 Step 1: Call c1_connector_authoring_create_draft {connectorName, displayName}. Extract catalog_id (draft.catalogId) and draft_id (draft.id). Stop if either is empty.
 Step 2: Get the byte lengths (wc -c on each file), then call c1_connector_authoring_create_draft_source_upload {catalogId, draftId, files: [{path, sizeBytes}]} with the four build-required files (connector.ts, config-schema.json, runtime-schema.json, capabilities.json) plus the two test-required frozen files (openapi.json, reviewed-ops.json) and their sizes. Freeze the fixture OpenAPI document and the typed reviewed operation list; every projection needs output_slice and pagination uses camelCase keys. Extract upload_id. PUT each file's raw bytes to its presigned URL with the returned headers verbatim, using EXACTLY this curl form: curl -sS -o /tmp/put.out -w "%{http_code}" -X PUT "<url from the response>" -H "<required header from the response>" --data-binary @"<source-dir>/<path>". Stop if any PUT is not 200.
@@ -67,15 +67,16 @@ Step 8: Call c1_connector_service_get {appId, id} then c1_connector_service_upda
 Step 9: Call c1_connector_authoring_run_draft_test_sync {catalogId, revisionId, draftId, instanceAppId: <app_id from step 6>, instanceConnectorId: <connector_id from step 7>}. Extract test_run_id. Stop if empty.
 Step 10: Poll c1_connector_authoring_get_test_run_evidence {catalogId, revisionId, testRunId} until the evidence row is present. Stop if FAIL (fix source, re-run from step 2 with a FRESH test_run_id). Before Step 11 deploy or mint, require the same durable evidence to have both result == CONNECTOR_TEST_RUN_RESULT_PASS and transport_judge_verdict == "accepted"; stop on any other or missing verdict and follow the build-and-test verdict table.
 Step 11a: Call c1_connector_authoring_deploy_connector_instance {instanceAppId: <app_id from step 6>, instanceConnectorId: <connector_id from step 7>}. Extract deployment_instance_id. Stop if empty.
-Step 11b: Call c1_connector_authoring_mint_approval_token {catalogId, revisionId, expiresInSeconds: "3600"}. Extract activation_url; then write the handoff table and STOP (the step-11 override below).
+Step 11b: Call c1_connector_authoring_mint_approval_token {catalogId, revisionId, expiresInSeconds: "3600"}. Extract activation_url; then write the machine-only handoff artifact and STOP (the step-11 override below).
 
-STEP-11 OVERRIDE (verbatim): The authoring guide's step 11 describes activation: give the activation_url to a human OWNER, wait for approval, poll c1_connector_authoring_list_revision_summaries until REVISION_STATUS_ACTIVE, then call c1_connector_service_force_sync. IN THIS EVAL you stop at 11b: after c1_connector_authoring_deploy_connector_instance and c1_connector_authoring_mint_approval_token, write the handoff table and STOP. Do NOT wait for approval, do NOT poll REVISION_STATUS_ACTIVE, do NOT call c1_connector_service_force_sync.
+STEP-11 OVERRIDE: The authoring guide's step 11 describes activation: give the activation_url to a human OWNER, wait for approval, poll c1_connector_authoring_list_revision_summaries until REVISION_STATUS_ACTIVE, then call c1_connector_service_force_sync. IN THIS EVAL you stop at 11b: after c1_connector_authoring_deploy_connector_instance and c1_connector_authoring_mint_approval_token, write the machine-only handoff artifact and STOP. Do NOT wait for approval, do NOT poll REVISION_STATUS_ACTIVE, do NOT call c1_connector_service_force_sync.
 
 (5) SKILL BUNDLE
 ${skillBundleSection(scenario)}
 
 (6) HARD STOP RULE + HANDOFF CONTRACT
-After c1_connector_authoring_deploy_connector_instance (record deployment_instance_id) and c1_connector_authoring_mint_approval_token (record activation_url), write the handoff table to ${channel.handoffPath} and STOP. The handoff table is a JSON object with ALL 10 fields: catalog_id, draft_id, upload_id, run_id, revision_id, app_id, connector_id, test_run_id, deployment_instance_id, activation_url.
+After c1_connector_authoring_deploy_connector_instance (record deployment_instance_id) and c1_connector_authoring_mint_approval_token (record activation_url), write the machine-only handoff artifact to ${channel.handoffPath} and STOP. The artifact is a JSON object with ALL 10 fields: catalog_id, draft_id, upload_id, run_id, revision_id, app_id, connector_id, test_run_id, deployment_instance_id, activation_url.
+This JSON is scoring input written through the driver's file transport, not chat output. Never re-emit it as a table or ID list. In chat, refer to objects by display name with a markdown link when available; report status in prose and use tables only for user-facing data such as proposed operations or test counts. Show a handoff link only when a human must act now: Configure credentials while credentials are unsaved, or Review revision while activation is pending, never merely for navigation. Put that link on a single trailing line at the very end of the output, after all prose and tables; never inline or inside a table. Never re-print activation or review URLs after activation.
 ${channel.handoffInstructions}
 ${channel.completionInstructions}
 Never redeem the approval token, never poll REVISION_STATUS_ACTIVE, never call c1_connector_service_force_sync.`

@@ -100,7 +100,7 @@ test("loadScenario loads the pre1-directory-proceed scenario (kind pre1, proceed
   assert.equal(s.seed, undefined)
   assert.equal(s.requiredSourceFiles, undefined)
   assert.equal(s.skillBundle.mode, "full")
-  assert.equal(s.skillBundle.version, "0.12.7")
+  assert.equal(s.skillBundle.version, "0.12.9")
 })
 
 test("loadScenario loads the pre1-noiam-park scenario (kind pre1, park)", () => {

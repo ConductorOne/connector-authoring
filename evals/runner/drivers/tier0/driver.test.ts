@@ -88,6 +88,9 @@ test("tier0 agent driver replays a canned run that scores a schema-valid 16-line
     // stage rows.
     assert.equal(scored.parity_verdict, "PASS")
     assert.equal(scored.hygiene_verdict, "PASS")
+    assert.ok(scored.parity_evidence.includes("no_raw_ksuid"))
+    assert.equal(result.transcript.handoffChat.length, 1)
+    assert.ok(result.transcript.handoffChat[0].includes("[Review revision]"))
     const meta: RunMeta = {
       run_id: "tier0-test",
       scenario: "tier1-directory",
