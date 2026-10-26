@@ -2,6 +2,24 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.11 - concrete classes and cross-draft tracking
+
+All ten stage skills give concrete error-class examples: the same field failing
+extraction with rephrased messages is one class, while auth and schema failures
+are different classes. Abandoning a draft and creating a fresh one explicitly
+does not reset tracking for the same underlying failure. The three-consecutive-
+FAIL backstop, staged SDK field lookups, and all other stop rules are unchanged.
+Prompt-contract assertions pin both clarifications and require byte-identical
+blocker sections across all ten skills.
+
+Every skill advances one patch: `author-in-app-connector` (`0.3.12`),
+`read-authoring-contract` (`0.2.4`), `write-connector-source` (`0.2.9`),
+`build-and-test` (`0.3.6`), `deploy-and-activate` (`0.3.10`),
+`design-access-model` (`0.1.3`), `source-openapi-spec` (`0.1.4`),
+`verify-connector-output` (`0.1.6`), `update-and-rollback` (`0.2.7`), and
+`diagnose-authoring-failure` (`0.1.5`). Content, scenario, and test pins advance
+with the bundle; eval scoring is unchanged.
+
 ## v0.12.10 - revision-line and error-class blockers
 
 All ten stage skills stop after three consecutive validation/runtime FAILs on
@@ -226,7 +244,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.10`); the runner records both in every run record.
+`skillBundle.version` (`0.12.11`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

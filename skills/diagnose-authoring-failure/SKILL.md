@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.4
+version: 0.1.5
 ---
 
 # diagnose-authoring-failure
@@ -86,6 +86,6 @@ authoritative outcome for a sync.
 ## Blocker protocol
 
 - Track validation/runtime FAILs on one revision line (a draft and its successive source/build revisions); stop after 3 consecutive FAILs. Only a verified PASS ends that FAIL streak.
-- Also stop as soon as any error class recurs, even when the text changes. Classify by underlying cause, not message text; symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking.
+- Also stop as soon as any error class recurs, even when the text changes. Classify by underlying cause, not message text: the same field failing extraction with rephrased messages is one class; an auth failure and a schema failure are different classes. Symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking; abandoning the draft and creating a fresh one does not reset tracking for the same underlying failure.
 - Before any fix, grep the staged SDK declarations (including `runtime.d.ts`) for every field a diagnostic names; read its type and surrounding contract. If unavailable or ambiguous, stop rather than guess.
 - At the stop, report the error class, exact latest error text, failed attempts, declaration evidence, and blocker; do not retry or patch past it.
