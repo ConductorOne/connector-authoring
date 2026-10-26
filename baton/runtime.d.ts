@@ -3248,7 +3248,15 @@ export interface HttpTlsV2 {
 }
 
 export interface HttpTransportSpecV2<A> {
-  readonly baseUrl: PublicConfigString;
+  /**
+   * A literal, a public config field, or a value built from them, e.g.
+   * `strings.concat("https://api.", config.region(), ".example.com")`.
+   * Built values take literals, public config fields, and
+   * concat/join/coalesce/lower/upper/trim, and are evaluated once at load.
+   * The type accepts any auth helper; other helpers and secret fields are
+   * rejected when the transport loads, not at compile time.
+   */
+  readonly baseUrl: PublicConfigString | RuntimeValueExpression<"static", "string">;
   readonly auth?: A;
   readonly headers?: Record<string, PublicConfigString>;
   readonly retry?: RetryConfigV2;
