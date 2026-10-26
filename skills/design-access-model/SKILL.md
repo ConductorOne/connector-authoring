@@ -1,7 +1,7 @@
 ---
 name: design-access-model
 description: Use when designing the access model (resource types, traits, entitlements, grants, provisioning scope) for a net-new provider before authoring connector source. Do not use when you are already mid-funnel or authoring source - invoke write-connector-source instead.
-version: 0.1.1
+version: 0.1.2
 ---
 
 # design-access-model
@@ -83,6 +83,7 @@ carry a non-empty `justification`.
 
 ## Blocker protocol
 
-If the same validation or runtime error remains unchanged after 2 failed fix
-cycles on the same error, stop and report the exact error text instead of
-guessing further.
+- Track validation/runtime FAILs on one revision line (a draft and its successive source/build revisions); stop after 3 consecutive FAILs. Only a verified PASS ends that FAIL streak.
+- Also stop as soon as any error class recurs, even when the text changes. Classify by underlying cause, not message text; symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking.
+- Before any fix, grep the staged SDK declarations (including `runtime.d.ts`) for every field a diagnostic names; read its type and surrounding contract. If unavailable or ambiguous, stop rather than guess.
+- At the stop, report the error class, exact latest error text, failed attempts, declaration evidence, and blocker; do not retry or patch past it.

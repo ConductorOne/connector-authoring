@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.4
+version: 0.3.5
 ---
 
 # build-and-test
@@ -56,9 +56,9 @@ Tool names below are exact tenant MCP titles; the served guide abbreviates them.
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` only for S10. Activation also
    requires `transport_judge_verdict == "accepted"` on matching evidence;
    PASS alone does not authorize activation. STOP on any other result or
-   verdict; use the verdict table below. For FAIL, read the error field,
-   fix, and re-run from the correct step with a FRESH `test_run_id`; never
-   re-mint on a failed run.
+   verdict; use the verdict table below. For FAIL, read the error field and
+   apply the Blocker protocol before fixing or rerunning with a FRESH
+   `test_run_id`; never re-mint on a failed run.
 5. Re-run-from-correct-step rules: a failed build re-runs from the build
    step; a failed test re-runs from the test step; never re-mint a draft or
    re-upload the whole set unless the source set changed.
@@ -92,6 +92,13 @@ External-provenance drafts stop at S10 until human evidence acceptance ships.
 Hand off the durable evidence and recorded IDs; do not proceed to S11 deploy
 or mint, even when the test result is PASS.
 
+## Draft-test FAIL reading
+
+Read the durable evidence's error and classify its underlying cause before
+editing source. Do not silently filter out rows, drop declared projections, or
+weaken coverage to turn FAIL into PASS; fix the mapping or report the blocker.
+Apply the Blocker protocol across the whole revision line, not per error text.
+
 ## Exit criteria
 
 - S2 passes: hosted storage transfer succeeds with a returned source digest; OR
@@ -115,6 +122,7 @@ or mint, even when the test result is PASS.
 
 ## Blocker protocol
 
-If the same validation or runtime error remains unchanged after 2 failed fix
-cycles on the same error, stop and report the exact error text instead of
-guessing further.
+- Track validation/runtime FAILs on one revision line (a draft and its successive source/build revisions); stop after 3 consecutive FAILs. Only a verified PASS ends that FAIL streak.
+- Also stop as soon as any error class recurs, even when the text changes. Classify by underlying cause, not message text; symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking.
+- Before any fix, grep the staged SDK declarations (including `runtime.d.ts`) for every field a diagnostic names; read its type and surrounding contract. If unavailable or ambiguous, stop rather than guess.
+- At the stop, report the error class, exact latest error text, failed attempts, declaration evidence, and blocker; do not retry or patch past it.

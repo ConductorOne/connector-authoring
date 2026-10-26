@@ -1,7 +1,7 @@
 ---
 name: verify-connector-output
 description: Use when verifying a post-activation connector's sync output: resource/entitlement/grant counts, grant wiring, ID stability against the next human-run sync (or reported pending), and the UI spot-check. Do not use when updating or rolling back a live connector - use update-and-rollback; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.1.4
+version: 0.1.5
 ---
 
 # verify-connector-output
@@ -75,6 +75,7 @@ Investigate empty or unexpected results; never invent data to make a demo appear
 
 ## Blocker protocol
 
-If the same validation or runtime error remains unchanged after 2 failed
-fix cycles on the same error, stop and report the exact error text instead
-of guessing further.
+- Track validation/runtime FAILs on one revision line (a draft and its successive source/build revisions); stop after 3 consecutive FAILs. Only a verified PASS ends that FAIL streak.
+- Also stop as soon as any error class recurs, even when the text changes. Classify by underlying cause, not message text; symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking.
+- Before any fix, grep the staged SDK declarations (including `runtime.d.ts`) for every field a diagnostic names; read its type and surrounding contract. If unavailable or ambiguous, stop rather than guess.
+- At the stop, report the error class, exact latest error text, failed attempts, declaration evidence, and blocker; do not retry or patch past it.
