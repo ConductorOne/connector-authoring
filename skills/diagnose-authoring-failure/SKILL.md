@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.3
+version: 0.1.5
 ---
 
 # diagnose-authoring-failure
@@ -17,7 +17,7 @@ replaced by the tenant MCP tools named below.
    draft test, activation, production sync), and the IDs at hand.
 2. Route the symptom through the table below; collect the smallest evidence
    needed for that cause.
-3. Apply the fix, then re-run the smallest verification step that failed.
+3. Subject to the Blocker protocol, apply the fix and re-run the failed step.
 4. Output a chat diagnostic summary: failure summary, classified cause,
    evidence used, likely owner (source, schema, runtime, credentials, or
    platform), one concrete next fix, and the smallest verification command.
@@ -56,6 +56,11 @@ succeeds but the outcome evaluation returns FAIL. PASS requires all of:
 A FAIL row, missing evidence, or a missing/non-accepted verdict keeps activation
 `evidence is unsatisfied` until a new accepted PASS row binds the revision.
 
+Do not silently filter out rows, drop declared projections, or weaken coverage
+to turn FAIL into PASS; fix the mapping or report the blocker. Classify the
+underlying error and consult the staged SDK declarations before any fix, per
+the Blocker protocol; changing the error text does not grant another retry.
+
 ## Where logs live
 
 Use the product's connector activity and sync logs - the same surface you
@@ -80,6 +85,7 @@ authoritative outcome for a sync.
 
 ## Blocker protocol
 
-If the same validation or runtime error remains unchanged after 2 failed
-fix cycles on the same error, stop and report the exact error text instead
-of guessing further.
+- Track validation/runtime FAILs on one revision line (a draft and its successive source/build revisions); stop after 3 consecutive FAILs. Only a verified PASS ends that FAIL streak.
+- Also stop as soon as any error class recurs, even when the text changes. Classify by underlying cause, not message text: the same field failing extraction with rephrased messages is one class; an auth failure and a schema failure are different classes. Symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking; abandoning the draft and creating a fresh one does not reset tracking for the same underlying failure.
+- Before any fix, grep the staged SDK declarations (including `runtime.d.ts`) for every field a diagnostic names; read its type and surrounding contract. If unavailable or ambiguous, stop rather than guess.
+- At the stop, report the error class, exact latest error text, failed attempts, declaration evidence, and blocker; do not retry or patch past it.

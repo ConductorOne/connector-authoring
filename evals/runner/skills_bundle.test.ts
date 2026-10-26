@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.9"
+const VERSION = "0.12.11"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -330,10 +330,60 @@ test("(c3) orchestrator and deployment keep raw IDs out of chat and handoff link
   }
 })
 
+test("(c4) every stage skill stops on revision-line FAILs or recurring error classes and reads staged declarations", () => {
+  const names = readdirSync("skills").filter(name => existsSync(join("skills", name, "SKILL.md")))
+  assert.deepEqual(names.sort(), [...SKILLS].sort(), "every stage skill must be included in the bundle contract")
+  const protocols = new Set<string>()
+  for (const name of names) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    const section = file.split("## Blocker protocol")[1]?.split("\n## ")[0]
+    assert.ok(section, `${name}: missing blocker protocol`)
+    protocols.add(section)
+    const protocol = section.replace(/\s+/g, " ")
+    for (const literal of [
+      "one revision line (a draft and its successive source/build revisions)",
+      "stop after 3 consecutive FAILs",
+      "Only a verified PASS ends that FAIL streak",
+      "stop as soon as any error class recurs, even when the text changes",
+      "Classify by underlying cause, not message text",
+      "the same field failing extraction with rephrased messages is one class",
+      "an auth failure and a schema failure are different classes",
+      "Symptom patches, re-uploads, fresh run/revision IDs, and stage changes do not reset tracking",
+      "abandoning the draft and creating a fresh one does not reset tracking for the same underlying failure",
+      "Before any fix, grep the staged SDK declarations (including `runtime.d.ts`) for every field a diagnostic names",
+      "read its type and surrounding contract",
+      "If unavailable or ambiguous, stop rather than guess",
+      "report the error class, exact latest error text, failed attempts, declaration evidence, and blocker",
+      "do not retry or patch past it",
+    ]) {
+      assert.ok(protocol.includes(literal), `${name}: missing blocker rule ${literal}`)
+    }
+    for (const forbidden of ["after 2 failed", "same error remains unchanged", "cycles on the same error"]) {
+      assert.ok(!file.replace(/\s+/g, " ").includes(forbidden), `${name}: obsolete per-error blocker rule ${forbidden}`)
+    }
+  }
+  assert.equal(protocols.size, 1, "all stage skills must carry a byte-identical blocker protocol")
+})
+
+test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weakening", () => {
+  for (const name of ["build-and-test", "diagnose-authoring-failure"]) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    const reading = file.split("## Draft-test FAIL reading")[1]?.split("\n## ")[0]?.replace(/\s+/g, " ")
+    assert.ok(reading, `${name}: missing draft-test FAIL reading`)
+    for (const literal of [
+      "Do not silently filter out rows, drop declared projections, or weaken coverage",
+      "fix the mapping or report the blocker",
+      "Blocker protocol",
+    ]) {
+      assert.ok(reading.includes(literal), `${name}: missing FAIL-reading rule ${literal}`)
+    }
+  }
+})
+
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.9")
+  assert.equal(full.skillBundle.version, "0.12.11")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -382,7 +432,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.9")
+    assert.equal(meta.skill_bundle_version, "0.12.11")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

@@ -27,7 +27,7 @@
   },
   "skillBundle": {
     "mode": "full",
-    "version": "0.12.9"
+    "version": "0.12.11"
   },
   "model": "together/deepseek-ai/DeepSeek-V4-Flash-0731",
   "reasoningEffort": "high",

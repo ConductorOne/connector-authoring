@@ -2,6 +2,50 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.11 - concrete classes and cross-draft tracking
+
+All ten stage skills give concrete error-class examples: the same field failing
+extraction with rephrased messages is one class, while auth and schema failures
+are different classes. Abandoning a draft and creating a fresh one explicitly
+does not reset tracking for the same underlying failure. The three-consecutive-
+FAIL backstop, staged SDK field lookups, and all other stop rules are unchanged.
+Prompt-contract assertions pin both clarifications and require byte-identical
+blocker sections across all ten skills.
+
+Every skill advances one patch: `author-in-app-connector` (`0.3.12`),
+`read-authoring-contract` (`0.2.4`), `write-connector-source` (`0.2.9`),
+`build-and-test` (`0.3.6`), `deploy-and-activate` (`0.3.10`),
+`design-access-model` (`0.1.3`), `source-openapi-spec` (`0.1.4`),
+`verify-connector-output` (`0.1.6`), `update-and-rollback` (`0.2.7`), and
+`diagnose-authoring-failure` (`0.1.5`). Content, scenario, and test pins advance
+with the bundle; eval scoring is unchanged.
+
+## v0.12.10 - revision-line and error-class blockers
+
+All ten stage skills stop after three consecutive validation/runtime FAILs on
+one revision line (a draft and its successive source/build revisions), or as
+soon as an underlying error class recurs even when the message text changes.
+Symptom patches, fresh run/revision IDs, re-uploads, and stage changes do not
+reset tracking; only a verified PASS ends the consecutive-FAIL streak.
+Before any fix, every diagnostic-named field must be looked up in the staged
+SDK declarations, including `runtime.d.ts`, with its surrounding type/contract.
+Missing or ambiguous declarations are blockers, not permission to guess.
+At the stop, report the class, latest exact error, attempts, declaration evidence,
+and blocker rather than continuing to patch. Both draft-test FAIL-reading
+sections also forbid silent row filtering, projection removal, or weakened
+coverage to obtain PASS.
+
+Every skill advances one patch: `author-in-app-connector` (`0.3.11`),
+`read-authoring-contract` (`0.2.3`), `write-connector-source` (`0.2.8`),
+`build-and-test` (`0.3.5`), `deploy-and-activate` (`0.3.9`),
+`design-access-model` (`0.1.2`), `source-openapi-spec` (`0.1.3`),
+`verify-connector-output` (`0.1.5`), `update-and-rollback` (`0.2.6`), and
+`diagnose-authoring-failure` (`0.1.4`). Content, scenario, and test pins advance
+with the bundle. Prompt-contract assertions cover every skill directory,
+including direct deployment invocation, and reject the obsolete per-error rule.
+These checks prove shipped prompt content, not live model compliance or
+deployed behavior; eval scoring is unchanged.
+
 ## v0.12.9 - distinguish tenant calls from host completion
 
 `author-in-app-connector` (`0.3.10`) and `deploy-and-activate` (`0.3.8`)
@@ -200,7 +244,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.9`); the runner records both in every run record.
+`skillBundle.version` (`0.12.11`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 
