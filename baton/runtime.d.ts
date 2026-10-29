@@ -3006,6 +3006,8 @@ interface OAuth2ClientCredentialsFields {
   readonly type: "oauth2_client_credentials";
   readonly tokenUrl: AuthExpr;
   readonly clientId?: AuthExpr;
+  /** Token body encoding; default application/x-www-form-urlencoded. */
+  readonly tokenRequestContentType?: "application/x-www-form-urlencoded" | "application/json";
   readonly scope?: AuthExpr;
   readonly scopes?: readonly AuthExpr[];
   /** Override the grant_type form field (default client_credentials). */
