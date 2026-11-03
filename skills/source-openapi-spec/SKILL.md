@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.4
+version: 0.1.5
 ---
 
 # source-openapi-spec
@@ -96,9 +96,10 @@ file; do not import the full spec into connector code or inline it into reviewed
 operations. A 2.5 MB whole spec fits storage and recording but needs filtering
 for the usual activation context budget.
 
-If the original exceeds the review/evidence allocation, use a reproducible
-filter script to create `openapi.json` with the needed paths and their transitive
-referenced schemas (`$ref` closure). Retain fetch-URL and digest provenance,
+`openapi.json` is the review subset: the paths the connector calls plus their
+transitive referenced schemas (`$ref` closure), produced by a reproducible
+filter script. Trimming is the normal path for a multi-purpose vendor API, not
+a response to hitting a size limit. Retain fetch-URL and digest provenance,
 the original digest, the script, and the filtered digest. Keep the original in
 storage even if it exceeds draft-upload caps. Re-run the filter from that
 original as the expand loop adds operations; never silently overwrite it.
@@ -109,6 +110,17 @@ Keep a small spec whole only when it fits BOTH recording and context budgets.
 Allocate `spec_budget_bytes` from the active context budget after reserving
 space for reviewed operations, evidence, prompts, and outputs; it is not a
 universal platform cap. Follow the served guide and actual budget feedback.
+
+## Explaining the spec to the user
+
+When you trim, say what you kept and why: review covers only the endpoints the
+connector calls, and the recorded provenance (source URL, original and trimmed
+digests, filter script) lets anyone verify the subset against the vendor
+original. Do not cite the 4 MiB recording cap, upload caps, or the context
+budget as the reason for trimming, and do not describe a large original as
+"over the limit". Name a limit only when the trimmed spec or a fetch is blocked
+by it, and then say what the user can do: narrow the operations or supply the
+spec another way.
 
 ## Output Contract
 
