@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.12"
+const VERSION = "0.12.13"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -213,6 +213,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "missing_paths",
     "revisit_trigger",
     "vendor_doc",
+    "Trimming is the normal path",
+    "Do not cite the 4 MiB recording cap",
     "Parking with evidence",
     "authority ladder",
   ],
@@ -384,7 +386,7 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.12")
+  assert.equal(full.skillBundle.version, "0.12.13")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -433,7 +435,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.12")
+    assert.equal(meta.skill_bundle_version, "0.12.13")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

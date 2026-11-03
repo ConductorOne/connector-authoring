@@ -1,5 +1,5 @@
 {
-  "version": "0.12.12",
+  "version": "0.12.13",
   "skills": [
     {
       "name": "author-in-app-connector",
@@ -39,9 +39,9 @@
     },
     {
       "name": "source-openapi-spec",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "path": "../../skills/source-openapi-spec/SKILL.md",
-      "sha256": "a1c2851a26d6c71c9f690507716dc9d0c07faa860a4e8fba29cf5ec24360f772"
+      "sha256": "6a3f8e15f9fc1edbbd426fe96b1c213a71536662a2aab6e0553b6a7f72607eed"
     },
     {
       "name": "verify-connector-output",

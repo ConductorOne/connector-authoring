@@ -2,6 +2,18 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.13 - trimming is the normal path for large specs
+
+`source-openapi-spec` (`0.1.5`) defines `openapi.json` as the review subset
+(called paths plus their `$ref` closure) produced by a reproducible filter
+script, rather than as a fallback when the original exceeds a budget. A new
+section tells the agent to explain trimming to the user by what it kept and
+how the subset can be verified, and not to cite the 4 MiB recording cap,
+upload caps, or the context budget as the reason. A limit is named only when
+the trimmed spec or a fetch is actually blocked. Prompt-contract assertions pin
+both literals. Content, scenario, and test pins advance with the bundle; eval
+scoring is unchanged.
+
 ## v0.12.12 - optional pagination selectors
 
 `diagnose-authoring-failure` routes the draft-test `SELECTOR_NOT_FOUND` failure
