@@ -2,6 +2,19 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.12 - optional pagination selectors
+
+`diagnose-authoring-failure` routes the draft-test `SELECTOR_NOT_FOUND` failure
+at a reviewed pagination selector: the vendor usually omits that value on its
+last page, so the fix is an explicit `select` entry with `"optional": true` in
+`reviewed-ops.json` (replacing a `cursorPath` shorthand), then rebuild and
+retest. `write-connector-source` adds the matching pre-upload checklist item.
+A prompt-contract assertion pins the new literal.
+
+Two skills advance one patch: `write-connector-source` (`0.2.10`) and
+`diagnose-authoring-failure` (`0.1.6`). Content, scenario, and test pins advance
+with the bundle; eval scoring is unchanged.
+
 ## v0.12.11 - concrete classes and cross-draft tracking
 
 All ten stage skills give concrete error-class examples: the same field failing

@@ -1,5 +1,5 @@
 {
-  "version": "0.12.11",
+  "version": "0.12.12",
   "skills": [
     {
       "name": "author-in-app-connector",
@@ -15,9 +15,9 @@
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.9",
+      "version": "0.2.10",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "cd4b7efdae4000c23fb19ba0db535dfe1637a82d6b06a462dcd4375e1bcb7bfc"
+      "sha256": "05f15ee7c77c5216f031fcf539ec3c164ba4db6d74ccd22e3a4d16cb1408d491"
     },
     {
       "name": "build-and-test",
@@ -57,9 +57,9 @@
     },
     {
       "name": "diagnose-authoring-failure",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "path": "../../skills/diagnose-authoring-failure/SKILL.md",
-      "sha256": "f132f20a71be85bd49bc0b2b595d0afa05ca180212caef7d1c0b725daf50e24a"
+      "sha256": "f2e8cd005e80203fd46a7d7b3ed93a6fd73a6bdd230b8eac7d2439c69004e31f"
     }
   ]
 }

@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
-version: 0.2.9
+version: 0.2.10
 ---
 
 # write-connector-source
@@ -164,7 +164,7 @@ every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail che
 - [ ] Top-level `connect` present with one `http` entry named after the
       registered transport (draft-test probe default; not read by the runtime).
 - [ ] `openapi.json` + `reviewed-ops.json` present with `output_slice` on every projection before draft testing.
-- [ ] With `pagination` set, every enveloped list request declares `itemsPath` matching its reviewed-ops `output_slice` (e.g. `itemsPath: ["items"]`); `result()` receives each page's records array, never the envelope.
+- [ ] With `pagination` set, every enveloped list request declares `itemsPath` matching its reviewed-ops `output_slice` (e.g. `itemsPath: ["items"]`); `result()` receives each page's records array, never the envelope. A pagination value the vendor omits on its last page (usually the cursor) is an explicit `reviewed-ops.json` `select` entry with `"optional": true`, or the draft test fails with `SELECTOR_NOT_FOUND`.
 - [ ] Every `config("...")` literal in `connector.ts` declared in BOTH schemas (parity covers config refs, not just the two schemas).
 - [ ] `ticketing.enabled` - no unsupported `ticketing` block (`ticketing.enabled must be true when ticketing is configured`).
 
