@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.5
+version: 0.1.6
 ---
 
 # diagnose-authoring-failure
@@ -34,6 +34,7 @@ replaced by the tenant MCP tools named below.
 | Sync error mentions an `unregistered transport` | A `node` or `reuse` references a transport missing from `connector({ transports: ... })`. Register that same transport object, rebuild, and retest. |
 | Draft test: `ticketing.enabled must be true when ticketing is configured` | The runtime-schema carries a `ticketing` block the connector code does not back. Remove the block (and any `actions` / `policy_surface` entries referencing dropped code); `enabled: false` is not a valid off-switch. |
 | Activation reports `activation evidence is unsatisfied` | No matching PASS evidence, or `transport_judge_verdict` missing/not accepted. Follow the build-and-test verdict table: correct the verdict's cause; do not just re-mint. Confirm a new accepted PASS row binds this revision before asking the OWNER to review a fresh approval URL. |
+| Draft test: `SELECTOR_NOT_FOUND` at `operations[N].pagination.select.<name>` | The response lacked a required pagination value, usually because the vendor omits it on the last page. In `reviewed-ops.json`, make that selector an explicit `select` entry with `"optional": true` (replace a `cursorPath` shorthand with `select.cursor`), rebuild, and retest. If the value should be present, fix the selector path. |
 | Production sync `Invalid token provided` | The API token is wrong or truncated. Re-configure with the full token, then re-run. |
 
 ## Draft-test FAIL reading
