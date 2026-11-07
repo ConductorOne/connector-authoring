@@ -24,7 +24,7 @@ test("loadScenario loads the real tier1-directory.json", () => {
   assert.equal(s.expected!.groups, 5)
   assert.equal(s.expected!.memberships, 23)
   assert.equal(s.skillBundle.mode, "none")
-  assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4-Flash-0731")
+  assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4.1-Flash")
   assert.equal(s.reasoningEffort, "high")
   assert.equal(s.requiredSourceFiles!.length, 4)
   assert.equal(s.readinessTools!.length, 5)
@@ -35,7 +35,7 @@ test("loadScenario loads the real tier1-directory-guide-only.json", () => {
   assert.equal(s.id, "tier1-directory-guide-only")
   assert.equal(s.skillBundle.mode, "guide-only")
   assert.equal(s.reasoningEffort, "high")
-  assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4-Flash-0731")
+  assert.equal(s.model, "together/deepseek-ai/DeepSeek-V4.1-Flash")
 })
 
 test("loadScenario rejects an invalid reasoningEffort value", () => {
