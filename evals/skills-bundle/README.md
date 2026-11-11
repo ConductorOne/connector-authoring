@@ -2,6 +2,25 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.14 - hand-authored capabilities and admitted rotation
+
+`write-connector-source` (`0.2.11`) leads the capabilities row with the
+hand-authored document contract instead of defining the file as a CLI's output.
+The strict shape and metadata-only rules remain unchanged; the first-draft
+hand-authoring sentence and conditional generation aside stay as on main.
+
+`source-openapi-spec` (`0.1.6`) keeps an oversized fetched original in staged
+storage, filters inside the program, and writes only the review subset when
+the original exceeds the per-write request limit. `update-and-rollback`
+(`0.2.8`) permits admitted runtime rotation and stops only on an image/floor
+refusal or hold, preserving human-only activation/rollback and one
+verification sync.
+
+Content, scenario, and test pins advance with this single bundle release.
+Prompt-contract assertions cover the hand-authoring contract, first-draft
+expansion reference, staged-file handling, and conditional rotation stop;
+runtime behavior and eval scoring are unchanged.
+
 ## v0.12.13 - trimming is the normal path for large specs
 
 `source-openapi-spec` (`0.1.5`) defines `openapi.json` as the review subset
@@ -269,7 +288,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.11`); the runner records both in every run record.
+`skillBundle.version` (`0.12.14`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 
