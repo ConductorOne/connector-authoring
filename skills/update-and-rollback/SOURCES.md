@@ -9,7 +9,7 @@ In-repo content is referenced by relative path and is always current with the ch
 | Source | Reference | What this skill uses |
 |---|---|---|
 | SDK declarations and examples | `../../baton/*.d.ts`, `../../examples/http/`, `../../examples/static/` (this checkout) | The `baton/*.d.ts` module surface used to author a replacement revision. |
-| Tenant-served authoring guide and connector status | Read the guide and `c1_connector_service_get` | Image-digest reuse rule, fresh accepted PASS evidence, human-only activation, activation epoch, one verification sync, rotation STOP, and OWNER-gated REST rollback. |
+| Tenant-served authoring guide and connector status | Read the guide and `c1_connector_service_get` | Admitted runtime rotation, image/floor refusal-or-hold escalation, fresh accepted PASS evidence, human-only activation, activation epoch, one verification sync, and OWNER-gated REST rollback. |
 
 ## Eval wiring
 

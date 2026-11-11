@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.13"
+const VERSION = "0.12.14"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -152,6 +152,8 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "connector.js",
     "CAPABILITY_SYNC",
     "baton-axiomatic capabilities",
+    "Hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document",
+    "For local authoring with a compiled connector image",
     "the build rejects any other shape",
     "Metadata only - it grants nothing at runtime",
     "not a build requirement and the hosted runtime does not read it",
@@ -197,6 +199,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "automatically staged to file storage",
     "never through the",
     "storage-to-draft source transfer",
+    "per-write request limit (about 4 MiB per write",
+    "leave the original staged file in place",
+    "write only that review subset to `openapi.json`",
     "out-of-band source upload",
     "4 MiB",
     "model-dependent",
@@ -243,6 +248,10 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "verify-connector-output",
     "activation_epoch",
     "image digest",
+    "Activation can admit rotation",
+    "a digest difference alone is not",
+    "If activation refuses or holds on `IMAGE_INCOMPATIBLE` or",
+    "`RUNTIME_FLOOR`, STOP and escalate",
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
@@ -302,6 +311,23 @@ test("(c2) rollback preserves the human-only handoff boundary", () => {
   }
   for (const forbidden of ["/api/v1/connector-authoring/rollbacks", "OWNER bearer token"]) {
     assert.ok(!file.includes(forbidden), `update-and-rollback: forbidden agent execution instruction ${forbidden}`)
+  }
+})
+
+test("(c2a) capabilities lead with hand authoring and rotation stops only on refusal or hold", () => {
+  const source = readFileSync("skills/write-connector-source/SKILL.md", "utf8")
+  const row = source.split("\n").find((line) => line.startsWith("| `capabilities.json` |"))
+  assert.ok(row, "missing capabilities contract row")
+  assert.ok(row.includes("Hand-author"), "capabilities row must state the hand-authoring contract")
+  assert.ok(row.indexOf("Hand-author") < row.indexOf("For local authoring"), "hand-authoring contract must precede the local path")
+  assert.ok(row.indexOf("For local authoring") < row.indexOf("`baton-axiomatic capabilities`"), "CLI belongs only in the local note")
+  const update = readFileSync("skills/update-and-rollback/SKILL.md", "utf8")
+  for (const stale of [
+    "Rotation STOP (known limitation)",
+    "STOP if the digests differ",
+    "Do not reuse the managed runtime instance when the image digest does not",
+  ]) {
+    assert.ok(!update.includes(stale), `must not stop on admitted rotation: ${stale}`)
   }
 })
 
@@ -386,7 +412,7 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.13")
+  assert.equal(full.skillBundle.version, "0.12.14")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -435,7 +461,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.13")
+    assert.equal(meta.skill_bundle_version, "0.12.14")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

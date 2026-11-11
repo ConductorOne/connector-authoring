@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.7
+version: 0.2.8
 ---
 
 # update-and-rollback
@@ -14,10 +14,10 @@ titles.
 
 1. Reuse the existing `catalog_id` and `draft_id`; update the draft source
    (lifecycle step 2) and build a new revision (steps 4-5).
-2. Reuse the existing managed runtime instance ONLY when its image digest
-   matches the target revision's pinned runtime image digest. GATE: image
-   digest match. STOP if the digests differ - see the rotation limitation
-   below.
+2. Reuse the existing managed runtime instance. Activation can admit rotation
+   to a serviceable candidate runtime image; a digest difference alone is not
+   a STOP. If activation refuses or holds on `IMAGE_INCOMPATIBLE` or
+   `RUNTIME_FLOOR`, STOP and escalate as described below.
 3. Pass a fresh draft test with the instance credentials (steps 9-10).
    GATE: durable evidence binds the new revision with both
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
@@ -57,18 +57,19 @@ titles.
    pause (customer opt-out or ops).
    After reporting verification, stop; the human/operator owns subsequent syncs.
 
-## Rotation STOP (known limitation)
+## Image/floor refusal or hold
 
-An active update can fail with `serve image does not match the revision-pinned runtime image`. The deployed instance's image digest must
-match the target revision's pinned runtime image digest. There is no
-supported customer, MCP, or Support Dashboard recovery today: deploy and
-teardown are pre-activation-only, and rollback enforces the same image
-binding.
+An already-active installation can rotate to a serviceable candidate runtime
+image when activation admits it. Do not infer refusal from an image digest
+difference alone. Admitted rotation still requires the fresh accepted PASS,
+human OWNER activation, ACTIVE readback, and one verification sync above.
 
-**STOP.** Do not clear runtime fields, call the provisioner directly, or
-mutate the deployment or AWS resources. Record the tenant, catalog, app,
-connector, and target revision IDs, then escalate to Connector Authoring /
-managed-runtime engineering.
+If activation refuses or holds on `IMAGE_INCOMPATIBLE` or `RUNTIME_FLOOR`
+(including `serve image does not match the revision-pinned runtime image`),
+**STOP** and report the exact refusal or hold. Do not clear runtime fields,
+call the provisioner directly, or mutate the deployment or AWS resources.
+Record the tenant, catalog, app, connector, and target revision IDs, then
+escalate to Connector Authoring / managed-runtime engineering.
 
 ## Rollback (REST-only, OWNER-gated)
 
@@ -102,8 +103,9 @@ text; do not attempt the rollback yourself.
 - Same-catalog rerun: new revision ACTIVE with a recorded `activation_epoch`,
   fresh PASS evidence with `transport_judge_verdict == "accepted"`, and a
   completed force sync.
-- The rotation STOP fired verbatim (`serve image does not match the revision-pinned runtime image`) with the escalation record: tenant,
-  catalog, app, connector, and target revision IDs.
+- Blocked activation: an image/floor refusal or hold was reported with its
+  exact error and the escalation record: tenant, catalog, app, connector, and
+  target revision IDs.
 - Rollback handoff: non-empty `activation_url` presented to a human tenant
   OWNER and stopped at the human boundary. After the OWNER completes the
   rollback, the target revision is ACTIVE under a strictly greater
@@ -113,10 +115,9 @@ text; do not attempt the rollback yourself.
 ## Anti-patterns
 
 - Do not redeem the approval token for activation or rollback - both are human OWNER steps.
-- Do not reuse the managed runtime instance when the image digest does not
-  match the target revision's pinned runtime image digest.
+- Do not treat an image digest difference alone as a rotation refusal.
 - Do not clear runtime fields, call the provisioner directly, or mutate the
-  deployment or AWS resources on the rotation STOP.
+  deployment or AWS resources to bypass an image/floor refusal or hold.
 - Do not call the rollback endpoint or use the activation endpoint to roll back.
 - Do not force-sync before activation or repeat the post-activation verification sync; subsequent syncs belong to the human/operator.
 - Never read or handle OWNER credentials. Never ask a human to paste secrets

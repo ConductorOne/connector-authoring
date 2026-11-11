@@ -1,5 +1,5 @@
 {
-  "version": "0.12.13",
+  "version": "0.12.14",
   "skills": [
     {
       "name": "author-in-app-connector",
@@ -15,9 +15,9 @@
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.10",
+      "version": "0.2.11",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "05f15ee7c77c5216f031fcf539ec3c164ba4db6d74ccd22e3a4d16cb1408d491"
+      "sha256": "798f1f1119c187b9000a97cd57447967724cc61b1e7e208a78995bd44b72251e"
     },
     {
       "name": "build-and-test",
@@ -39,9 +39,9 @@
     },
     {
       "name": "source-openapi-spec",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "path": "../../skills/source-openapi-spec/SKILL.md",
-      "sha256": "6a3f8e15f9fc1edbbd426fe96b1c213a71536662a2aab6e0553b6a7f72607eed"
+      "sha256": "02d63e932bd8578dba8f002de28e112ac29f7454e41c3bb6506222404d53c0d3"
     },
     {
       "name": "verify-connector-output",
@@ -51,9 +51,9 @@
     },
     {
       "name": "update-and-rollback",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "path": "../../skills/update-and-rollback/SKILL.md",
-      "sha256": "391598b286fd6d91d5a0132552703fcb1ffb36a2341b7dd4155c30d7d8492862"
+      "sha256": "063444974651a7b54149d736b7a397b946852239f3db845cfa31e980f0da2f22"
     },
     {
       "name": "diagnose-authoring-failure",

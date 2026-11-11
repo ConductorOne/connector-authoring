@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.5
+version: 0.1.6
 ---
 
 # source-openapi-spec
@@ -57,11 +57,17 @@ fetch-and-upload route or a smaller vendor-published spec; never bypass a guard.
 In hosted sessions, large responses are automatically staged to file storage
 with a returned path. Process and upload from storage, never through the
 conversation: in one `execute` program, read that path with OPFS, parse the
-fetch envelope, extract `body` as UTF-8 bytes or decode `body_base64`, write
-the exact bytes to a non-system source directory, and compute SHA-256.
+fetch envelope, extract `body` as UTF-8 bytes or decode `body_base64`, and
+compute SHA-256. Write the exact original bytes to a non-system source directory
+only when they fit the per-write request limit (about 4 MiB per write, including
+request overhead). Above that limit, do not copy the staged response into the
+VFS whole: leave the original staged file in place, read and filter it inside
+the program to the connector's paths and transitive referenced schemas (`$ref`
+closure), and write only that review subset to `openapi.json`.
 The model sees the returned path/summary, not the full spec; copying errors are
-not a reason to reconstruct or trim it. Retain the fetch record (URL, fetch
-time, and digest) and verify the saved bytes against its digest where supplied.
+not a reason to reconstruct it. Retain the fetch record (URL, fetch time, and
+original digest), verify the original bytes against its digest where supplied,
+and record the filtered digest and reproducible filter as described below.
 If the response arrives inline rather than staged (auto-staging can be disabled),
 use the permitted out-of-band upload fallback, not conversation copying.
 The hosted storage path is roughly three tool steps: fetch, process, transfer;
@@ -91,18 +97,19 @@ Run `wc -c` on the saved files. These are DIFFERENT limits:
   raw-spec limits.
 
 Preserve the original whole spec as `openapi.full.json` when it fits source
-upload caps. Review and evidence consume `openapi.json`, not that extra source
-file; do not import the full spec into connector code or inline it into reviewed
-operations. A 2.5 MB whole spec fits storage and recording but needs filtering
-for the usual activation context budget.
+upload caps and, for a VFS copy, the per-write request limit. Review and evidence
+consume `openapi.json`, not that extra source file; do not import the full spec
+into connector code or inline it into reviewed operations. A 2.5 MB whole spec
+fits storage and recording but needs filtering for the usual activation context
+budget.
 
 `openapi.json` is the review subset: the paths the connector calls plus their
 transitive referenced schemas (`$ref` closure), produced by a reproducible
 filter script. Trimming is the normal path for a multi-purpose vendor API, not
 a response to hitting a size limit. Retain fetch-URL and digest provenance,
 the original digest, the script, and the filtered digest. Keep the original in
-storage even if it exceeds draft-upload caps. Re-run the filter from that
-original as the expand loop adds operations; never silently overwrite it.
+storage even if it exceeds draft-upload or per-write request caps. Re-run the
+filter from that original as the expand loop adds operations; never silently overwrite it.
 For real drafts, store this provenance in the digest-bound `runtime-manifest.json`:
 original URL/fetch time, original and filtered SHA-256, and filter-script path
 and SHA-256. Keep the script and original bytes, not just conversation notes.
