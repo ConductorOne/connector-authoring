@@ -2,14 +2,12 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
-## v0.12.14 - audience-aware authoring and admitted rotation
+## v0.12.14 - hand-authored capabilities and admitted rotation
 
-`write-connector-source` (`0.2.11`) distinguishes the two authoring audiences:
-hosted sessions hand-author the capabilities contract, while external agents
-with a compiled connector image should generate the same document from
-connector source. The real local command
-remains `baton-axiomatic capabilities`; strict shape and metadata-only rules
-apply to both paths, as does the multi-type expansion example.
+`write-connector-source` (`0.2.11`) leads the capabilities row with the
+hand-authored document contract instead of defining the file as a CLI's output.
+The strict shape and metadata-only rules remain unchanged; the first-draft
+hand-authoring sentence and conditional generation aside stay as on main.
 
 `source-openapi-spec` (`0.1.6`) keeps an oversized fetched original in staged
 storage, filters inside the program, and writes only the review subset when
@@ -19,7 +17,7 @@ refusal or hold, preserving human-only activation/rollback and one
 verification sync.
 
 Content, scenario, and test pins advance with this single bundle release.
-Prompt-contract assertions cover both authoring audiences, their shared
+Prompt-contract assertions cover the hand-authoring contract, first-draft
 expansion reference, staged-file handling, and conditional rotation stop;
 runtime behavior and eval scoring are unchanged.
 

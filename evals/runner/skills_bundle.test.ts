@@ -152,8 +152,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "connector.js",
     "CAPABILITY_SYNC",
     "baton-axiomatic capabilities",
-    "In hosted sessions, hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document",
-    "External agents with a compiled connector image",
+    "Hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document",
     "the build rejects any other shape",
     "Metadata only - it grants nothing at runtime",
     "not a build requirement and the hosted runtime does not read it",
@@ -314,16 +313,13 @@ test("(c2) rollback preserves the human-only handoff boundary", () => {
   }
 })
 
-test("(c2a) capabilities distinguish hosted and external authoring and rotation stops only on refusal or hold", () => {
+test("(c2a) capabilities lead with hand authoring and rotation stops only on refusal or hold", () => {
   const source = readFileSync("skills/write-connector-source/SKILL.md", "utf8")
   const row = source.split("\n").find((line) => line.startsWith("| `capabilities.json` |"))
   assert.ok(row, "missing capabilities contract row")
-  assert.ok(row.includes("In hosted sessions, hand-author"), "hosted authoring must state the hand-authoring path")
-  assert.ok(row.includes("External agents with a compiled connector image should generate"), "external agents with a compiled image must prefer generation")
-  assert.ok(row.indexOf("External agents") < row.indexOf("`baton-axiomatic capabilities`"), "CLI belongs to the external generation path")
-  const prose = source.replace(/\s+/g, " ")
-  assert.ok(prose.includes("External agents generate it from connector source instead (generation path below)."), "first-draft guidance must retain the external generation path")
-  assert.ok(prose.includes("On either path, the multi-type `examples/http/capabilities.json` is for the expand loop."), "both authoring paths need the expansion reference")
+  assert.ok(row.startsWith("| `capabilities.json` | build | Hand-author a "), "capabilities row must lead with the hand-authoring contract")
+  assert.ok(!row.includes("baton-axiomatic"), "capabilities row must not depend on local generation")
+  assert.ok(source.includes("from this file. For the first draft, hand-author the single-user block below;\nthe multi-type `examples/http/capabilities.json` is for the expand loop."), "first-draft hand-authoring and expansion guidance must stay as on main")
   const update = readFileSync("skills/update-and-rollback/SKILL.md", "utf8")
   for (const stale of [
     "Rotation STOP (known limitation)",
