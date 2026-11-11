@@ -2,6 +2,18 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.15 - capabilities authoring by audience
+
+`write-connector-source` (`0.2.12`) distinguishes the two authoring audiences:
+the hosted assistant hand-authors the capabilities contract, while an agent
+in the customer's own environment (BYO) with the connector toolchain should
+generate the same document from connector source. The real local command
+remains `baton-axiomatic capabilities`; strict shape and metadata-only rules
+apply to both paths. The first-draft paragraph follows the same split.
+
+Content, scenario, and test pins advance with the bundle; prompt-contract
+assertions are updated deliberately for the audience-specific directions.
+
 ## v0.12.14 - hosted authoring copy and admitted rotation
 
 `write-connector-source` (`0.2.11`) leads with the hand-authored capabilities
@@ -284,7 +296,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.14`); the runner records both in every run record.
+`skillBundle.version` (`0.12.15`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

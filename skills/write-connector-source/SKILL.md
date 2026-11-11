@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
-version: 0.2.11
+version: 0.2.12
 ---
 
 # write-connector-source
@@ -20,7 +20,7 @@ The S0 served guide wins on conflict; `build-and-test` owns test/verdict gates.
 | `connector.ts` | build | Root or `src/connector.ts` (root wins); default-exported `connector({...})` from `@baton/runtime`; declarative graph only - no `fetch`, no hand pagination, no secret handling; every referenced transport registered under `transports:`. |
 | `config-schema.json` | build | baton Configuration document `{"fields":[...]}` with `stringField`/`boolField`/`intField` - NOT JSON Schema; secret spellings `is_secret`/`isSecret`/`IsSecret`. |
 | `runtime-schema.json` | build | Inline `runtime.config_schema`; every field carries `type`; credential-class fields `is_secret: true`; `runtime.connector: "connector.js"`. |
-| `capabilities.json` | build | Hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document with a non-empty `connectorCapabilities` list, with or without its `@type` line; the build rejects any other shape. Metadata only - it grants nothing at runtime (see below). For local authoring with a compiled connector image, `baton-axiomatic capabilities` produces this document. |
+| `capabilities.json` | build | In the hosted assistant, hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document with a non-empty `connectorCapabilities` list, with or without its `@type` line; the build rejects any other shape. Metadata only - it grants nothing at runtime (see below). An agent working in the customer's own environment (BYO) with the connector toolchain should generate the same document from connector source with `baton-axiomatic capabilities`, using a compiled connector image. |
 | `openapi.json` | optional for build; required for PASS/activation | Frozen OpenAPI document covering the connector's read endpoints. |
 | `reviewed-ops.json` | optional for build; required for PASS/activation | Frozen typed object with `operations[]`: `operation_id`, `method`, `path_template`, `read`, `id_path`, `output_slice`, and `pagination` as an object with camelCase keys (e.g. `{"style":"offset","pageParam":"offset","sizeParam":"limit"}`). |
 
@@ -123,8 +123,8 @@ The build validates this document strictly: proto JSON with a non-empty
 `@type: type.googleapis.com/c1.connector.v2.ConnectorCapabilities` envelope,
 no unknown fields; bool maps or placeholders are rejected. It is metadata only -
 host transport grants are derived from the sealed transport declarations, never
-from this file. For the first draft, hand-author the single-user block below;
-the multi-type `examples/http/capabilities.json` is for the expand loop.
+from this file. In the hosted assistant, hand-author the single-user block below.
+For BYO, generate it from connector source with the local toolchain; use the multi-type `examples/http/capabilities.json` for expansion.
 The `baton-axiomatic capabilities` generation
 path (shopify Makefile: `env BATON_BASE_URL=https://placeholder.myshopify.com
 BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
