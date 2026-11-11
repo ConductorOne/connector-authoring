@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.15"
+const VERSION = "0.12.14"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -322,6 +322,7 @@ test("(c2a) capabilities distinguish hosted and BYO authoring and rotation stops
   assert.ok(row.includes("An agent working in the customer's own environment (BYO) with the connector toolchain should generate"), "BYO authoring must prefer generation")
   assert.ok(row.indexOf("(BYO)") < row.indexOf("`baton-axiomatic capabilities`"), "CLI belongs to the BYO generation path")
   assert.ok(source.includes("For BYO, generate it from connector source with the local toolchain"), "first-draft guidance must retain the BYO generation path")
+  assert.ok(source.includes("In either path, the multi-type `examples/http/capabilities.json` is for the expand loop."), "both authoring paths need the expansion reference")
   const update = readFileSync("skills/update-and-rollback/SKILL.md", "utf8")
   for (const stale of [
     "Rotation STOP (known limitation)",
@@ -413,7 +414,7 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.15")
+  assert.equal(full.skillBundle.version, "0.12.14")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -462,7 +463,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.15")
+    assert.equal(meta.skill_bundle_version, "0.12.14")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

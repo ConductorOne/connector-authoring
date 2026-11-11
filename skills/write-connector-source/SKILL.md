@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
-version: 0.2.12
+version: 0.2.11
 ---
 
 # write-connector-source
@@ -124,7 +124,7 @@ The build validates this document strictly: proto JSON with a non-empty
 no unknown fields; bool maps or placeholders are rejected. It is metadata only -
 host transport grants are derived from the sealed transport declarations, never
 from this file. In the hosted assistant, hand-author the single-user block below.
-For BYO, generate it from connector source with the local toolchain; use the multi-type `examples/http/capabilities.json` for expansion.
+For BYO, generate it from connector source with the local toolchain. In either path, the multi-type `examples/http/capabilities.json` is for the expand loop.
 The `baton-axiomatic capabilities` generation
 path (shopify Makefile: `env BATON_BASE_URL=https://placeholder.myshopify.com
 BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
