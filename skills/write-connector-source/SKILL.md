@@ -20,7 +20,7 @@ The S0 served guide wins on conflict; `build-and-test` owns test/verdict gates.
 | `connector.ts` | build | Root or `src/connector.ts` (root wins); default-exported `connector({...})` from `@baton/runtime`; declarative graph only - no `fetch`, no hand pagination, no secret handling; every referenced transport registered under `transports:`. |
 | `config-schema.json` | build | baton Configuration document `{"fields":[...]}` with `stringField`/`boolField`/`intField` - NOT JSON Schema; secret spellings `is_secret`/`isSecret`/`IsSecret`. |
 | `runtime-schema.json` | build | Inline `runtime.config_schema`; every field carries `type`; credential-class fields `is_secret: true`; `runtime.connector: "connector.js"`. |
-| `capabilities.json` | build | In the hosted assistant, hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document with a non-empty `connectorCapabilities` list, with or without its `@type` line; the build rejects any other shape. Metadata only - it grants nothing at runtime (see below). An agent working in the customer's own environment (BYO) with the connector toolchain should generate the same document from connector source with `baton-axiomatic capabilities`, using a compiled connector image. |
+| `capabilities.json` | build | In hosted sessions, hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document with a non-empty `connectorCapabilities` list, with or without its `@type` line; the build rejects any other shape. Metadata only - it grants nothing at runtime (see below). External agents with a compiled connector image should generate the same document from connector source with `baton-axiomatic capabilities`. |
 | `openapi.json` | optional for build; required for PASS/activation | Frozen OpenAPI document covering the connector's read endpoints. |
 | `reviewed-ops.json` | optional for build; required for PASS/activation | Frozen typed object with `operations[]`: `operation_id`, `method`, `path_template`, `read`, `id_path`, `output_slice`, and `pagination` as an object with camelCase keys (e.g. `{"style":"offset","pageParam":"offset","sizeParam":"limit"}`). |
 
@@ -113,7 +113,6 @@ Example shape (from the served guide's source-file contract section):
 ```
 
 ## capabilities.json
-
 The file should describe the `c1.connector.v2.ConnectorCapabilities` contract:
 proto JSON with `connectorCapabilities` and `resourceTypeCapabilities[]`, each
 entry `resourceType{id,displayName,traits}` + `capabilities[]`; per-resource-type
@@ -123,14 +122,15 @@ The build validates this document strictly: proto JSON with a non-empty
 `@type: type.googleapis.com/c1.connector.v2.ConnectorCapabilities` envelope,
 no unknown fields; bool maps or placeholders are rejected. It is metadata only -
 host transport grants are derived from the sealed transport declarations, never
-from this file. In the hosted assistant, hand-author the single-user block below.
-For BYO, generate it from connector source with the local toolchain. In either path, the multi-type `examples/http/capabilities.json` is for the expand loop.
+from this file. In hosted sessions, hand-author the single-user block below.
+External agents generate it from connector source instead (generation path
+below). On either path, the multi-type `examples/http/capabilities.json` is
+for the expand loop.
 The `baton-axiomatic capabilities` generation
 path (shopify Makefile: `env BATON_BASE_URL=https://placeholder.myshopify.com
 BATON_TOKEN=placeholder BATON_CONFIG=<config> baton-axiomatic capabilities >
 baton_capabilities.json`; never makes network calls) applies only when a compiled
 connector image is available; move its output to `capabilities.json`.
-
 ```json
 {
   "connectorCapabilities": ["CAPABILITY_SYNC"],

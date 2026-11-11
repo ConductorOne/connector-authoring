@@ -17,7 +17,7 @@
       "name": "write-connector-source",
       "version": "0.2.11",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "ff912a3601b5f191edb324134e891ecddb1be91a0ae1e3b00c3cbe690b72d846"
+      "sha256": "96937a9305d153669b44660148f734cb6ed6a5959f2fea1262bb0bceca1d7828"
     },
     {
       "name": "build-and-test",

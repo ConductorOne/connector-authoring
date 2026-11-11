@@ -5,9 +5,9 @@ This directory is the skill-bundle mount point for the eval harness.
 ## v0.12.14 - audience-aware authoring and admitted rotation
 
 `write-connector-source` (`0.2.11`) distinguishes the two authoring audiences:
-the hosted assistant hand-authors the capabilities contract, while an agent
-in the customer's own environment (BYO) with the connector toolchain should
-generate the same document from connector source. The real local command
+hosted sessions hand-author the capabilities contract, while external agents
+with a compiled connector image should generate the same document from
+connector source. The real local command
 remains `baton-axiomatic capabilities`; strict shape and metadata-only rules
 apply to both paths, as does the multi-type expansion example.
 
