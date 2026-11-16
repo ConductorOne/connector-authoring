@@ -2,6 +2,20 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.16 - runtime readiness remedies
+
+`update-and-rollback` advances to `0.2.10`. Readiness codes and exact diagnostics
+distinguish routine pre-activation deploy/wait prerequisites from platform-action
+blockers. A missing revision pin requires rebuild and test; a real image-binding
+mismatch keeps its meaning, with supported redeploy and re-check before first
+activation. Missing deployment on an already-activated installation and unresolved
+image/floor or unmanaged-deployment blockers need ConductorOne platform action,
+without implying that a repair was routed or dispatched.
+
+This supersedes blanket image/floor escalation wording in earlier bundle versions.
+Human OWNER activation, evidence, integrity, credential and runtime safety gates
+remain unchanged. Content, scenario, test and mount pins advance together.
+
 ## v0.12.15 - owner-judged external evidence
 
 Five skills advance one patch: `author-in-app-connector` (`0.3.13`),
@@ -304,7 +318,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.15`); the runner records both in every run record.
+`skillBundle.version` (`0.12.16`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

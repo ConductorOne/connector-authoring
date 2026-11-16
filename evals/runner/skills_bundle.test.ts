@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.15"
+const VERSION = "0.12.16"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -249,8 +249,17 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "image digest",
     "Activation can admit rotation",
     "a digest difference alone is not",
-    "If activation refuses or holds on `IMAGE_INCOMPATIBLE` or",
-    "`RUNTIME_FLOOR`, STOP and escalate",
+    "`CODE_SERVE_DEPLOYMENT_MISSING` before first activation is a normal prerequisite",
+    "`CODE_SERVE_DEPLOYMENT_DELETING` means wait for teardown",
+    "`CODE_DEPLOYMENT_OUTSTANDING` and `CODE_ACTIVATION_PENDING`",
+    "revision has no pinned runtime image digest",
+    "first-activation image mismatch, redeploy through the supported DEPLOY step",
+    "a real image-binding mismatch, not a missing-deployment prerequisite",
+    "A missing deployment on an already-activated installation",
+    "`CODE_DEPLOYMENT_UNMANAGED`, an unresolved `CODE_IMAGE_INCOMPATIBLE`",
+    "`CODE_RUNTIME_FLOOR` needs ConductorOne platform action",
+    "This needs ConductorOne platform action; I cannot repair it from this session.",
+    "tell the human a repair is running when none was dispatched",
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
@@ -411,7 +420,7 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.15")
+  assert.equal(full.skillBundle.version, "0.12.16")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -460,7 +469,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.15")
+    assert.equal(meta.skill_bundle_version, "0.12.16")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
