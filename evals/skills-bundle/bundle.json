@@ -53,7 +53,7 @@
       "name": "update-and-rollback",
       "version": "0.2.10",
       "path": "../../skills/update-and-rollback/SKILL.md",
-      "sha256": "8983460ab022784df15f87e544317ee813c8f671e80fe1b62b4a53c9b5544f00"
+      "sha256": "c485b37fd5c8a433c37408a641ac89d16a4904def47738d01d7c9a3edf737c03"
     },
     {
       "name": "diagnose-authoring-failure",

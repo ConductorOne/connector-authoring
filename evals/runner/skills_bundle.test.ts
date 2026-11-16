@@ -248,7 +248,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "activation_epoch",
     "image digest",
     "Activation can admit rotation",
-    "Do not infer refusal from a digest difference",
+    "a digest difference alone is not",
     "`CODE_SERVE_DEPLOYMENT_MISSING` before first activation is a normal prerequisite",
     "`CODE_SERVE_DEPLOYMENT_DELETING` means wait for teardown",
     "`CODE_DEPLOYMENT_OUTSTANDING` and `CODE_ACTIVATION_PENDING`",
