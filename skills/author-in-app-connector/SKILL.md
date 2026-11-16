@@ -74,9 +74,10 @@ the served guide abbreviates them (e.g. `get_authoring_guide` for
     STOP on any other or missing verdict and follow the build-and-test verdict
     table; PASS alone is not enough. When model judging is enabled for the
     tenant, C1 judges external-provenance evidence too, without attesting
-    independence from the external author. Otherwise, `owner_judgment_required`
-    means not model-judged: every mechanical check must still pass, and the
-    OWNER decides at activation. There is no separate evidence-acceptance step.
+    independence from the external author. Otherwise, BYO runs use
+    `owner_judgment_required`, meaning not model-judged: every mechanical check
+    must still pass, and the OWNER decides at activation. There is no separate
+    evidence-acceptance step.
     Expand loop: only after the skeleton passes this gate, add the remaining
     confirmed resource types incrementally via `write-connector-source`.
     For each increment, update capabilities and reviewed operations together,

@@ -2,6 +2,22 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.12.15 - owner-judged external evidence
+
+Five skills advance one patch: `author-in-app-connector` (`0.3.13`),
+`build-and-test` (`0.3.7`), `deploy-and-activate` (`0.3.11`),
+`update-and-rollback` (`0.2.9`), and `diagnose-authoring-failure` (`0.1.7`).
+
+Activation requires matching PASS evidence with verdict `accepted` or
+`owner_judgment_required`. The latter means not model-judged: mechanical
+checks are not waived, and the OWNER decides at activation. The eval prompt
+and its locked gate assertion use the same predicate; source descriptions
+and scenario/test pins advance with this bundle release.
+
+This supersedes the terminal `owner_judgment_required` handoff described in
+v0.12.1 and the accepted-only activation gate described in v0.12.0 below.
+Historical entries remain records of their respective bundle versions.
+
 ## v0.12.14 - hand-authored capabilities and admitted rotation
 
 `write-connector-source` (`0.2.11`) leads the capabilities row with the
@@ -288,7 +304,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.14`); the runner records both in every run record.
+`skillBundle.version` (`0.12.15`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

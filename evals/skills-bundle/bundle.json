@@ -1,11 +1,11 @@
 {
-  "version": "0.12.14",
+  "version": "0.12.15",
   "skills": [
     {
       "name": "author-in-app-connector",
       "version": "0.3.13",
       "path": "../../skills/author-in-app-connector/SKILL.md",
-      "sha256": "1f1f355e35fe0823da37161f45904a0833fc0236bce952dbcd85f87ab0f06017"
+      "sha256": "25c2501e075650302a53fefc596914583733afc09b2af3ef2893630c3879c8bc"
     },
     {
       "name": "read-authoring-contract",

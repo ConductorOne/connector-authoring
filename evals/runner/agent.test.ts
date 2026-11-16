@@ -98,12 +98,12 @@ test("buildPrompt uploads the build-required files and frozen test contract", ()
   assert.ok(upload.includes("camelCase"))
 })
 
-test("buildPrompt requires matching PASS and accepted evidence before deploy or mint", () => {
+test("buildPrompt requires matching PASS and a gating verdict before deploy or mint", () => {
   const prompt = buildPrompt(SCENARIO, "run", "http://fixture", CHANNEL)
   const evidence = prompt.split("\n").find((line) => line.startsWith("Step 10:"))!
   assert.ok(evidence.includes("Before Step 11 deploy or mint"))
   assert.ok(evidence.includes("same durable evidence"))
-  assert.ok(evidence.includes('result == CONNECTOR_TEST_RUN_RESULT_PASS and transport_judge_verdict == "accepted"'))
+  assert.ok(evidence.includes("result == CONNECTOR_TEST_RUN_RESULT_PASS and transport_judge_verdict equal to accepted or owner_judgment_required"))
   assert.ok(evidence.includes("stop on any other or missing verdict"))
   assert.ok(evidence.includes("build-and-test verdict table"))
 })
@@ -127,7 +127,7 @@ test("buildPrompt pre1 branch names the pre1Path, both skills, and the output co
       basicAuth: {username: "connector@example.com", password: "fixture-token"},
       bearerToken: "fixture-token",
     },
-    skillBundle: {mode: "full", version: "0.12.14"},
+    skillBundle: {mode: "full", version: "0.12.15"},
     model: "together/deepseek-ai/DeepSeek-V4-Flash-0731",
     reasoningEffort: "high",
     kind: "pre1",
