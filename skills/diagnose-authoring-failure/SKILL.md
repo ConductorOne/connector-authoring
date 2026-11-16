@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.6
+version: 0.1.7
 ---
 
 # diagnose-authoring-failure
@@ -33,7 +33,7 @@ replaced by the tenant MCP tools named below.
 | Draft test: `connector config field X is missing type` | Add `"type": "string"` (etc.) to the field in `runtime.config_schema`. |
 | Sync error mentions an `unregistered transport` | A `node` or `reuse` references a transport missing from `connector({ transports: ... })`. Register that same transport object, rebuild, and retest. |
 | Draft test: `ticketing.enabled must be true when ticketing is configured` | The runtime-schema carries a `ticketing` block the connector code does not back. Remove the block (and any `actions` / `policy_surface` entries referencing dropped code); `enabled: false` is not a valid off-switch. |
-| Activation reports `activation evidence is unsatisfied` | No matching PASS evidence, or `transport_judge_verdict` missing/not accepted. Follow the build-and-test verdict table: correct the verdict's cause; do not just re-mint. Confirm a new accepted PASS row binds this revision before asking the OWNER to review a fresh approval URL. |
+| Activation reports `activation evidence is unsatisfied` | No matching PASS evidence, or `transport_judge_verdict` is missing or neither `accepted` nor `owner_judgment_required`. Follow the build-and-test verdict table: correct the verdict's cause; do not just re-mint. Confirm a new matching PASS row binds this revision before asking the OWNER to review a fresh approval URL. |
 | Draft test: `SELECTOR_NOT_FOUND` at `operations[N].pagination.select.<name>` | The response lacked a required pagination value, usually because the vendor omits it on the last page. In `reviewed-ops.json`, make that selector an explicit `select` entry with `"optional": true` (replace a `cursorPath` shorthand with `select.cursor`), rebuild, and retest. If the value should be present, fix the selector path. |
 | Production sync `Invalid token provided` | The API token is wrong or truncated. Re-configure with the full token, then re-run. |
 
@@ -50,12 +50,14 @@ succeeds but the outcome evaluation returns FAIL. PASS requires all of:
 - No read error and no write attempt
 - The config version handle matches the candidate revision
 - The runtime image digest matches the revision-pinned image
-- `transport_judge_verdict == "accepted"` exactly
+- `transport_judge_verdict` equal to `accepted` or `owner_judgment_required`
 - Both frozen files (`openapi.json`, `reviewed-ops.json`) are present
 - Nonempty declared projections have full coverage
 
-A FAIL row, missing evidence, or a missing/non-accepted verdict keeps activation
-`evidence is unsatisfied` until a new accepted PASS row binds the revision.
+A FAIL row, missing evidence, or a verdict other than `accepted` or
+`owner_judgment_required` keeps activation `evidence is unsatisfied` until a
+new matching PASS row binds the revision. `owner_judgment_required` means
+not model-judged; it does not waive any mechanical check.
 
 Do not silently filter out rows, drop declared projections, or weaken coverage
 to turn FAIL into PASS; fix the mapping or report the blocker. Classify the

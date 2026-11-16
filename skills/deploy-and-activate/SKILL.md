@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.10
+version: 0.3.11
 ---
 
 # deploy-and-activate
@@ -79,7 +79,7 @@ make no tenant/MCP tool call after mint. Host-required file/terminal writes
   to the review/judgment and draft-test path per the build-and-test verdict
   table. Correct the verdict's cause; do not just re-mint. Confirm evidence
   binds this revision with both `result == CONNECTOR_TEST_RUN_RESULT_PASS`
-  and `transport_judge_verdict == "accepted"` before minting a fresh approval
+  and `transport_judge_verdict` equal to `accepted` or `owner_judgment_required` before minting a fresh approval
   URL. If no ACTIVE row after ~10 polls, STOP and report.
 - Sync leg: after confirming ACTIVE, call `c1_connector_service_force_sync`
   exactly once to verify this activation, including when an activation

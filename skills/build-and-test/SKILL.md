@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.6
+version: 0.3.7
 ---
 
 # build-and-test
@@ -54,9 +54,10 @@ Tool names below are exact tenant MCP titles; the served guide abbreviates them.
    (`NotFound` while pending); if no row, STOP and report pending rather than
    redispatching the test. GATE:
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` only for S10. Activation also
-   requires `transport_judge_verdict == "accepted"` on matching evidence;
-   PASS alone does not authorize activation. STOP on any other result or
-   verdict; use the verdict table below. For FAIL, read the error field and
+   requires `transport_judge_verdict` equal to `accepted` or
+   `owner_judgment_required` on matching evidence; PASS alone does not authorize
+   activation. STOP on any other result or verdict; use the table below.
+   For FAIL, read the error field and
    apply the Blocker protocol before fixing or rerunning with a FRESH
    `test_run_id`; never re-mint on a failed run.
 5. Re-run-from-correct-step rules: a failed build re-runs from the build
@@ -73,9 +74,9 @@ then rebuild and retest.
 
 ## Transport verdict gate
 
-Read `transport_judge_verdict` from the durable test evidence. Only
-`accepted` AND `CONNECTOR_TEST_RUN_RESULT_PASS` on matching evidence permit
-activation; never treat a missing or non-accepted verdict as acceptance.
+Read `transport_judge_verdict` from the durable test evidence. Activation
+requires `CONNECTOR_TEST_RUN_RESULT_PASS` on matching evidence, with verdict
+`accepted` or `owner_judgment_required`. A missing or any other verdict blocks activation.
 
 | Verdict | Required action / stop rule |
 |---------|-----------------------------|
@@ -83,14 +84,15 @@ activation; never treat a missing or non-accepted verdict as acceptance.
 | `needs_author` | Stop; correct source or operation list, re-review changed inputs, rebuild, and retest. |
 | `scope_stop` | Hard stop; investigate the unreviewed call. Do not retry unchanged. |
 | `insufficient_evidence` | Stop; identify missing evidence. Do not deploy or activate. |
-| `owner_judgment_required` | Terminal for this run: external provenance requires human owner judgment; human evidence acceptance is not yet available. Hand off evidence and stop; retesting or re-upload does not change attribution. |
+| `owner_judgment_required` | Not model-judged. Proceed only with a matching PASS row; every mechanical check must pass. The OWNER decides at activation. |
 | `setup_blocked` | Stop; resolve the named tenant/vendor setup or runtime dependency before retesting. |
 | `infrastructure_failure` | Stop; resolve the infrastructure failure. Never call it connector acceptance. |
-| missing | Stop; the evidence has not been judged. Unjudged evidence is FAIL. |
+| missing | Stop; the evidence has no recorded verdict and cannot satisfy activation. |
 
-External-provenance drafts stop at S10 until human evidence acceptance ships.
-Hand off the durable evidence and recorded IDs; do not proceed to S11 deploy
-or mint, even when the test result is PASS.
+When model judging is enabled for the tenant, C1 judges external-provenance
+evidence too, without attesting independence from the external author.
+Otherwise, BYO runs use `owner_judgment_required` and rely on mechanical checks.
+There is no separate human evidence-acceptance step; the OWNER decides at activation.
 
 ## Draft-test FAIL reading
 
@@ -111,7 +113,7 @@ Apply the Blocker protocol across the whole revision line, not per error text.
   `c1_connector_authoring_run_draft_test_sync`.
 - S10 passes: durable evidence `result == CONNECTOR_TEST_RUN_RESULT_PASS`
   only. The separate activation gate requires this PASS AND
-  `transport_judge_verdict == "accepted"` on matching evidence.
+  `transport_judge_verdict` equal to `accepted` or `owner_judgment_required` on matching evidence.
 
 ## Anti-patterns
 
