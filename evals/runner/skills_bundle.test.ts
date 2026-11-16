@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.14"
+const VERSION = "0.12.15"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -117,7 +117,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "| post-activation verification | `verify-connector-output` |",
     "| update / rollback of an active connector | `update-and-rollback` |",
     "| failure diagnosis (any stage) | `diagnose-authoring-failure` |",
-    'transport_judge_verdict == "accepted"',
+    "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
   ],
   "read-authoring-contract": [
     "list_sdk_types_versions", "get_sdk_types", "list_authored_catalog_entries", "list_drafts",
@@ -125,7 +125,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
   ],
   "build-and-test": [
     "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
-    'transport_judge_verdict == "accepted"',
+    "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
     "in hosted sessions, use the storage-to-draft source transfer",
     "External/BYO path",
     "external upload has `upload_id`",
@@ -138,7 +138,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "exactly once to verify this activation",
     "human/operator owns subsequent syncs",
     "Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates",
-    'transport_judge_verdict == "accepted"',
+    "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
     "Correct the verdict's cause; do not just re-mint",
   ],
   "write-connector-source": [
@@ -254,7 +254,7 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Do not redeem the approval token",
     "Do not clear runtime fields, call the provisioner directly, or mutate the",
     "evidence is unsatisfied",
-    'transport_judge_verdict == "accepted"',
+    "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
     "Correct the verdict's cause; do not just re-mint",
     "If no ACTIVE row after ~10 polls, STOP and report",
     "no terminal status after ~10 polls, STOP and report",
@@ -273,10 +273,10 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "unregistered transport",
     "ticketing.enabled must be true when ticketing is configured",
     "activation evidence is unsatisfied",
-    'transport_judge_verdict == "accepted"',
+    "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
     "correct the verdict's cause; do not just re-mint",
     "Nonempty declared projections have full coverage",
-    "until a new accepted PASS row binds the revision",
+    "new matching PASS row binds the revision",
     "SELECTOR_NOT_FOUND",
     "Invalid token provided",
     "ConnectionOK",
@@ -411,7 +411,7 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.14")
+  assert.equal(full.skillBundle.version, "0.12.15")
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -460,7 +460,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.14")
+    assert.equal(meta.skill_bundle_version, "0.12.15")
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }

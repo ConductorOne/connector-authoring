@@ -1,11 +1,11 @@
 {
-  "version": "0.12.14",
+  "version": "0.12.15",
   "skills": [
     {
       "name": "author-in-app-connector",
-      "version": "0.3.12",
+      "version": "0.3.13",
       "path": "../../skills/author-in-app-connector/SKILL.md",
-      "sha256": "0ce1ba9314366034fd61e1cf102b48bf9af54c0daed9f64c047d1f3a3ae7ee66"
+      "sha256": "25c2501e075650302a53fefc596914583733afc09b2af3ef2893630c3879c8bc"
     },
     {
       "name": "read-authoring-contract",
@@ -21,15 +21,15 @@
     },
     {
       "name": "build-and-test",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "path": "../../skills/build-and-test/SKILL.md",
-      "sha256": "31c64645edbbe9c4076cef426c023bd34bd3bb1b0b795e39441395374bfd2ffa"
+      "sha256": "b86a01f4e4925a7e093ce185c9c6689c5d5f08cc81a70f233c622697f109e804"
     },
     {
       "name": "deploy-and-activate",
-      "version": "0.3.10",
+      "version": "0.3.11",
       "path": "../../skills/deploy-and-activate/SKILL.md",
-      "sha256": "edcc3f58828d869ca0232ef5a628c8b59f70695c4e7fb5d5ebadb12ab8b1322e"
+      "sha256": "68e708fd0de96f50b1f801aa7102677419c1f968c7d3f317401d39d0874dfbc6"
     },
     {
       "name": "design-access-model",
@@ -51,15 +51,15 @@
     },
     {
       "name": "update-and-rollback",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "path": "../../skills/update-and-rollback/SKILL.md",
-      "sha256": "063444974651a7b54149d736b7a397b946852239f3db845cfa31e980f0da2f22"
+      "sha256": "150ab4812324e2ae3d894dda00613514afa6caf86ef62a1d47c745453f244f4b"
     },
     {
       "name": "diagnose-authoring-failure",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "path": "../../skills/diagnose-authoring-failure/SKILL.md",
-      "sha256": "f2e8cd005e80203fd46a7d7b3ed93a6fd73a6bdd230b8eac7d2439c69004e31f"
+      "sha256": "01096dafd97aa021a173aeb7edb41e9abbde3af6b20e9d541e940a290a2b8142"
     }
   ]
 }

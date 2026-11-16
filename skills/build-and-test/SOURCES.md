@@ -15,5 +15,5 @@ In-repo content is referenced by relative path and is always current with the ch
 ## Eval wiring
 
 - The fixture records the draft-test result as `"PASS"`; the real surface returns `CONNECTOR_TEST_RUN_RESULT_PASS`. The scorer's S10 gate checks the fixture string, not transport judgment or activation eligibility.
-- External-provenance drafts stop at S10 on `owner_judgment_required`; the fixture replay does not model human evidence acceptance.
+- `owner_judgment_required` means not model-judged and satisfies the activation gate only with a matching PASS; the fixture replay does not return a transport verdict.
 - Required-file, upload, build, and test literals are enforced by `evals/runner/skills_bundle.test.ts`.

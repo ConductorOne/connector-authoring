@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.12
+version: 0.3.13
 ---
 
 # author-in-app-connector
@@ -70,12 +70,14 @@ the served guide abbreviates them (e.g. `get_authoring_guide` for
     fix source; if the source changed, re-run from S2 (re-upload) with a FRESH
     `test_run_id`, otherwise re-run from the failing step per build-and-test.
     Before S11 deploy or mint, the same durable evidence must also report
-    `transport_judge_verdict == "accepted"`. STOP on any other or missing
-    verdict and follow the build-and-test verdict table; PASS alone is not enough.
-    External-provenance drafts receive `owner_judgment_required` and stop at
-    S10 until human evidence acceptance ships. Report the durable evidence
-    status in prose with display-name links; do not deploy or mint. Retesting
-    or re-upload does not change attribution.
+    `transport_judge_verdict` equal to `accepted` or `owner_judgment_required`.
+    STOP on any other or missing verdict and follow the build-and-test verdict
+    table; PASS alone is not enough. When model judging is enabled for the
+    tenant, C1 judges external-provenance evidence too, without attesting
+    independence from the external author. Otherwise, BYO runs use
+    `owner_judgment_required`, meaning not model-judged: every mechanical check
+    must still pass, and the OWNER decides at activation. There is no separate
+    evidence-acceptance step.
     Expand loop: only after the skeleton passes this gate, add the remaining
     confirmed resource types incrementally via `write-connector-source`.
     For each increment, update capabilities and reviewed operations together,

@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.8
+version: 0.2.9
 ---
 
 # update-and-rollback
@@ -21,8 +21,8 @@ titles.
 3. Pass a fresh draft test with the instance credentials (steps 9-10).
    GATE: durable evidence binds the new revision with both
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
-   `transport_judge_verdict == "accepted"`. STOP on any other or missing
-   verdict and follow the build-and-test verdict table before minting.
+   `transport_judge_verdict` equal to `accepted` or `owner_judgment_required`.
+   STOP on any other or missing verdict and follow the build-and-test table before minting.
 4. Mint a new approval URL with `c1_connector_authoring_mint_approval_token`
    (`expires_in_seconds` 1-14400). GATE: non-empty `activation_url`.
 5. HARD STOP at the human boundary: present the URL to a human tenant OWNER
@@ -42,7 +42,7 @@ titles.
    verdict table. Correct the verdict's cause; do not just re-mint.
    Confirm fresh evidence binds this revision with both
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
-   `transport_judge_verdict == "accepted"` before minting a new approval URL.
+   `transport_judge_verdict` equal to `accepted` or `owner_judgment_required` before minting a new approval URL.
    If no ACTIVE row after ~10 polls, STOP and report.
 7. After confirming ACTIVE, call `c1_connector_service_force_sync` exactly
    once to verify this activation, including when an activation notification
@@ -61,7 +61,7 @@ titles.
 
 An already-active installation can rotate to a serviceable candidate runtime
 image when activation admits it. Do not infer refusal from an image digest
-difference alone. Admitted rotation still requires the fresh accepted PASS,
+difference alone. Admitted rotation still requires fresh matching PASS evidence,
 human OWNER activation, ACTIVE readback, and one verification sync above.
 
 If activation refuses or holds on `IMAGE_INCOMPATIBLE` or `RUNTIME_FLOOR`
@@ -101,7 +101,7 @@ text; do not attempt the rollback yourself.
 ## Exit criteria
 
 - Same-catalog rerun: new revision ACTIVE with a recorded `activation_epoch`,
-  fresh PASS evidence with `transport_judge_verdict == "accepted"`, and a
+  fresh PASS evidence with verdict `accepted` or `owner_judgment_required`, and a
   completed force sync.
 - Blocked activation: an image/floor refusal or hold was reported with its
   exact error and the escalation record: tenant, catalog, app, connector, and
