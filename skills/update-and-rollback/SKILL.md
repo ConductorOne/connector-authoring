@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.9
+version: 0.2.10
 ---
 
 # update-and-rollback
@@ -16,8 +16,8 @@ titles.
    (lifecycle step 2) and build a new revision (steps 4-5).
 2. Reuse the existing managed runtime instance. Activation can admit rotation
    to a serviceable candidate runtime image; a digest difference alone is not
-   a STOP. If activation refuses or holds on `IMAGE_INCOMPATIBLE` or
-   `RUNTIME_FLOOR`, STOP and escalate as described below.
+   a STOP. Read the readiness codes and exact diagnostic; follow Runtime
+   readiness below to distinguish deployment prerequisites from platform blockers.
 3. Pass a fresh draft test with the instance credentials (steps 9-10).
    GATE: durable evidence binds the new revision with both
    `result == CONNECTOR_TEST_RUN_RESULT_PASS` and
@@ -57,19 +57,45 @@ titles.
    pause (customer opt-out or ops).
    After reporting verification, stop; the human/operator owns subsequent syncs.
 
-## Image/floor refusal or hold
+## Runtime readiness
 
+Read `c1_connector_authoring_get_revision_summary` readiness codes and exact
+diagnostics, not an inferred diagnosis from an old generic image-mismatch message.
 An already-active installation can rotate to a serviceable candidate runtime
-image when activation admits it. Do not infer refusal from an image digest
-difference alone. Admitted rotation still requires fresh matching PASS evidence,
-human OWNER activation, ACTIVE readback, and one verification sync above.
+image when activation admits it. Do not infer refusal from a digest difference
+alone. Admitted rotation still requires matching PASS evidence, human OWNER
+activation, ACTIVE readback, and the single verification sync above.
 
-If activation refuses or holds on `IMAGE_INCOMPATIBLE` or `RUNTIME_FLOOR`
-(including `serve image does not match the revision-pinned runtime image`),
-**STOP** and report the exact refusal or hold. Do not clear runtime fields,
-call the provisioner directly, or mutate the deployment or AWS resources.
-Record the tenant, catalog, app, connector, and target revision IDs, then
-escalate to Connector Authoring / managed-runtime engineering.
+### Deploy, wait, or rebuild
+
+- `CODE_SERVE_DEPLOYMENT_MISSING` before first activation is a normal prerequisite,
+  including an absent runtime host or deployed image digest. After matching PASS,
+  use `c1_connector_authoring_deploy_connector_instance`, then re-check readiness.
+- `CODE_SERVE_DEPLOYMENT_DELETING` means wait for teardown and re-check before
+  deploying. `CODE_DEPLOYMENT_OUTSTANDING` and `CODE_ACTIVATION_PENDING` mean
+  wait for admitted work; do not start duplicate work. Report these as routine
+  status, not as needing engineering action.
+- If the diagnostic says the revision has no pinned runtime image digest,
+  rebuild and test to establish the pin; this diagnostic takes precedence over
+  the generic `IMAGE_INCOMPATIBLE` platform-side rule. Never edit a sealed revision.
+- `serve image does not match the revision-pinned runtime image` still means
+  a real image-binding mismatch, not a missing-deployment prerequisite. For a
+  first-activation image mismatch, redeploy through the supported DEPLOY step
+  and re-check. Do not repeat an unchanged failed repair.
+
+### Platform action
+
+`c1_connector_authoring_deploy_connector_instance` is pre-activation-only.
+A missing deployment on an already-activated installation,
+`CODE_DEPLOYMENT_UNMANAGED`, an unresolved `CODE_IMAGE_INCOMPATIBLE`, or
+`CODE_RUNTIME_FLOOR` needs ConductorOne platform action. No servicing or
+reconciliation tool is available in this session. Report the exact code and
+diagnostic and say: "This needs ConductorOne platform action; I cannot repair it from this session."
+Do not describe a permanent blocker as routine or pending, claim internal routing
+occurred, or tell the human a repair is running when none was dispatched.
+
+Never clear runtime fields, call the provisioner directly, mutate deployment/cloud
+resources, lower a floor, bypass approval, or retry a permanent failure in a loop.
 
 ## Rollback (REST-only, OWNER-gated)
 
@@ -103,9 +129,10 @@ text; do not attempt the rollback yourself.
 - Same-catalog rerun: new revision ACTIVE with a recorded `activation_epoch`,
   fresh PASS evidence with verdict `accepted` or `owner_judgment_required`, and a
   completed force sync.
-- Blocked activation: an image/floor refusal or hold was reported with its
-  exact error and the escalation record: tenant, catalog, app, connector, and
-  target revision IDs.
+- Deployment prerequisites: the supported deploy/rebuild step or wait state was
+  reported with its exact readiness diagnostic and re-check outcome.
+- Platform blocker: the exact readiness code and diagnostic were reported with
+  the platform-action statement, without claiming a repair was dispatched.
 - Rollback handoff: non-empty `activation_url` presented to a human tenant
   OWNER and stopped at the human boundary. After the OWNER completes the
   rollback, the target revision is ACTIVE under a strictly greater
