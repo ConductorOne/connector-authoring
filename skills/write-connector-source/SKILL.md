@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
-version: 0.2.11
+version: 0.2.16
 ---
 
 # write-connector-source
@@ -13,6 +13,10 @@ Defer remaining resource types until the first green draft test, then expand
 incrementally: add a type, re-review changed inputs, rebuild, and retest.
 The S0 served guide wins on conflict; `build-and-test` owns test/verdict gates.
 
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: source authoring
+belongs to SKELETON-BUILD before the first PASS, then EXPAND.
+
 ## The source-file contract
 
 | File | Required | Rules |
@@ -22,12 +26,16 @@ The S0 served guide wins on conflict; `build-and-test` owns test/verdict gates.
 | `runtime-schema.json` | build | Inline `runtime.config_schema`; every field carries `type`; credential-class fields `is_secret: true`; `runtime.connector: "connector.js"`. |
 | `capabilities.json` | build | Hand-author a `c1.connector.v2.ConnectorCapabilities` proto-JSON document with a non-empty `connectorCapabilities` list, with or without its `@type` line; the build rejects any other shape. Metadata only - it grants nothing at runtime (see below). |
 | `openapi.json` | optional for build; required for PASS/activation | Frozen OpenAPI document covering the connector's read endpoints. |
-| `reviewed-ops.json` | optional for build; required for PASS/activation | Frozen typed object with `operations[]`: `operation_id`, `method`, `path_template`, `read`, `id_path`, `output_slice`, and `pagination` as an object with camelCase keys (e.g. `{"style":"offset","pageParam":"offset","sizeParam":"limit"}`). |
+| `reviewed-ops.json` | optional for build; required for PASS/activation | Frozen typed object with `operations[]`: `operation_id`, `method`, `path_template`, `read`, `id_path`, `output_slice`, `resource_type`, and `pagination` as an object with camelCase keys (e.g. `{"style":"offset","pageParam":"offset","sizeParam":"limit"}`). |
 
 Every projection needs `output_slice`: a dot-path (e.g. `"items"`) or `""` for a root array.
 Omitting it declares no projection. A child's
 `parent: {"operation_id":"groups","id_path":"id","param":"groupId"}` needs matching
 `{groupId}` in `path_template`. Use camelCase pagination; see `examples/http`.
+Recommend `resource_type` and a resolvable response schema on every reviewed read.
+Outside the skeleton gate, typing is optional except at review for child operations
+whose selected response schema resolves to an explicit user schema, even when
+the child only emits membership grants.
 
 Top-level `connect` (sibling of `runtime`, `{"<transport-name>": {"type": "http"}}`) is not a build requirement and the hosted runtime does not read it as a transport source - transports come from `transports:` in `connector.ts`. It is a C1-side contract: the draft-test probe derives the default transport for `reviewed-ops.json` from its single `http` entry (probe setup fails with `reviewed operations declarations are invalid` without it), and C1 derives the runtime's host transport grants from its kinds. Keep exactly one `http` entry named after the registered transport; `ldap`/`sql` are rejected at admission.
 
@@ -51,23 +59,22 @@ The baton Configuration document shape - `{"fields":[...]}` with `stringField`/`
 {
   "displayName": "My Connector",
   "fields": [
-    {
-      "name": "base-url",
-      "displayName": "Base URL",
-      "description": "The base URL of the service.",
-      "isRequired": true,
-      "stringField": { "rules": { "isRequired": true } }
-    },
-    {
-      "name": "api-token",
-      "displayName": "API token",
-      "isRequired": true,
-      "isSecret": true,
-      "stringField": { "rules": { "isRequired": true } }
-    }
+    {"name": "base-url", "displayName": "Base URL",
+     "description": "Full service URL including https://, without a trailing slash.",
+     "placeholder": "https://directory.example", "isRequired": true, "stringField": {
+       "rules": {"isRequired": true, "wellKnown": "WELL_KNOWN_STRING_URI"}}},
+    {"name": "api-token", "displayName": "API token", "isRequired": true,
+     "isSecret": true, "stringField": {"rules": {"isRequired": true}}}
   ]
 }
 ```
+
+For same-host OAuth, ask for one `base-url`, not duplicate token-url/audience fields.
+Use app-prefixed credential names: `client-id` / `client-secret` and other SDK default fields are reserved; see the served guide's Reserved field names.
+Keep a bare `config("base-url")` transport `baseUrl` reference for serve-time host derivation.
+Derive the token endpoint and audience with `strings.concat`, never JS interpolation of opaque refs.
+Follow the vendor's actual endpoint/audience contract, not a guessed suffix.
+Use URI rules for URL fields. Settings prefills `stringField.suggestedValue` only for fixed-host vendors with a sourced URL; use `placeholder` for per-instance vendors.
 
 ## runtime-schema.json rules
 
@@ -77,35 +84,18 @@ UI schema in - it is the wrong shape); EVERY field carries `type` (missing
 containing `token`, `secret`, `password`, `api-key`, and similar) MUST carry
 `is_secret: true` - the build rejects a credential-class field not marked
 secret; the `secret:` spelling is not read; `runtime.connector: "connector.js"`.
-Top-level `connect` uses the registered transport name: `directory` for
-`const directory = http.v2(...)` and `transports: {directory}`; HTTP uses `"type": "http"`.
-Example shape (from the served guide's source-file contract section):
-
+Top-level `connect` names the registered transport (`directory`); HTTP uses `"type": "http"`.
 ```json
 {
-  "version": "1",
-  "name": "my-connector",
-  "connect": { "directory": { "type": "http" } },
+  "version": "1", "name": "my-connector",
+  "connect": {"directory": {"type": "http"}},
   "runtime": {
     "connector": "connector.js",
     "config_schema": {
       "display_name": "My Connector",
       "fields": [
-        {
-          "name": "base-url",
-          "type": "string",
-          "required": true,
-          "description": "The base URL of the service.",
-          "display_name": "Base URL"
-        },
-        {
-          "name": "api-token",
-          "type": "string",
-          "required": true,
-          "is_secret": true,
-          "description": "The API token.",
-          "display_name": "API token"
-        }
+        {"name": "base-url", "type": "string", "required": true, "display_name": "Base URL"},
+        {"name": "api-token", "type": "string", "required": true, "is_secret": true}
       ]
     }
   }
@@ -176,6 +166,16 @@ every secret field (e.g. `api-token`) `is_secret` in BOTH schemas. Pass/fail che
 - Declare every `config("...")` literal the code reads in BOTH schemas (e.g. `config("base-url")` / `config("account-email")` / `config("api-token")`).
 - Construct users with the runtime's user helper + the user id (e.g. `newUserResource` + `user.id`).
 - Hygiene: four build-required files; two frozen files for PASS/activation; dual-schema parity; every secret field (e.g. `api-token`) `is_secret` in BOTH schemas; no fixture/test credentials in source; upload caps (16 MiB total / 12 MiB per file / 256 files).
+
+## Sealed evidence redaction
+
+At seal time, human-identifying strings become `redacted:<opaque>` tokens.
+Hash-by-default: unbound/unknown `resource_type` or an unresolved response schema
+hashes every string, including IDs and enums, and warns `REDACTION_DEGRADED`.
+Declare accurate typing, not exemptions to expose values. Equal tokens within
+one evidence stream preserve equality; do not compare a token with a raw value,
+infer its format/enum/meaning, or claim ID resolution from it. A bare `redacted:`
+represents an empty string; numbers, booleans, and null retain their JSON types.
 
 ## Exit criteria
 

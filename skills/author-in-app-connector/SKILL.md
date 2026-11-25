@@ -1,7 +1,7 @@
 ---
 name: author-in-app-connector
 description: Use when driving the full in-app connector authoring funnel end to end, from guide read through the human-activation handoff. Do not use when you are already mid-funnel and only need one stage's procedure - invoke the stage skill directly.
-version: 0.3.13
+version: 0.3.15
 ---
 
 # author-in-app-connector
@@ -26,16 +26,17 @@ the served guide abbreviates them (e.g. `get_authoring_guide` for
    resource read; match it in connector.ts and capabilities.json.
    Build and draft-test this skeleton first; defer remaining resource types
    to the expand loop after the first green draft test.
-2. S2 upload: hosted sessions use the storage-to-draft source transfer as the
-   primary path per `build-and-test`; record the returned source digest.
-   Do not route staged bytes through conversation or presigned PUTs in code mode.
-   External/BYO path: `wc -c` each source file, call
-   `c1_connector_authoring_create_draft_source_upload` with the complete file list,
-   PUT each file to its `upload_targets` URL with `required_headers` verbatim,
-   then `c1_connector_authoring_finalize_draft_source_upload`.
-   STOP if transfer fails, any PUT is not 200, or finalization fails.
-   For hosted storage transfer, `upload_id` is N/A; retain the returned source
-   digest in tool context instead. Never fabricate an upload ID.
+2. S2 upload:
+   - **In-app:** use `c1_connector_authoring_update_draft_source_from_vfs` for
+     storage-to-draft source transfer per `build-and-test`; record the returned
+     source digest. Do not route staged bytes through conversation or presigned
+     PUTs in code mode. `upload_id` is N/A; never fabricate one.
+   - **BYO/external:** `wc -c` each source file, call
+     `c1_connector_authoring_create_draft_source_upload` with the complete file list,
+     PUT each file to its `upload_targets` URL with `required_headers` verbatim,
+     then `c1_connector_authoring_finalize_draft_source_upload`.
+     STOP if any PUT is not 200 or finalization fails.
+   STOP if the permitted transfer fails; retain its returned digest in tool context.
 3. S3 required source files: call `c1_connector_authoring_get_draft`; all
    four `required_source_files` (connector.ts, config-schema.json,
    runtime-schema.json, capabilities.json) must be true. STOP if any is
@@ -93,6 +94,12 @@ the served guide abbreviates them (e.g. `get_authoring_guide` for
 
 ## Session communication
 
+- Every factual claim must come from a tool response field in this session.
+  When no field exists, say NOT VERIFIED and name the missing evidence.
+  Never turn counts or type shapes into per-record claims about memberships,
+  principal resolution, matching IDs, or field values. Draft tests do not check
+  those claims. File presence requires `required_source_files` or a file read;
+  a presence flag is not content validation.
 - Keep IDs in tool calls, not chat. Refer to objects by display name with a
   markdown link when available, not by raw ID.
 - Report progress and status in prose. Use tables only for user-facing data,
@@ -122,6 +129,20 @@ the served guide abbreviates them (e.g. `get_authoring_guide` for
 
 Direct invocation of a stage skill is allowed; the router alone is not
 trusted to recover mid-funnel.
+
+## Served-stage equivalence
+
+S0-S11 are checklist labels; the served guide controls ordering and gates.
+
+| Served stage | Checklist equivalent |
+|---|---|
+| SCOPE | S0 contract read and pre-1 spec/access-model work; confirm operations/auth/scopes |
+| SKELETON-BUILD | S1 draft, source authoring, S2-S5 upload/review/build for one projection |
+| CONNECT | S6-S8 app/provision/credentials after skeleton build |
+| SKELETON-TEST | First S9-S10 draft test and evidence |
+| EXPAND | Repeat source/review/S2-S5/S9-S10 for remaining confirmed scope |
+| DEPLOY + HANDOFF | S11 deploy/mint; stop for human OWNER activation |
+| VERIFY | After owner activation, exactly one verification sync and output checks |
 
 ## Pre-S1 checklist
 

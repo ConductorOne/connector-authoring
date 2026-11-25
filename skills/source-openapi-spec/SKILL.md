@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.6
+version: 0.1.9
 ---
 
 # source-openapi-spec
@@ -10,6 +10,9 @@ An in-app connector is spec-driven: the sourced OpenAPI document is the
 contract the access model and the source are built from. Sourcing it wrong
 ships wrong request shapes; skipping the IAM go/no-go gate ships a shell
 connector with no governance value.
+
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: pre-1 = SCOPE.
 
 ## Step 1 - Find candidates, rank by the authority ladder
 
@@ -48,6 +51,8 @@ in the catalog is not.
 
 ## Step 3 - Fetch through storage, then size for review
 
+### In-app
+
 When `web_request` is available, call it as a DIRECT tool. It is unavailable
 inside `execute` or code-mode scripts by design: those programs have no external
 web egress. Do not retry it inside code mode.
@@ -73,15 +78,18 @@ use the permitted out-of-band upload fallback, not conversation copying.
 The hosted storage path is roughly three tool steps: fetch, process, transfer;
 budget for those steps instead of retrying code-mode fetch.
 
-After preparing all files in storage, use the storage-to-draft source transfer
-to copy the complete source directory server-side. External agents may use
-their own web-fetch and file tools. If storage transfer is unavailable or
-denied, use only an explicitly permitted out-of-band source upload for files
-exceeding inline transport: declare the complete set and exact byte lengths,
-upload bytes with the supplied headers, then finalize. Otherwise stop and
-report the blocker; never reconstruct a spec from memory or docs.
+After preparing all files in storage, call
+`c1_connector_authoring_update_draft_source_from_vfs` for storage-to-draft source transfer
+of the complete directory. If unavailable or denied, stop unless an explicitly
+permitted out-of-band route exists; do not bypass session controls.
+Measure saved bytes inside the storage program.
 
-Run `wc -c` on the saved files. These are DIFFERENT limits:
+### BYO/external
+
+Use your permitted web-fetch and file tools; run `wc -c` on saved files.
+For out-of-band source upload, declare the complete set and exact byte lengths,
+upload with supplied headers, then finalize per `build-and-test`.
+Never reconstruct a spec from memory or docs. These are DIFFERENT limits:
 
 - Source upload admission: 12 MiB (12582912 bytes) per file, 16 MiB total.
 - Direct `web_request` response: at most 8 MiB; larger fetches require the

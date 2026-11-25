@@ -2,6 +2,18 @@
 
 This directory is the skill-bundle mount point for the eval harness.
 
+## v0.13.0 - evidence-grounded authoring and OAuth example
+
+All ten skill versions advance. Claims must be grounded in returned response
+fields; counts and principal type shapes cannot prove per-record resolution or
+stable IDs. Verification names count diagnostics and requests owner spot-checks
+instead of inventing inaccessible record/browser evidence. Declines route through
+all ten finding classes and guard/basis diagnostics. Source guidance explains
+seal-time redaction, explicit child-user typing, URL metadata, and one-base-URL
+OAuth expressions. Hosted/BYO paths, credential-form explanations, stage naming
+and owner-only rollback are explicit. Scenario versions and whole-file content
+pins advance with the guidance and example contract tests.
+
 ## v0.12.16 - runtime readiness remedies
 
 `update-and-rollback` advances to `0.2.10`. Readiness codes and exact diagnostics
@@ -240,7 +252,7 @@ Eight body-changed skills advance one patch: `author-in-app-connector` (`0.3.7`)
 
 ## v0.12.0 - current authoring contract
 
-The current bundle targets the 25-tool tenant MCP surface and teaches four
+The current bundle targets the 26-tool tenant MCP surface and teaches four
 build-required files plus two test-required frozen files (`openapi.json`,
 `reviewed-ops.json`). This supersedes the tool-count and source-file contract
 descriptions in the earlier bundle-version entries below.
@@ -318,7 +330,7 @@ names a skill and a `path` relative to this directory pointing into
 `skills/` (the canonical home). Drivers mount per the manifest -
 the manifest indirection is the contract, not a directory copy. The scenario
 file selects the bundle via `skillBundle.mode` (`full`) and pins
-`skillBundle.version` (`0.12.16`); the runner records both in every run record.
+`skillBundle.version` (`0.13.0`); the runner records both in every run record.
 
 ## Content-pin gate and updates
 

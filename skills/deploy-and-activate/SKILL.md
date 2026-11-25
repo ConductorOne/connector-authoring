@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.11
+version: 0.3.15
 ---
 
 # deploy-and-activate
@@ -9,6 +9,12 @@ version: 0.3.11
 Covers funnel stages 6-8 and 11: app create, provision, credential
 configuration, deploy, mint, and the human-activation handoff. Tool names
 below are the exact tenant MCP titles; the served guide abbreviates them.
+
+## Evidence grounding
+
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: S6-S8 = CONNECT,
+S11 = DEPLOY + HANDOFF, post-owner verification = VERIFY.
 
 ## Checklist
 
@@ -18,23 +24,24 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
    existing owned app; capture `connector_id`. Idempotent: if the connector
    already exists under the app, reuse it. GATE: non-empty `connector_id`.
    STOP if empty.
-3. Configure - the named credential decision point. Teach BOTH paths:
-   - API path (external agent-via-API, from the served guide): call
-     `c1_connector_service_get` to read the connector, then
-     `c1_connector_service_update` with `updateMask: "config"` and the
-     `EnvConfig` `configuration` JSON - the keys must match the
-     `config("field-name")` names in `connector.ts`.
-   - UI path (human-in-UI, from the served guide): a human configures
-     credentials in Details -> Settings in the Admin UI; never ask a human
-     to paste secrets into agent chat. The hosted C1AI specialist has no
-     credential-update tool, so the UI path is the only path in that session.
-   Rule stated verbatim: served guide wins on conflict. GATE: configure every
+3. Configure - the named credential decision point:
+   - **In-app:** a human configures credentials in the trusted inline form when
+     available, or through the returned `Configure credentials` handoff link
+     (or Details -> Settings in the Admin UI).
+     The hosted C1AI specialist has no credential-update tool. Never ask a human
+     to paste secrets into agent chat.
+   - **BYO/external:** when the credential-update API is permitted, call
+     `c1_connector_service_get`, then `c1_connector_service_update` with
+     `updateMask: "config"` and the `EnvConfig` `configuration` JSON; keys must
+     match `config("field-name")` in `connector.ts`. Otherwise use the human UI.
+   Before opening a credential form, say in one sentence which field and why.
+   Do not reopen it unless fresh draft-test evidence names an `AUTH_OR_SCOPE` failure,
+   an auth failure is returned in this session via `status.lastError`,
+   or a stored value fails the field's own rules. Explain that evidence first.
+   GATE: configure every
    credential field named in `config-schema.json` (e.g. base-url,
-   account-email, api-token for the directory example). STOP if any is missing
-   - an empty `stringValue` deletes the secret field and the draft test
-   fails. Use the API path for an external agent with the credential-update
-   API; use the UI path when a human configures credentials, including every
-   hosted C1AI specialist session.
+   account-email, api-token for the directory example). STOP if any is missing;
+   an empty `stringValue` deletes the secret field and the draft test fails.
 4. Deploy: call `c1_connector_authoring_deploy_connector_instance`; capture
    `deployment_instance_id`. GATE: non-empty. STOP if empty.
 5. Mint approval: call `c1_connector_authoring_mint_approval_token` with
@@ -89,8 +96,10 @@ make no tenant/MCP tool call after mint. Host-required file/terminal writes
   ~10 polls, STOP and report. On ERROR, read `status.lastError` and route
   through diagnose-authoring-failure. On DISABLED, read `sync_disabled_reason`
   and route through diagnose-authoring-failure unless the reason indicates a
-  deliberate pause (customer opt-out or ops). After reporting verification,
-  stop; the human/operator owns subsequent syncs.
+  deliberate pause (customer opt-out or ops).
+- Hand off to `verify-connector-output` for counts/type checks, explicit
+  NOT VERIFIED limits, and the owner's UI spot-check. After reporting
+  verification, stop; the human/operator owns subsequent syncs.
 
 ## Exit criteria
 
@@ -111,6 +120,7 @@ make no tenant/MCP tool call after mint. Host-required file/terminal writes
 - Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - make no tenant/MCP tool call between mint and activation; host-required file/terminal writes are excepted.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
+- Never silently reopen a credential form: first explain fresh draft-test `AUTH_OR_SCOPE`, an auth failure returned in this session via `status.lastError`, or a stored value failing its own rules.
 - Do not skip the idempotent provision reuse.
 
 ## Blocker protocol

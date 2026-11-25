@@ -7,6 +7,7 @@
       "read": true,
       "id_path": "id",
       "output_slice": "items",
+      "resource_type": "user",
       "pagination": {
         "style": "offset",
         "pageParam": "offset",
@@ -21,6 +22,7 @@
       "read": true,
       "id_path": "id",
       "output_slice": "items",
+      "resource_type": "group",
       "pagination": {
         "style": "offset",
         "pageParam": "offset",
@@ -36,6 +38,7 @@
       "parent": { "operation_id": "groups", "id_path": "id", "param": "groupId" },
       "id_path": "userId",
       "output_slice": "items",
+      "resource_type": "user",
       "pagination": {
         "style": "offset",
         "pageParam": "offset",

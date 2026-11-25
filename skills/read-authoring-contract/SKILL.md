@@ -1,7 +1,7 @@
 ---
 name: read-authoring-contract
 description: Use when starting a connector authoring session and you need the authoritative contract before writing any source. Do not use when you already hold a fresh get_authoring_guide response for this session and are mid-funnel.
-version: 0.2.4
+version: 0.2.7
 ---
 
 # read-authoring-contract
@@ -10,6 +10,12 @@ Read the authoritative authoring contract before composing any source file.
 Tool names below are the exact tenant MCP titles; the served guide
 abbreviates them (e.g. `get_authoring_guide` for
 `c1_connector_authoring_get_authoring_guide`).
+
+This skill owns S0 (SCOPE's contract read); `author-in-app-connector` owns S1.
+Tool availability is a session allowlist
+property, not evidence that a platform capability does not exist. Do not bypass
+an allowlist or infer a missing response; follow the absence branches below.
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
 
 ## Checklist
 
@@ -49,9 +55,9 @@ abbreviates them (e.g. `get_authoring_guide` for
 
 - S0 passes: at least one successful
   `c1_connector_authoring_get_authoring_guide` call.
-- The resume check (`c1_connector_authoring_list_authored_catalog_entries` +
-  `c1_connector_authoring_list_drafts`) runs before any
-  `c1_connector_authoring_create_draft` call.
+- When the resume tools are available, the resume check
+  (`c1_connector_authoring_list_authored_catalog_entries` +
+  `c1_connector_authoring_list_drafts`) runs before creating a draft.
 
 ## Anti-patterns
 

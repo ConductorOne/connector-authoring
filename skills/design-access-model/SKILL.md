@@ -1,12 +1,15 @@
 ---
 name: design-access-model
 description: Use when designing the access model (resource types, traits, entitlements, grants, provisioning scope) for a net-new provider before authoring connector source. Do not use when you are already mid-funnel or authoring source - invoke write-connector-source instead.
-version: 0.1.3
+version: 0.1.6
 ---
 
 # design-access-model
 
 Use after `source-openapi-spec` (the spec is sourced and the IAM go/no-go gate passed) and before `write-connector-source`.
+
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: pre-1 access-model design belongs to SCOPE.
 
 ## Workflow
 

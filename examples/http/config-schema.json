@@ -7,8 +7,10 @@
       "placeholder": "https://directory.example",
       "isRequired": true,
       "stringField": {
+        "suggestedValue": "https://directory.example",
         "rules": {
-          "isRequired": true
+          "isRequired": true,
+          "wellKnown": "WELL_KNOWN_STRING_URI"
         }
       }
     },

@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile)
 const RUN = "evals/runner/run.ts"
 const BUNDLE = "evals/skills-bundle/bundle.json"
 const SKILLS = ["author-in-app-connector", "read-authoring-contract", "write-connector-source", "build-and-test", "deploy-and-activate", "design-access-model", "source-openapi-spec", "verify-connector-output", "update-and-rollback", "diagnose-authoring-failure"]
-const VERSION = "0.12.16"
+const VERSION = "0.13.0"
 
 function readBundle(): {version: string; skills: {name: string; version: string; path: string; sha256: string}[]} {
   return JSON.parse(readFileSync(BUNDLE, "utf8")) as {version: string; skills: {name: string; version: string; path: string; sha256: string}[]}
@@ -111,8 +111,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "Declare exactly one",
     "after the first green draft test",
     "Expand loop",
-    "hosted sessions use the storage-to-draft source transfer",
-    "External/BYO path",
+    "**In-app:**",
+    "**BYO/external:**",
+    "c1_connector_authoring_update_draft_source_from_vfs",
     "`upload_id` is N/A",
     "| post-activation verification | `verify-connector-output` |",
     "| update / rollback of an active connector | `update-and-rollback` |",
@@ -126,8 +127,9 @@ const SKILL_LITERALS: Record<string, string[]> = {
   "build-and-test": [
     "required_source_files", "upload_targets", "required_headers", "RUN_STATE_SUCCEEDED", "test_run_id",
     "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
-    "in hosted sessions, use the storage-to-draft source transfer",
-    "External/BYO path",
+    "**In-app:**",
+    "**BYO/external:**",
+    "c1_connector_authoring_update_draft_source_from_vfs",
     "external upload has `upload_id`",
   ],
   "deploy-and-activate": [
@@ -230,11 +232,13 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "data-anomaly auto-pause",
     "significant drop in sync data",
     "sync_disabled",
-    "every grant principal references an emitted resource",
-    "entitlement ID references an emitted entitlement",
+    "grant_principal_resource_types",
+    "per-record resolution as NOT VERIFIED",
     "ID stability",
     "do not trigger another sync here",
-    "report ID stability as PENDING",
+    "ID stability NOT VERIFIED",
+    "live_counts",
+    "Owner UI spot-check",
     "Do not call `c1_connector_service_force_sync` here",
     "subsequent syncs belong to the human/operator",
     "/admin/connector/",
@@ -284,13 +288,13 @@ const SKILL_LITERALS: Record<string, string[]> = {
     "activation evidence is unsatisfied",
     "`transport_judge_verdict` equal to `accepted` or `owner_judgment_required`",
     "correct the verdict's cause; do not just re-mint",
-    "Nonempty declared projections have full coverage",
+    "Counts/type shapes",
     "new matching PASS row binds the revision",
     "SELECTOR_NOT_FOUND",
     "Invalid token provided",
-    "ConnectionOK",
-    "HostCallOK",
-    "wait for the draft test as build-and-test",
+    "execution_leg.stats",
+    "error_kind",
+    "Wait for the draft test as build-and-test",
     "c1_connector_service_get",
     "status.lastError",
   ],
@@ -303,7 +307,7 @@ test("(c) each SKILL.md carries the locked section markers, content literals, AS
       assert.ok(file.includes(marker), `${name}: missing section marker ${marker}`)
     }
     for (const literal of SKILL_LITERALS[name]) {
-      assert.ok(file.includes(literal), `${name}: missing locked literal ${literal}`)
+      assert.ok(file.replace(/\s+/g, " ").includes(literal), `${name}: missing locked literal ${literal}`)
     }
     assert.ok(/^[\x00-\x7F]*$/.test(file), `${name}: body must be ASCII-only (locked body contract)`)
     assert.ok(file.split("\n").length <= 200, `${name}: exceeds the 200-line bound`)
@@ -417,10 +421,73 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
   }
 })
 
+test("(c6) all skills ground claims in returned evidence, never counts-only record claims", () => {
+  const orchestrator = readFileSync("skills/author-in-app-connector/SKILL.md", "utf8")
+  for (const literal of ["tool response field in this session", "NOT VERIFIED", "Never turn counts or type shapes into per-record claims", "a presence flag is not content validation"]) {
+    assert.ok(orchestrator.includes(literal), `orchestrator: missing evidence-grounding contract ${literal}`)
+  }
+  for (const name of SKILLS.filter(name => name !== "author-in-app-connector")) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    assert.ok(file.includes("Follow the evidence-grounding rule in `author-in-app-connector` (Session communication)."), `${name}: missing shared grounding-rule pointer`)
+  }
+  for (const stage of ["SCOPE", "SKELETON-BUILD", "CONNECT", "SKELETON-TEST", "EXPAND", "DEPLOY + HANDOFF", "VERIFY"]) {
+    assert.ok(orchestrator.includes(`| ${stage} |`), `missing served-stage equivalence ${stage}`)
+  }
+  const verify = readFileSync("skills/verify-connector-output/SKILL.md", "utf8")
+  for (const literal of ["c1_connector_sync_diagnostics_service_get_sync_status", "shape_summary", "grant_principal_resource_types", "per-record resolution as NOT VERIFIED", "ID stability NOT VERIFIED", "in-app agent has no browser", "owner check pending", "skips them at uplift"]) {
+    assert.ok(verify.includes(literal), `verify: missing evidence limit ${literal}`)
+  }
+  for (const stale of ["GATE: no\n   dangling principal", "GATE: IDs unchanged", "GATE: resources and grants visible"]) {
+    assert.ok(!verify.includes(stale), `verify: unsupported gate ${stale}`)
+  }
+})
+
+test("(c7) diagnostics route all finding classes without inventing a missing class", () => {
+  const diagnose = readFileSync("skills/diagnose-authoring-failure/SKILL.md", "utf8")
+  for (const name of ["ID_FIELD_MISSING", "ENVELOPE_MISMATCH", "PAGINATION_INCONSISTENT", "TOTAL_MISMATCH", "VENDOR_ERROR", "PARENT_MISMATCH", "RECORD_MALFORMED", "SPEC_MISMATCH", "SIDE_EFFECT", "OTHER"]) {
+    assert.ok(diagnose.includes(`| \`${name}\` |`), `missing decline route ${name}`)
+  }
+  for (const name of ["build-and-test", "diagnose-authoring-failure"]) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    for (const literal of ["transport_judge_diagnostics", "GUARD_REJECTION", "EVIDENCE_ERROR_OBJECT_IN_SUCCESS", "decline_basis", "operation_id", "finding_class", "EXPIRED", "Do not drop operations to shrink evidence"]) {
+      assert.ok(file.includes(literal), `${name}: missing diagnostic rule ${literal}`)
+    }
+  }
+  assert.ok(diagnose.includes("never fabricate an absent class"))
+  for (const stale of ["- `ConnectionOK`", "- `HostCallOK`", "- The runtime image digest matches"]) {
+    assert.ok(!diagnose.includes(stale), `unsupported returned-field claim ${stale}`)
+  }
+})
+
+test("(c8) redaction, operation typing, path labels and credential form explanations stay explicit", () => {
+  const source = readFileSync("skills/write-connector-source/SKILL.md", "utf8")
+  const row = source.split("\n").find(line => line.startsWith("| `reviewed-ops.json` |"))
+  assert.ok(row?.includes("`resource_type`"))
+  for (const literal of ["Recommend `resource_type`", "typing is optional except at review for child operations", "resolves to an explicit user schema", "redacted:<opaque>", "REDACTION_DEGRADED", "seal time", "Hash-by-default", "bare `config(\"base-url\")`", "strings.concat", "stringField.suggestedValue", "WELL_KNOWN_STRING_URI", "fixed-host vendors with a sourced URL", "use `placeholder` for per-instance vendors", "other SDK default fields are reserved"]) {
+    assert.ok(source.includes(literal), `source: missing typing/redaction/config rule ${literal}`)
+  }
+  for (const name of ["author-in-app-connector", "build-and-test", "deploy-and-activate", "source-openapi-spec"]) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    assert.match(file, /(?:\*\*|### )In-app/)
+    assert.match(file, /(?:\*\*|### )BYO\/external/)
+  }
+  const deploy = readFileSync("skills/deploy-and-activate/SKILL.md", "utf8").replace(/\s+/g, " ")
+  for (const literal of ["Before opening a credential form, say in one sentence which field and why", "fresh draft-test evidence names an `AUTH_OR_SCOPE` failure", "an auth failure is returned in this session via `status.lastError`", "a stored value fails the field's own rules", "Explain that evidence first", "Hand off to `verify-connector-output`"]) {
+    assert.ok(deploy.includes(literal), `deploy: missing form/handoff rule ${literal}`)
+  }
+  assert.ok(!deploy.includes("Rule stated verbatim: served guide wins on conflict"))
+  const productionRoute = readFileSync("skills/diagnose-authoring-failure/SKILL.md", "utf8").split("\n").find(line => line.startsWith("| Production sync `Invalid token provided`"))
+  assert.ok(productionRoute?.includes("auth failure returned in this session via `status.lastError`"))
+  assert.ok(productionRoute?.includes("Explain which field and why before reopening"))
+  const antiPatterns = deploy.split("## Anti-patterns")[1]?.split("## Blocker protocol")[0]
+  assert.ok(antiPatterns?.includes("auth failure returned in this session via `status.lastError`"))
+  assert.ok(antiPatterns?.includes("first explain"))
+})
+
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {
   const full = loadScenario("evals/scenarios/tier1-directory-full.json")
   assert.equal(full.skillBundle.mode, "full")
-  assert.equal(full.skillBundle.version, "0.12.16")
+  assert.equal(full.skillBundle.version, VERSION)
   assert.equal(full.id, "tier1-directory-full")
   const none = loadScenario("evals/scenarios/tier1-directory.json")
   assert.equal(none.skillBundle.mode, "none")
@@ -469,7 +536,7 @@ test("(e) CLI end-to-end: full-mode Tier-0 run exits 0 and the record meta carri
     const lines = readFileSync(join(dir, records[0]), "utf8").trim().split("\n")
     const meta = JSON.parse(lines[0]) as Record<string, unknown>
     assert.equal(meta.skill_bundle_mode, "full")
-    assert.equal(meta.skill_bundle_version, "0.12.16")
+    assert.equal(meta.skill_bundle_version, VERSION)
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
