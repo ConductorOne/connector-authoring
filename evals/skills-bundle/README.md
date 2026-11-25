@@ -252,7 +252,7 @@ Eight body-changed skills advance one patch: `author-in-app-connector` (`0.3.7`)
 
 ## v0.12.0 - current authoring contract
 
-The current bundle targets the 25-tool tenant MCP surface and teaches four
+The current bundle targets the 26-tool tenant MCP surface and teaches four
 build-required files plus two test-required frozen files (`openapi.json`,
 `reviewed-ops.json`). This supersedes the tool-count and source-file contract
 descriptions in the earlier bundle-version entries below.
