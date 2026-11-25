@@ -15,6 +15,13 @@ The Base URL field has a suggested full URL and a
 without a trailing slash (for example `https://directory.example`); that
 fictional domain is documentation, not a test service.
 
+**Fixture-only exception:** the fictional `https://directory.example`
+`stringField.suggestedValue` demonstrates the full-URI metadata shape; it is
+not a sourced vendor URL or a production default. Do not copy this prefill
+into a real per-instance connector: replace it with a Field-level `placeholder`
+(a sibling of `stringField`). In production, use `suggestedValue` only for
+fixed-host vendors with a sourced URL.
+
 `connector.ts` retains a **bare** `config("base-url")` reference as the
 transport's `baseUrl`. This lets C1 derive the egress host at serve time; an
 expression-only token URL is not sufficient for host derivation. Opaque config

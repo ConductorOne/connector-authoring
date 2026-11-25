@@ -37,6 +37,13 @@ configuration-proto shape into the snake_case runtime schema.
 The Base URL form field supplies `stringField.suggestedValue` and a
 `WELL_KNOWN_STRING_URI` rule; enter the full URL, not a bare host.
 
+**Fixture-only exception:** the fictional `https://directory.example`
+`stringField.suggestedValue` demonstrates the full-URI metadata shape; it is
+not a sourced vendor URL or a production default. Do not copy this prefill
+into a real per-instance connector: replace it with a Field-level `placeholder`
+(a sibling of `stringField`). In production, use `suggestedValue` only for
+fixed-host vendors with a sourced URL.
+
 The connector declares a graph:
 
 1. `config(...)` creates opaque public and secret references.
