@@ -74,7 +74,12 @@ is not model-judged. Only the human OWNER activates.
 
 Repository typechecks exercise declarations only; they do not execute OAuth.
 On 2026-11-25, the six source files above were also built and draft-tested on a
-dev tenant against a prepared synthetic OAuth fixture, not a live vendor:
+dev tenant against a prepared synthetic OAuth fixture, not a live vendor.
+
+The initial build failed before draft testing because generic `client-id`
+was reserved by the connector runtime. Both credential fields were renamed to
+`directory-client-id` / `directory-client-secret` in the source and both schemas,
+then rebuilt and tested with fresh run IDs. The results below are for that fix.
 
 | Check | Observed result |
 |---|---|
