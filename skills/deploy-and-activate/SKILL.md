@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.14
+version: 0.3.15
 ---
 
 # deploy-and-activate
@@ -25,8 +25,9 @@ S11 = DEPLOY + HANDOFF, post-owner verification = VERIFY.
    already exists under the app, reuse it. GATE: non-empty `connector_id`.
    STOP if empty.
 3. Configure - the named credential decision point:
-   - **In-app:** a human configures credentials through the returned
-     `Configure credentials` form (or Details -> Settings in the Admin UI).
+   - **In-app:** a human configures credentials in the trusted inline form when
+     available, or through the returned `Configure credentials` handoff link
+     (or Details -> Settings in the Admin UI).
      The hosted C1AI specialist has no credential-update tool. Never ask a human
      to paste secrets into agent chat.
    - **BYO/external:** when the credential-update API is permitted, call

@@ -15,9 +15,9 @@
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.15",
+      "version": "0.2.16",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "775c756f119ca0bfdbbe5a97ea2fc7cac5c6c7ba900611489d35354828ea4a27"
+      "sha256": "721537112f278182f4b9b0bd75b772ba774fd5ef49795cbf4cb40fd1343c8920"
     },
     {
       "name": "build-and-test",
@@ -27,9 +27,9 @@
     },
     {
       "name": "deploy-and-activate",
-      "version": "0.3.14",
+      "version": "0.3.15",
       "path": "../../skills/deploy-and-activate/SKILL.md",
-      "sha256": "dc5204cbdbace1d22a5155d8a1f7429382df67489434400fc48a092000a4c785"
+      "sha256": "4a686969af5e7d6ce478bc1200ce563e2b72d26b7712129958c54ab3dc973146"
     },
     {
       "name": "design-access-model",

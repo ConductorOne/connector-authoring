@@ -87,7 +87,7 @@ the artifact and stop boundary; prompt-contract tests pin the communication
 instructions, and the `no_raw_ksuid` scorer check observes deploy/handoff chat.
 These are not a live model compliance guarantee.
 
-The D86 follow-up contract tests pin evidence grounding, counts-only verification
+The contract tests pin evidence grounding, counts-only verification
 limits, all ten decline routes, redaction/resource typing, labelled hosted/BYO
 paths and the explain-before-reopening credential-form rule. Example tests check
 configuration parity, URL metadata and reviewed operation typing. These are

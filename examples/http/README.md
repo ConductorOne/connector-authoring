@@ -8,6 +8,9 @@ The fixed `/v1` prefix stays in each request path.
 This pattern serves both hosted and BYO authors. Fetch it with declarations at
 the tenant's runtime-compatible release tag or a reviewed commit; the served
 authoring guide and tool descriptions, not this example, govern hosted gates.
+Use `c1_connector_authoring_get_sdk_types` to obtain the tenant's tagged
+declarations. Fetch examples at that matching tag, or a reviewed compatible
+commit if the tag predates the example.
 For one-base-URL OAuth client credentials, see
 [`../oauth-client-credentials`](../oauth-client-credentials).
 
@@ -81,7 +84,7 @@ The companion files describe how the graph is hosted:
   and camelCase offset pagination (`style`, `pageParam`, `sizeParam`).
   Group members bind `{groupId}` from the parent groups projection and declare
   `resource_type: "user"` even though their rows only feed grants: child reads
-  returning user schemas require explicit user typing (J5). This typing and a
+  returning user schemas require explicit user typing at review. This typing and a
   resolvable response schema also prevent degraded, hash-every-string evidence.
   This single-HTTP example omits transport names in the frozen operation list;
   the operations use the default binding to `connect.directory`.

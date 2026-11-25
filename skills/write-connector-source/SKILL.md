@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
-version: 0.2.15
+version: 0.2.16
 ---
 
 # write-connector-source
@@ -35,7 +35,7 @@ Omitting it declares no projection. A child's
 Recommend `resource_type` and a resolvable response schema on every reviewed read.
 Outside the skeleton gate, typing is optional except at review for child operations
 whose selected response schema resolves to an explicit user schema, even when
-the child only emits membership grants (J5).
+the child only emits membership grants.
 
 Top-level `connect` (sibling of `runtime`, `{"<transport-name>": {"type": "http"}}`) is not a build requirement and the hosted runtime does not read it as a transport source - transports come from `transports:` in `connector.ts`. It is a C1-side contract: the draft-test probe derives the default transport for `reviewed-ops.json` from its single `http` entry (probe setup fails with `reviewed operations declarations are invalid` without it), and C1 derives the runtime's host transport grants from its kinds. Keep exactly one `http` entry named after the registered transport; `ldap`/`sql` are rejected at admission.
 

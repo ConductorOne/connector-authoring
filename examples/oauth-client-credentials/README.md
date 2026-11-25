@@ -4,6 +4,9 @@ A minimal, user-only Directory API skeleton for hosted and BYO authors.
 Fetch examples and declarations at the tenant's runtime-compatible release tag
 or a reviewed commit. The tenant-served guide and tool descriptions control
 hosted gates; skills are reference, not a C1 contract, for BYO agents.
+Use `c1_connector_authoring_get_sdk_types` to obtain the tenant's tagged
+declarations. Fetch examples at that matching tag, or a reviewed compatible
+commit if the tag predates the example.
 
 ## One origin, not three URL fields
 
