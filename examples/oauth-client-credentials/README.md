@@ -28,8 +28,9 @@ Use this pattern only when the provider's documented token URL and audience
 really derive from the same origin. A provider with a distinct authorization
 host or audience needs its actual contract, not these fictional suffixes.
 Before opening a credential form, explain which field is needed and why.
-Reopen only when fresh test evidence names `AUTH_OR_SCOPE`, or a stored value
-fails its own field rules; never collect credentials in agent chat.
+Reopen only for fresh draft-test `AUTH_OR_SCOPE` evidence, an auth failure
+returned in this session via `status.lastError`, or a stored value failing its
+own field rules; explain that evidence first and never collect secrets in chat.
 
 ## Response and authentication contract
 

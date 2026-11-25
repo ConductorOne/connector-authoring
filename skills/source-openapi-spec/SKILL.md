@@ -1,7 +1,7 @@
 ---
 name: source-openapi-spec
 description: Use when sourcing the OpenAPI spec for a net-new provider and running the IAM go/no-go gate before any access-model design. Do not use when the spec is already sourced - invoke design-access-model instead.
-version: 0.1.8
+version: 0.1.9
 ---
 
 # source-openapi-spec
@@ -11,9 +11,8 @@ contract the access model and the source are built from. Sourcing it wrong
 ships wrong request shapes; skipping the IAM go/no-go gate ships a shell
 connector with no governance value.
 
-State only what a tool response field in this session returned; absent evidence
-is NOT VERIFIED. Counts/type shapes do not prove records or IDs; check file
-presence and contents before claiming either. Stage equivalence: pre-1 = SCOPE.
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: pre-1 = SCOPE.
 
 ## Step 1 - Find candidates, rank by the authority ladder
 

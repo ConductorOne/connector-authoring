@@ -1,7 +1,7 @@
 ---
 name: verify-connector-output
 description: Use when verifying sync status, counts and principal type shapes after owner activation, and requesting an owner spot-check. Per-record resolution and ID stability are not verified by count-only tools. Do not use when diagnosing failed syncs or changing a live connector - use diagnose-authoring-failure or update-and-rollback.
-version: 0.1.8
+version: 0.1.9
 ---
 
 # verify-connector-output
@@ -12,10 +12,7 @@ titles. Stage equivalence: post-owner activation output checks = VERIFY.
 
 ## Evidence grounding
 
-Every factual claim must come from a tool response field in this session.
-When no field exists, say NOT VERIFIED and name the missing evidence.
-Never turn counts or type shapes into per-record principal resolution, matching
-IDs, or field-value claims. Check file presence rather than assuming it.
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
 
 ## Checklist
 

@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.9
+version: 0.3.10
 ---
 
 # build-and-test
@@ -12,10 +12,7 @@ Tool names below are exact tenant MCP titles; the served guide abbreviates them.
 
 ## Evidence grounding
 
-State only what a tool response field in this session returned. Missing evidence
-is NOT VERIFIED: counts and type shapes do not prove per-record principal
-resolution, matching IDs, or field values. Draft tests do not check those claims.
-File presence requires `required_source_files` or a file read, not an assumption.
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
 Stage equivalence: S2-S5 = SKELETON-BUILD, first S9-S10 = SKELETON-TEST;
 later source/build/test increments = EXPAND. See `author-in-app-connector`'s table.
 
@@ -110,12 +107,13 @@ Read `transport_judge_diagnostics`: `origin` distinguishes server guard, model,
 and infrastructure; retain `code`, `decline_basis`, `operation_id`, and
 `finding_class` when returned. Route declines through `diagnose-authoring-failure`,
 including `GUARD_REJECTION` / `EVIDENCE_ERROR_OBJECT_IN_SUCCESS`. A legacy class
-may be absent; do not invent one.
+may be absent; route by `decline_basis` and `operation_id`, never invent a class.
 C1 judges each reviewed operation separately when evidence is too large; a
 decline can name one `operation_id`. Do not drop operations to shrink evidence.
 At seal time human-identifying strings become `redacted:<opaque>`; unbound or
 unresolved read typing hashes every string and warns `REDACTION_DEGRADED`.
-Declare `resource_type` and a resolvable response schema on every reviewed read.
+Recommend `resource_type` and a resolvable response schema on every reviewed read;
+child reads resolving to explicit user schemas require typing, as `write-connector-source` explains.
 Do not infer a token's format/meaning or compare a token to a raw value; see
 `write-connector-source` for the typing and equality limits.
 

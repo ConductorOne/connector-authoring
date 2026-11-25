@@ -1,7 +1,7 @@
 ---
 name: read-authoring-contract
 description: Use when starting a connector authoring session and you need the authoritative contract before writing any source. Do not use when you already hold a fresh get_authoring_guide response for this session and are mid-funnel.
-version: 0.2.6
+version: 0.2.7
 ---
 
 # read-authoring-contract
@@ -15,8 +15,7 @@ This skill owns S0 (SCOPE's contract read); `author-in-app-connector` owns S1.
 Tool availability is a session allowlist
 property, not evidence that a platform capability does not exist. Do not bypass
 an allowlist or infer a missing response; follow the absence branches below.
-State only what a tool response field in this session returned; absent evidence
-is NOT VERIFIED. Counts/type shapes do not prove records or IDs; check file presence.
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
 
 ## Checklist
 

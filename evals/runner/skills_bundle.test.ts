@@ -422,14 +422,14 @@ test("(c5) draft-test FAIL reading forbids silent row filtering or coverage weak
 })
 
 test("(c6) all skills ground claims in returned evidence, never counts-only record claims", () => {
-  for (const name of SKILLS) {
-    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
-    for (const literal of ["tool response field in this session", "NOT VERIFIED"]) {
-      assert.ok(file.includes(literal), `${name}: missing evidence-grounding contract ${literal}`)
-    }
-    assert.match(file, /file\s+presence/i, `${name}: missing file-presence grounding`)
-  }
   const orchestrator = readFileSync("skills/author-in-app-connector/SKILL.md", "utf8")
+  for (const literal of ["tool response field in this session", "NOT VERIFIED", "Never turn counts or type shapes into per-record claims", "a presence flag is not content validation"]) {
+    assert.ok(orchestrator.includes(literal), `orchestrator: missing evidence-grounding contract ${literal}`)
+  }
+  for (const name of SKILLS.filter(name => name !== "author-in-app-connector")) {
+    const file = readFileSync(join("skills", name, "SKILL.md"), "utf8")
+    assert.ok(file.includes("Follow the evidence-grounding rule in `author-in-app-connector` (Session communication)."), `${name}: missing shared grounding-rule pointer`)
+  }
   for (const stage of ["SCOPE", "SKELETON-BUILD", "CONNECT", "SKELETON-TEST", "EXPAND", "DEPLOY + HANDOFF", "VERIFY"]) {
     assert.ok(orchestrator.includes(`| ${stage} |`), `missing served-stage equivalence ${stage}`)
   }
@@ -463,7 +463,7 @@ test("(c8) redaction, operation typing, path labels and credential form explanat
   const source = readFileSync("skills/write-connector-source/SKILL.md", "utf8")
   const row = source.split("\n").find(line => line.startsWith("| `reviewed-ops.json` |"))
   assert.ok(row?.includes("`resource_type`"))
-  for (const literal of ["child operations whose response schema resolves to a user", "redacted:<opaque>", "REDACTION_DEGRADED", "seal time", "Hash-by-default", "bare `config(\"base-url\")`", "strings.concat", "stringField.suggestedValue", "WELL_KNOWN_STRING_URI"]) {
+  for (const literal of ["Recommend `resource_type`", "typing is optional except at review for child operations", "resolves to an explicit user schema", "redacted:<opaque>", "REDACTION_DEGRADED", "seal time", "Hash-by-default", "bare `config(\"base-url\")`", "strings.concat", "stringField.suggestedValue", "WELL_KNOWN_STRING_URI", "fixed-host vendors with a sourced URL", "use `placeholder` for per-instance vendors", "other SDK default fields are reserved"]) {
     assert.ok(source.includes(literal), `source: missing typing/redaction/config rule ${literal}`)
   }
   for (const name of ["author-in-app-connector", "build-and-test", "deploy-and-activate", "source-openapi-spec"]) {
@@ -472,9 +472,16 @@ test("(c8) redaction, operation typing, path labels and credential form explanat
     assert.match(file, /(?:\*\*|### )BYO\/external/)
   }
   const deploy = readFileSync("skills/deploy-and-activate/SKILL.md", "utf8").replace(/\s+/g, " ")
-  for (const literal of ["Before opening a credential form, say in one sentence which field and why", "Do not reopen it unless fresh test evidence names an `AUTH_OR_SCOPE` failure or a stored value fails the field's own rules", "Hand off to `verify-connector-output`"]) {
+  for (const literal of ["Before opening a credential form, say in one sentence which field and why", "fresh draft-test evidence names an `AUTH_OR_SCOPE` failure", "an auth failure is returned in this session via `status.lastError`", "a stored value fails the field's own rules", "Explain that evidence first", "Hand off to `verify-connector-output`"]) {
     assert.ok(deploy.includes(literal), `deploy: missing form/handoff rule ${literal}`)
   }
+  assert.ok(!deploy.includes("Rule stated verbatim: served guide wins on conflict"))
+  const productionRoute = readFileSync("skills/diagnose-authoring-failure/SKILL.md", "utf8").split("\n").find(line => line.startsWith("| Production sync `Invalid token provided`"))
+  assert.ok(productionRoute?.includes("auth failure returned in this session via `status.lastError`"))
+  assert.ok(productionRoute?.includes("Explain which field and why before reopening"))
+  const antiPatterns = deploy.split("## Anti-patterns")[1]?.split("## Blocker protocol")[0]
+  assert.ok(antiPatterns?.includes("auth failure returned in this session via `status.lastError`"))
+  assert.ok(antiPatterns?.includes("first explain"))
 })
 
 test("(d) the full-mode scenario parses with mode full and the two pinned scenarios keep their locked modes", () => {

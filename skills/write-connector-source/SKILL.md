@@ -1,7 +1,7 @@
 ---
 name: write-connector-source
 description: Use when authoring the four build-required files and two test-required frozen files for an in-app connector, starting with one projection before S2 or expanding after the first green draft test. Do not use when you only need upload, build, or test mechanics - invoke build-and-test instead.
-version: 0.2.14
+version: 0.2.15
 ---
 
 # write-connector-source
@@ -13,9 +13,8 @@ Defer remaining resource types until the first green draft test, then expand
 incrementally: add a type, re-review changed inputs, rebuild, and retest.
 The S0 served guide wins on conflict; `build-and-test` owns test/verdict gates.
 
-State only what a tool response field in this session returned; missing evidence
-is NOT VERIFIED. Counts/type shapes do not prove records or IDs; check file
-presence and contents before claiming either. Stage equivalence: source authoring
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: source authoring
 belongs to SKELETON-BUILD before the first PASS, then EXPAND.
 
 ## The source-file contract
@@ -33,9 +32,10 @@ Every projection needs `output_slice`: a dot-path (e.g. `"items"`) or `""` for a
 Omitting it declares no projection. A child's
 `parent: {"operation_id":"groups","id_path":"id","param":"groupId"}` needs matching
 `{groupId}` in `path_template`. Use camelCase pagination; see `examples/http`.
-Declare `resource_type` on every reviewed read and a resolvable response schema.
-It is required for child operations whose response schema resolves to a user
-schema, even when the child only emits membership grants (J5).
+Recommend `resource_type` and a resolvable response schema on every reviewed read.
+Outside the skeleton gate, typing is optional except at review for child operations
+whose selected response schema resolves to an explicit user schema, even when
+the child only emits membership grants (J5).
 
 Top-level `connect` (sibling of `runtime`, `{"<transport-name>": {"type": "http"}}`) is not a build requirement and the hosted runtime does not read it as a transport source - transports come from `transports:` in `connector.ts`. It is a C1-side contract: the draft-test probe derives the default transport for `reviewed-ops.json` from its single `http` entry (probe setup fails with `reviewed operations declarations are invalid` without it), and C1 derives the runtime's host transport grants from its kinds. Keep exactly one `http` entry named after the registered transport; `ldap`/`sql` are rejected at admission.
 
@@ -61,7 +61,7 @@ The baton Configuration document shape - `{"fields":[...]}` with `stringField`/`
   "fields": [
     {"name": "base-url", "displayName": "Base URL",
      "description": "Full service URL including https://, without a trailing slash.",
-     "isRequired": true, "stringField": {"suggestedValue": "https://directory.example",
+     "placeholder": "https://directory.example", "isRequired": true, "stringField": {
        "rules": {"isRequired": true, "wellKnown": "WELL_KNOWN_STRING_URI"}}},
     {"name": "api-token", "displayName": "API token", "isRequired": true,
      "isSecret": true, "stringField": {"rules": {"isRequired": true}}}
@@ -70,11 +70,11 @@ The baton Configuration document shape - `{"fields":[...]}` with `stringField`/`
 ```
 
 For same-host OAuth, ask for one `base-url`, not duplicate token-url/audience fields.
-Use app-prefixed credential names: `client-id` / `client-secret` are runtime-reserved.
+Use app-prefixed credential names: `client-id` / `client-secret` and other SDK default fields are reserved; see the served guide's Reserved field names.
 Keep a bare `config("base-url")` transport `baseUrl` reference for serve-time host derivation.
 Derive the token endpoint and audience with `strings.concat`, never JS interpolation of opaque refs.
 Follow the vendor's actual endpoint/audience contract, not a guessed suffix.
-Use `stringField.suggestedValue` and URI rules for URL form fields.
+Use URI rules for URL fields. Settings prefills `stringField.suggestedValue` only for fixed-host vendors with a sourced URL; use `placeholder` for per-instance vendors.
 
 ## runtime-schema.json rules
 

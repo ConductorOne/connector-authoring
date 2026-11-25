@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.12
+version: 0.2.13
 ---
 
 # update-and-rollback
@@ -10,9 +10,8 @@ Update and rollback for an activated authored connector. Runs only after the
 OWNER has activated the connector. Tool names below are the exact tenant MCP
 titles.
 
-State only what a tool response field in this session returned; absent evidence
-is NOT VERIFIED. Counts/type shapes do not prove per-record resolution or IDs;
-check file presence. Stage equivalence: same-catalog source/build/test = EXPAND,
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: same-catalog source/build/test = EXPAND,
 owner handoff = DEPLOY + HANDOFF, post-owner sync = VERIFY.
 
 ## Update flow (same-catalog rerun)

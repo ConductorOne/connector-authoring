@@ -1,7 +1,7 @@
 ---
 name: diagnose-authoring-failure
 description: Use when a build, draft test, activation, or production sync fails and you need the symptom-to-cause-to-fix route. Do not use when the connector is healthy and you are verifying sync output - use verify-connector-output; do not use when updating or rolling back a healthy live connector - use update-and-rollback.
-version: 0.1.10
+version: 0.1.11
 ---
 
 # diagnose-authoring-failure
@@ -11,10 +11,8 @@ served guide's common-failures table, the draft-test evidence reading, and
 where logs live. Ports a symptom-first taxonomy; repo-local CLI tooling is
 replaced by the tenant MCP tools named below.
 
-State only what a tool response field in this session returned; absent evidence
-is NOT VERIFIED. Counts/type shapes do not establish per-record principal
-resolution, IDs, or field values. Check file presence; a flag is not content
-validation. Stage equivalence: cross-cutting; use `author-in-app-connector`'s table
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: cross-cutting; use `author-in-app-connector`'s table
 to route the failing checklist step to its served stage.
 
 ## Workflow
@@ -35,13 +33,13 @@ to route the failing checklist step to its served stage.
 | Build rejected: `connector source exceeds the 262144 byte compile limit` | The esbuild-bundled source is over 256 KiB. Trim the source set; large OpenAPI-derived spec assets are the usual weight. |
 | Build rejected: `connector bundle with embedded runtime specs is <N> bytes, above the 1048576 byte limit` | The bundled `connector.js` plus its embedded runtime specs is over 1 MiB - a separate cap from the 256 KiB source limit, hit after bundling. Trim the source or the generated spec assets it embeds. |
 | Build rejected: `credential-class config field must be marked is_secret` | A token/secret/password-named field in `runtime-schema.json` lacks `is_secret: true`. The `secret:` spelling is not read. |
-| Draft test: `credential re-entry required: <fields>` | Follow deploy-and-activate's credential form rule: explain the field and reason before opening; reopen only for fresh `AUTH_OR_SCOPE` evidence or a stored value failing its own rules. |
+| Draft test: `credential re-entry required: <fields>` | Follow deploy-and-activate's credential form rule in step 3; explain the field and reason before opening, and never request secrets in chat. |
 | Draft test: `connector config field X is missing type` | Add `"type": "string"` (etc.) to the field in `runtime.config_schema`. |
 | Sync error mentions an `unregistered transport` | A `node` or `reuse` references a transport missing from `connector({ transports: ... })`. Register that same transport object, rebuild, and retest. |
 | Draft test: `ticketing.enabled must be true when ticketing is configured` | The runtime-schema carries a `ticketing` block the connector code does not back. Remove the block (and any `actions` / `policy_surface` entries referencing dropped code); `enabled: false` is not a valid off-switch. |
 | Activation reports `activation evidence is unsatisfied` | No matching PASS evidence, or `transport_judge_verdict` is missing or neither `accepted` nor `owner_judgment_required`. Follow the build-and-test verdict table: correct the verdict's cause; do not just re-mint. Confirm a new matching PASS row binds this revision before asking the OWNER to review a fresh approval URL. |
 | Draft test: `SELECTOR_NOT_FOUND` at `operations[N].pagination.select.<name>` | The response lacked a required pagination value, usually because the vendor omits it on the last page. In `reviewed-ops.json`, make that selector an explicit `select` entry with `"optional": true` (replace a `cursorPath` shorthand with `select.cursor`), rebuild, and retest. If the value should be present, fix the selector path. |
-| Production sync `Invalid token provided` | Confirm fresh `AUTH_OR_SCOPE` evidence or a stored value violating its rules; follow deploy-and-activate's explain-before-reopening credential form rule. Never request secrets in chat. |
+| Production sync `Invalid token provided` | An auth failure returned in this session via `status.lastError` permits credential reconfiguration. Explain which field and why before reopening the form, then re-configure the full token and rerun the failed sync per deploy-and-activate. Never request secrets in chat. |
 
 ## Judge decline -> cause -> fix
 

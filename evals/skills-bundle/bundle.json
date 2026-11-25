@@ -9,57 +9,57 @@
     },
     {
       "name": "read-authoring-contract",
-      "version": "0.2.6",
+      "version": "0.2.7",
       "path": "../../skills/read-authoring-contract/SKILL.md",
-      "sha256": "ba930cf9dac1dec125b2b5236814defefeac49940f59dd18356ba8eafd479ab7"
+      "sha256": "c66b125a107d628a273568b84c28e992182ffeca2929ec4424276c29479959ed"
     },
     {
       "name": "write-connector-source",
-      "version": "0.2.14",
+      "version": "0.2.15",
       "path": "../../skills/write-connector-source/SKILL.md",
-      "sha256": "e839a71bfe6d7eca0ffa5e0d46148495073562d95b6b36874507b69d1948955f"
+      "sha256": "775c756f119ca0bfdbbe5a97ea2fc7cac5c6c7ba900611489d35354828ea4a27"
     },
     {
       "name": "build-and-test",
-      "version": "0.3.9",
+      "version": "0.3.10",
       "path": "../../skills/build-and-test/SKILL.md",
-      "sha256": "384bc2dd5513e9d0696f56f5547363d44ca0368153c1465f961569a76821c85c"
+      "sha256": "2ba108b489fb0178b8fd492cbf7a9f99a513b85f5e87c7884f03b52f27045407"
     },
     {
       "name": "deploy-and-activate",
-      "version": "0.3.13",
+      "version": "0.3.14",
       "path": "../../skills/deploy-and-activate/SKILL.md",
-      "sha256": "dd29a706ea49f456008f07913c7889f6f5c013549b19d1cd82514fa09e416f36"
+      "sha256": "dc5204cbdbace1d22a5155d8a1f7429382df67489434400fc48a092000a4c785"
     },
     {
       "name": "design-access-model",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "path": "../../skills/design-access-model/SKILL.md",
-      "sha256": "8b89ac16758feb2dc86ff353923e3f5974ac8bc8ebc3f2091776dd26690e9573"
+      "sha256": "982f253df3042c9600d19364a66758783e8c46bfe435d5a1b7e68827f04c3db9"
     },
     {
       "name": "source-openapi-spec",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "path": "../../skills/source-openapi-spec/SKILL.md",
-      "sha256": "761e103eb143b69be3934001d5b351c8b73c3d70f1ce8da32e344879504672ee"
+      "sha256": "d3062a0712bf77cd044fc9bbe28078ab422b83d385a95bcceb35658dade56cb7"
     },
     {
       "name": "verify-connector-output",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "path": "../../skills/verify-connector-output/SKILL.md",
-      "sha256": "a9f6b5908f524eae42d5ee94bf36c5e331891d9aa0d37a9d4b4639b81ab2df9a"
+      "sha256": "0061969d039b2682e8a800e8ea7c333f16669b4c7644d1d814e14b700ea4345a"
     },
     {
       "name": "update-and-rollback",
-      "version": "0.2.12",
+      "version": "0.2.13",
       "path": "../../skills/update-and-rollback/SKILL.md",
-      "sha256": "96f48e3871e5faa5e2ab6ed822cc150458730a4abb030c02a6d482131690d5af"
+      "sha256": "a0ec2ea3f88f53776fa5926eecd92cd2303bf0a53be3e798cf2f52cfe448dad7"
     },
     {
       "name": "diagnose-authoring-failure",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "path": "../../skills/diagnose-authoring-failure/SKILL.md",
-      "sha256": "5940f2ecc445515a218fe472d55f19d85a1e8a53da9cfedafabfd8ab4520160b"
+      "sha256": "4476be9ad4f3e6349a2db32ce8bf529eb9a014850cfff664b9967e0284ce8fa9"
     }
   ]
 }

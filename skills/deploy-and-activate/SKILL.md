@@ -1,7 +1,7 @@
 ---
 name: deploy-and-activate
 description: Use when creating the app, provisioning the connector, configuring credentials, deploying the instance, minting the approval, or verifying activation. Do not use when the task is source upload, building, or draft testing - use build-and-test.
-version: 0.3.13
+version: 0.3.14
 ---
 
 # deploy-and-activate
@@ -12,9 +12,8 @@ below are the exact tenant MCP titles; the served guide abbreviates them.
 
 ## Evidence grounding
 
-State only what a tool response field in this session returned. Missing evidence
-is NOT VERIFIED; counts or type shapes never prove per-record resolution or IDs.
-Check file presence rather than assuming it. Stage equivalence: S6-S8 = CONNECT,
+Follow the evidence-grounding rule in `author-in-app-connector` (Session communication).
+Stage equivalence: S6-S8 = CONNECT,
 S11 = DEPLOY + HANDOFF, post-owner verification = VERIFY.
 
 ## Checklist
@@ -35,9 +34,10 @@ S11 = DEPLOY + HANDOFF, post-owner verification = VERIFY.
      `updateMask: "config"` and the `EnvConfig` `configuration` JSON; keys must
      match `config("field-name")` in `connector.ts`. Otherwise use the human UI.
    Before opening a credential form, say in one sentence which field and why.
-   Do not reopen it unless fresh test evidence names an `AUTH_OR_SCOPE` failure
+   Do not reopen it unless fresh draft-test evidence names an `AUTH_OR_SCOPE` failure,
+   an auth failure is returned in this session via `status.lastError`,
    or a stored value fails the field's own rules. Explain that evidence first.
-   Rule stated verbatim: served guide wins on conflict. GATE: configure every
+   GATE: configure every
    credential field named in `config-schema.json` (e.g. base-url,
    account-email, api-token for the directory example). STOP if any is missing;
    an empty `stringValue` deletes the secret field and the draft test fails.
@@ -119,7 +119,7 @@ make no tenant/MCP tool call after mint. Host-required file/terminal writes
 - Do not call `c1_connector_authoring_list_revision_summaries` before the OWNER activates - make no tenant/MCP tool call between mint and activation; host-required file/terminal writes are excepted.
 - Do not configure with an empty `stringValue` - it deletes the secret.
 - Do not ask a human to paste secrets into agent chat.
-- Do not silently reopen credential forms or re-ask for saved credentials without the evidence described in step 3.
+- Never silently reopen a credential form: first explain fresh draft-test `AUTH_OR_SCOPE`, an auth failure returned in this session via `status.lastError`, or a stored value failing its own rules.
 - Do not skip the idempotent provision reuse.
 
 ## Blocker protocol
