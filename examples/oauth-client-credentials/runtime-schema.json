@@ -1,0 +1,35 @@
+{
+  "version": "1",
+  "name": "oauth-directory-api",
+  "connect": { "directory": { "type": "http" } },
+  "runtime": {
+    "connector": "connector.js",
+    "config_schema": {
+      "display_name": "OAuth Directory API",
+      "fields": [
+        {
+          "name": "base-url",
+          "type": "string",
+          "required": true,
+          "description": "Full service origin including https://, without a trailing slash.",
+          "display_name": "Base URL"
+        },
+        {
+          "name": "directory-client-id",
+          "type": "string",
+          "required": true,
+          "description": "OAuth client identifier.",
+          "display_name": "Client ID"
+        },
+        {
+          "name": "directory-client-secret",
+          "type": "string",
+          "required": true,
+          "is_secret": true,
+          "description": "OAuth client secret.",
+          "display_name": "Client secret"
+        }
+      ]
+    }
+  }
+}

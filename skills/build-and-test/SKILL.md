@@ -1,7 +1,7 @@
 ---
 name: build-and-test
 description: Use when uploading draft source, building a bundle, or running and awaiting a draft test sync. Do not use when the task is app/connector provisioning or activation - use deploy-and-activate.
-version: 0.3.7
+version: 0.3.9
 ---
 
 # build-and-test
@@ -10,23 +10,32 @@ Covers funnel stages 2-5 and 9-10: hosted storage-to-draft transfer or external
 out-of-band upload, the required-source-files gate, build, and draft test.
 Tool names below are exact tenant MCP titles; the served guide abbreviates them.
 
+## Evidence grounding
+
+State only what a tool response field in this session returned. Missing evidence
+is NOT VERIFIED: counts and type shapes do not prove per-record principal
+resolution, matching IDs, or field values. Draft tests do not check those claims.
+File presence requires `required_source_files` or a file read, not an assumption.
+Stage equivalence: S2-S5 = SKELETON-BUILD, first S9-S10 = SKELETON-TEST;
+later source/build/test increments = EXPAND. See `author-in-app-connector`'s table.
+
 ## Checklist
 
-1. Source transfer: in hosted sessions, use the storage-to-draft source transfer
-   as the primary path. Stage the complete source set in a non-system directory
-   and copy it server-side per the served guide, without conversation transit or
-   presigned PUTs from code mode. GATE: successful transfer with a returned source
-   digest; record that digest, then check `required_source_files` in step 2.
-   External/BYO path: run `wc -c <file>` for each file, then call
-   `c1_connector_authoring_create_draft_source_upload` declaring every file
-   needed for build and test (path + size_bytes), PUT each file to its
-   `upload_targets[path].url` with `required_headers` verbatim, and call
-   `c1_connector_authoring_finalize_draft_source_upload` with the same
-   `catalog_id`/`draft_id`/`upload_id` and file list with `sizeBytes`.
-   GATE: every PUT returns 200 and finalization succeeds; STOP otherwise.
-   Use only a permitted path; if neither is available, report the blocker.
-   Both paths replace the entire source set. Caps: total <= 16 MiB, per file
-   <= 12 MiB, <= 256 files. Preserve source-digest conflict checks per the guide.
+1. Source transfer (both paths replace the entire source set):
+   - **In-app:** use `c1_connector_authoring_update_draft_source_from_vfs` for
+     storage-to-draft source transfer. Stage the complete source set in a
+     non-system directory; copy server-side without conversation transit or
+     presigned PUTs from code mode. GATE: successful transfer with a returned
+     source digest; record it, then check `required_source_files` in step 2.
+   - **BYO/external:** run `wc -c <file>` for each file, then call
+     `c1_connector_authoring_create_draft_source_upload` declaring every file
+     needed for build and test (path + size_bytes), PUT each file to its
+     `upload_targets[path].url` with `required_headers` verbatim, then call
+     `c1_connector_authoring_finalize_draft_source_upload` with the same
+     `catalog_id`/`draft_id`/`upload_id` and file list with `sizeBytes`.
+     GATE: every PUT returns 200 and finalization succeeds; STOP otherwise.
+   Use only a permitted path; otherwise report the blocker. Caps: total <=
+   16 MiB, per file <= 12 MiB, <= 256 files. Preserve source-digest conflict checks.
 2. Pre-build gate: call `c1_connector_authoring_get_draft` and confirm
    `required_source_files` - all four entries (connector.ts,
    config-schema.json, runtime-schema.json, capabilities.json) true - BEFORE
@@ -88,11 +97,27 @@ requires `CONNECTOR_TEST_RUN_RESULT_PASS` on matching evidence, with verdict
 | `setup_blocked` | Stop; resolve the named tenant/vendor setup or runtime dependency before retesting. |
 | `infrastructure_failure` | Stop; resolve the infrastructure failure. Never call it connector acceptance. |
 | missing | Stop; the evidence has no recorded verdict and cannot satisfy activation. |
+| `state=EXPIRED` (evidence state, not a verdict) | Stop; run a fresh draft test for the same revision before deploy or mint. |
 
 When model judging is enabled for the tenant, C1 judges external-provenance
 evidence too, without attesting independence from the external author.
 Otherwise, BYO runs use `owner_judgment_required` and rely on mechanical checks.
 There is no separate human evidence-acceptance step; the OWNER decides at activation.
+
+## Judge diagnostics and redaction
+
+Read `transport_judge_diagnostics`: `origin` distinguishes server guard, model,
+and infrastructure; retain `code`, `decline_basis`, `operation_id`, and
+`finding_class` when returned. Route declines through `diagnose-authoring-failure`,
+including `GUARD_REJECTION` / `EVIDENCE_ERROR_OBJECT_IN_SUCCESS`. A legacy class
+may be absent; do not invent one.
+C1 judges each reviewed operation separately when evidence is too large; a
+decline can name one `operation_id`. Do not drop operations to shrink evidence.
+At seal time human-identifying strings become `redacted:<opaque>`; unbound or
+unresolved read typing hashes every string and warns `REDACTION_DEGRADED`.
+Declare `resource_type` and a resolvable response schema on every reviewed read.
+Do not infer a token's format/meaning or compare a token to a raw value; see
+`write-connector-source` for the typing and equality limits.
 
 ## Draft-test FAIL reading
 

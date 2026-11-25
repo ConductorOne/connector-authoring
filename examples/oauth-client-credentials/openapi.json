@@ -1,0 +1,60 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Fictional OAuth Directory API",
+    "version": "1.0.0",
+    "description": "Example contract only. Token endpoint and audience share the configured service origin."
+  },
+  "servers": [{ "url": "https://directory.example" }],
+  "security": [{ "clientCredentials": [] }],
+  "paths": {
+    "/v1/users": {
+      "get": {
+        "operationId": "users",
+        "parameters": [
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of user records.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPage" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "clientCredentials": {
+        "type": "oauth2",
+        "description": "POST JSON to <base-url>/oauth/token with grant_type=client_credentials, client_id, client_secret and audience=<base-url>/v1/. Response: access_token (string), token_type=Bearer, expires_in (seconds). The token request is runtime-owned authentication, not a reviewed resource projection.",
+        "flows": {
+          "clientCredentials": { "tokenUrl": "/oauth/token", "scopes": {} }
+        }
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["id", "name", "email", "active"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "active": { "type": "boolean" }
+        }
+      },
+      "UserPage": {
+        "type": "object",
+        "required": ["items", "offset", "limit", "total"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+          "offset": { "type": "integer", "minimum": 0 },
+          "limit": { "type": "integer", "minimum": 1 },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "fields": [
+    {
+      "name": "base-url",
+      "displayName": "Base URL",
+      "description": "Full service origin including https://, without a trailing slash. Token URL and audience are derived from this value.",
+      "isRequired": true,
+      "stringField": {
+        "suggestedValue": "https://directory.example",
+        "rules": {
+          "isRequired": true,
+          "wellKnown": "WELL_KNOWN_STRING_URI"
+        }
+      }
+    },
+    {
+      "name": "directory-client-id",
+      "displayName": "Client ID",
+      "description": "OAuth client identifier for the read-only Directory API client.",
+      "isRequired": true,
+      "stringField": { "rules": { "isRequired": true } }
+    },
+    {
+      "name": "directory-client-secret",
+      "displayName": "Client secret",
+      "description": "OAuth client secret. Enter it only in the trusted credentials form, never in agent chat.",
+      "isRequired": true,
+      "isSecret": true,
+      "stringField": { "rules": { "isRequired": true } }
+    }
+  ]
+}

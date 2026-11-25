@@ -1,0 +1,19 @@
+{
+  "operations": [
+    {
+      "operation_id": "users",
+      "method": "GET",
+      "path_template": "/v1/users",
+      "read": true,
+      "id_path": "id",
+      "output_slice": "items",
+      "resource_type": "user",
+      "pagination": {
+        "style": "offset",
+        "pageParam": "offset",
+        "sizeParam": "limit",
+        "totalPath": "total"
+      }
+    }
+  ]
+}

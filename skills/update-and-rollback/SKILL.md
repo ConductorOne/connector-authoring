@@ -1,7 +1,7 @@
 ---
 name: update-and-rollback
 description: Use when shipping a change to an activated connector (same-catalog rerun) or rolling back to a previously activated revision. Do not use when verifying a healthy connector's sync output - use verify-connector-output; do not use when diagnosing a failed build, draft test, or sync - use diagnose-authoring-failure.
-version: 0.2.10
+version: 0.2.12
 ---
 
 # update-and-rollback
@@ -9,6 +9,11 @@ version: 0.2.10
 Update and rollback for an activated authored connector. Runs only after the
 OWNER has activated the connector. Tool names below are the exact tenant MCP
 titles.
+
+State only what a tool response field in this session returned; absent evidence
+is NOT VERIFIED. Counts/type shapes do not prove per-record resolution or IDs;
+check file presence. Stage equivalence: same-catalog source/build/test = EXPAND,
+owner handoff = DEPLOY + HANDOFF, post-owner sync = VERIFY.
 
 ## Update flow (same-catalog rerun)
 
@@ -89,7 +94,7 @@ diagnostic and say: "This needs ConductorOne platform action; I cannot repair it
 Do not describe a permanent blocker as routine or pending, claim internal routing
 occurred, or tell the human a repair is running when none was dispatched.
 
-## Rollback (REST-only, OWNER-gated)
+## Rollback (OWNER-only through the minted activation link)
 
 1. Call `c1_connector_authoring_list_revision_summaries` and confirm the
    rollback target is `REVISION_STATUS_PREVIOUSLY_ACTIVE`. Record the current
@@ -98,6 +103,8 @@ occurred, or tell the human a repair is running when none was dispatched.
 2. Mint a new approval URL with `c1_connector_authoring_mint_approval_token`
    for the target revision (`catalog_id`, `revision_id`;
    `expires_in_seconds` 1-14400). GATE: non-empty `activation_url`.
+   The OWNER follows this minted link to the supported rollback review flow;
+   there is no agent-side rollback route to execute.
 3. HARD STOP at the human boundary: present the URL to a human tenant OWNER
    and stop. Do not redeem the approval token for rollback. Never call the
    rollback endpoint or read or handle OWNER credentials.

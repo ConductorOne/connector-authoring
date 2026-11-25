@@ -54,13 +54,20 @@ use direct `fetch` calls or hand-written pagination loops in authored code.
   example backed by hardcoded data. It demonstrates local resource,
   entitlement, and grant mappings without transport, authentication, or
   pagination.
-- [`examples/http`](./examples/http) is a compile-only fictional Directory API
+- [`examples/http`](./examples/http) is a fictional Directory API
   example. It demonstrates public and secret config, basic authentication,
   transport registration, offset pagination, nodes, slots, users, groups, a
   membership entitlement, and grants. See its
   [documented response contract](./examples/http/README.md).
+- [`examples/oauth-client-credentials`](./examples/oauth-client-credentials)
+  demonstrates one base-URL input with derived OAuth token URL and audience,
+  retaining a bare config reference for serve-time host derivation.
 
-Neither example calls a live service as part of this repository's checks.
+The examples' local checks do not call a live service. The HTTP and OAuth
+READMEs separately record their prepared-provider dev-tenant build/draft-test validation.
+Examples serve hosted and BYO authors; fetch examples and declarations together
+at the exact runtime-compatible release tag, or a reviewed commit. Never assume
+a current-main example is compatible with an older hosted runtime.
 
 ## Agent skills
 
@@ -71,6 +78,10 @@ four build-required files plus the two test-required frozen files
 (`openapi.json`, `reviewed-ops.json`) authoring stage), `build-and-test`, and
 `deploy-and-activate`. Each skill's `SOURCES.md` names the pinned contract
 sources it was authored against.
+Skills are shipped for the hosted in-app agent. BYO/external agents may browse
+them as reference, not as a C1 contract; the tenant-served authoring guide and
+tool descriptions remain authoritative. Examples alone do not reach the hosted
+agent, so required authoring patterns are also stated in the skills.
 
 ## Typechecking
 

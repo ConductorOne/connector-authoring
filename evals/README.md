@@ -15,7 +15,7 @@ fixture and produces a scored JSONL record with the full S0–S11 stage funnel.
 | `evals/runner/` | Runner + scorer (`run.ts` CLI, driver interfaces, stage gates) |
 | `evals/runner/drivers/` | Driver implementations — Tier-0 local/static driver; authoring contract in `drivers/README.md` |
 | `evals/scenarios/` | Scenario definitions (`tier1-directory.json`, `tier1-directory-guide-only.json`, `tier1-directory-full.json`, `pre1-directory-proceed.json`, `pre1-noiam-park.json`) |
-| `evals/skills-bundle/` | Skill-bundle mount point (v0.12.16 manifest — ten skills in `skills/`) |
+| `evals/skills-bundle/` | Skill-bundle mount point (v0.13.0 manifest — ten skills in `skills/`) |
 | `evals/results/` | JSONL run records (gitignored; `.gitkeep` committed) + the committed `baseline.json` control-group reference |
 
 ## How to run
@@ -86,6 +86,15 @@ review URLs are not repeated after activation. The deterministic fixture checks
 the artifact and stop boundary; prompt-contract tests pin the communication
 instructions, and the `no_raw_ksuid` scorer check observes deploy/handoff chat.
 These are not a live model compliance guarantee.
+
+The D86 follow-up contract tests pin evidence grounding, counts-only verification
+limits, all ten decline routes, redaction/resource typing, labelled hosted/BYO
+paths and the explain-before-reopening credential-form rule. Example tests check
+configuration parity, URL metadata and reviewed operation typing. These are
+deterministic guidance/schema checks, not proof a live model obeys the rules.
+The scorer has no general final-message factuality oracle; it cannot establish
+per-record resolution from the counts-only fixture. Dev-tenant OAuth execution
+proof is recorded separately in the OAuth example README, not inferred from Tier-0.
 
 ## Record schema (JSONL)
 
